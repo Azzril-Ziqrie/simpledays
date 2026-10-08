@@ -1,0 +1,79 @@
+# ── Enable URL Rewriting ─────────────────────────────
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # If the request is for an existing file or directory, do nothing
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # 1) Redirect any direct access to .php to the extensionless version
+    #    (e.g. /shop.php -> /shop, /product.php?slug=abc -> /product?slug=abc)
+    #    EXCLUDED: the AJAX endpoints under /config/ that JS calls directly
+    #    with their .php extension — these must NOT be redirected/rewritten.
+    RewriteCond %{REQUEST_URI} !^/config/(get-domestic-destinations|get-international-destinations|calculate-domestic-shipping|calculate-shipping)\.php$ [NC]
+    RewriteCond %{THE_REQUEST} \s/+(.+?)\.php(\?|\s|/) [NC]
+    RewriteRule ^ %1 [R=301,L]
+
+    # 2) Internally rewrite extensionless URLs to the actual .php files
+    RewriteRule ^index$        index.php        [L,QSA]
+    RewriteRule ^shop$         shop.php         [L,QSA]
+    RewriteRule ^product$      product.php      [L,QSA]
+    RewriteRule ^lookbook$     lookbook.php     [L,QSA]
+    RewriteRule ^about$        about.php        [L,QSA]
+    RewriteRule ^contact$      contact.php      [L,QSA]
+    RewriteRule ^stockist$     stockist.php     [L,QSA]
+    RewriteRule ^shipping$     shipping.php     [L,QSA]
+    RewriteRule ^legal$        legal.php        [L,QSA]
+    RewriteRule ^checkout$     checkout.php     [L,QSA]
+    RewriteRule ^login$        login.php        [L,QSA]
+    RewriteRule ^register$     register.php     [L,QSA]
+
+    # 3) Catch-all: any other extensionless URL -> corresponding .php
+    #    (fixed to also allow nested paths, e.g. /some/nested-page)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} !\.[a-zA-Z0-9]+$
+    RewriteRule ^([a-zA-Z0-9_/-]+)$ $1.php [L,QSA]
+</IfModule>
+
+# ── Block direct access to .php files via URL ─────────
+# Same whitelist as above: the AJAX endpoints under /config/ MUST remain
+# directly callable with their .php extension (called via fetch() from JS).
+# Everything else (including config/database.php, config/kasera_client.php)
+# stays blocked from direct browser/URL access, as before.
+<IfModule mod_rewrite.c>
+    RewriteCond %{REQUEST_URI} !^/config/(get-domestic-destinations|get-international-destinations|calculate-domestic-shipping|calculate-shipping)\.php$ [NC]
+    RewriteCond %{THE_REQUEST} \.php [NC]
+    RewriteRule \.php$ - [F,L]
+</IfModule>
+
+# ── Security: hide sensitive files ────────────────────
+<FilesMatch "\.(env|ini|log|sh|sql|bak|config|json|md|yml|yaml|gitignore|htaccess|htpasswd)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# ── Block directory listing ───────────────────────────
+Options -Indexes
+
+# ── Force UTF-8 ───────────────────────────────────────
+AddDefaultCharset UTF-8
+
+# ── Compression ───────────────────────────────────────
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/json
+</IfModule>
+
+# ── Browser Caching ───────────────────────────────────
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpg     "access plus 1 year"
+    ExpiresByType image/jpeg    "access plus 1 year"
+    ExpiresByType image/png     "access plus 1 year"
+    ExpiresByType image/webp    "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+    ExpiresByType text/css      "access plus 1 month"
+    ExpiresByType text/javascript "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+</IfModule>
