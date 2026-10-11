@@ -4,7 +4,6 @@ require_once __DIR__ . '/intl_shipping.php';
 
 $destination = trim((string)($_POST['destination'] ?? ''));
 $courier     = trim((string)($_POST['courier'] ?? ''));
-$weight      = (int)($_POST['weight'] ?? 0);
 
 if ($destination === '' || $courier === '') {
     http_response_code(422);
@@ -13,7 +12,7 @@ if ($destination === '' || $courier === '') {
 }
 
 try {
-    $services = intlShippingServices($destination, $courier, $weight);
+    $services = intlShippingServices($destination, $courier);
 } catch (Throwable $e) {
     http_response_code(502);
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);

@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../config/env.php';
+
 // Konstanta Konfigurasi SMTP & URL
 if (!defined('DD_SMTP_HOST')) {
     define('DD_SMTP_HOST', 'mail.deepdimes.com');
@@ -12,7 +14,7 @@ if (!defined('DD_SMTP_USERNAME')) {
     define('DD_SMTP_USERNAME', 'studio@deepdimes.com');
 }
 if (!defined('DD_SMTP_PASSWORD')) {
-    define('DD_SMTP_PASSWORD', 'Deepdimes!23'); // Sesuaikan dengan password asli Anda
+    define('DD_SMTP_PASSWORD', ddSecret('SMTP_PASSWORD'));
 }
 if (!defined('DD_SMTP_FROM_EMAIL')) {
     define('DD_SMTP_FROM_EMAIL', 'studio@deepdimes.com');
@@ -42,8 +44,9 @@ function getDDOrderItemsForEmail(PDO $pdo, int $orderId): array
 }
 
 require_once __DIR__ . '/currency_helper.php';
+require_once __DIR__ . '/promo.php';
 
-function formatDDEmailMoney($amount, string $currency = 'IDR'): string
+function formatDDEmailMoney($amount, string $currency = 'USD'): string
 {
     return ddFormatMoney((float)$amount, $currency);
 }
@@ -68,8 +71,8 @@ function sendDDInvoiceEmail(PDO $pdo, array $order): bool
         $pName = htmlspecialchars((string)($item['product_name'] ?? ''), ENT_QUOTES, 'UTF-8');
         $sName = trim((string)($item['size_name'] ?? ''));
         $qty = (int)($item['quantity'] ?? 0);
-        $unitPrice = formatDDEmailMoney($item['price'] ?? 0, (string)($order['currency'] ?? 'IDR'));
-        $lineTotal = formatDDEmailMoney($item['line_total'] ?? 0, (string)($order['currency'] ?? 'IDR'));
+        $unitPrice = formatDDEmailMoney($item['price'] ?? 0, (string)($order['currency'] ?? 'USD'));
+        $lineTotal = formatDDEmailMoney($item['line_total'] ?? 0, (string)($order['currency'] ?? 'USD'));
         $thumbRaw = trim((string)($item['thumbnail'] ?? ''));
         $thumbSrc = '';
         if ($thumbRaw !== '') {
@@ -134,9 +137,16 @@ function sendDDInvoiceEmail(PDO $pdo, array $order): bool
 
         $orderNumber = htmlspecialchars((string)($order['order_number'] ?? ''), ENT_QUOTES, 'UTF-8');
         $fullName = htmlspecialchars((string)($order['full_name'] ?? 'Customer'), ENT_QUOTES, 'UTF-8');
-        $subtotal = formatDDEmailMoney($order['subtotal'] ?? 0, (string)($order['currency'] ?? 'IDR'));
-        $shipping = formatDDEmailMoney($order['shipping_cost'] ?? 0, (string)($order['currency'] ?? 'IDR'));
-        $grandTotal = formatDDEmailMoney($order['grand_total'] ?? 0, (string)($order['currency'] ?? 'IDR'));
+        $subtotal = formatDDEmailMoney($order['subtotal'] ?? 0, (string)($order['currency'] ?? 'USD'));
+        $shipping = formatDDEmailMoney($order['shipping_cost'] ?? 0, (string)($order['currency'] ?? 'USD'));
+        $grandTotal = formatDDEmailMoney($order['grand_total'] ?? 0, (string)($order['currency'] ?? 'USD'));
+        $discountRow = '';
+        if ($orderDiscount = promoOrderDiscount($order)) {
+            $discountRow = '<tr>
+                  <td style="padding:8px 0;color:#555;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;">' . htmlspecialchars($orderDiscount['label'], ENT_QUOTES, 'UTF-8') . '</td>
+                  <td style="padding:8px 0;text-align:right;font-size:11px;font-weight:600;letter-spacing:.08em;">-' . formatDDEmailMoney($orderDiscount['amount'], (string)($order['currency'] ?? 'USD')) . '</td>
+                </tr>';
+        }
         $address = htmlspecialchars(trim((string)($order['address_line_1'] ?? '') . ' ' . (string)($order['address_line_2'] ?? '')), ENT_QUOTES, 'UTF-8');
         $cityLine = htmlspecialchars(trim((string)($order['city'] ?? '') . ', ' . (string)($order['state'] ?? '') . ' ' . (string)($order['postal_code'] ?? '')), ENT_QUOTES, 'UTF-8');
         $country = htmlspecialchars((string)($order['country_name'] ?? 'Indonesia'), ENT_QUOTES, 'UTF-8');
@@ -173,7 +183,7 @@ function sendDDInvoiceEmail(PDO $pdo, array $order): bool
                 <tr>
                   <td style="padding:8px 0;color:#555;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;">Shipping</td>
                   <td style="padding:8px 0;text-align:right;font-size:11px;font-weight:600;letter-spacing:.08em;">' . $shipping . '</td>
-                </tr>
+                </tr>' . $discountRow . '
                 <tr>
                   <td style="padding:20px 0 0;border-top:1px solid #eee;font-weight:700;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#111;">Grand Total</td>
                   <td style="padding:20px 0 0;border-top:1px solid #eee;text-align:right;font-weight:700;font-size:14px;letter-spacing:.05em;color:#111;">' . $grandTotal . '</td>

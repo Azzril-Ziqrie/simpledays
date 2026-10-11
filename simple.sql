@@ -133,7 +133,7 @@ CREATE TABLE `cart_items` (
   `product_size_id` int(10) UNSIGNED NOT NULL,
   `quantity` int(11) NOT NULL DEFAULT 1,
   `price` decimal(12,2) NOT NULL DEFAULT 0.00,
-  `currency` varchar(10) NOT NULL DEFAULT 'IDR',
+  `currency` varchar(10) NOT NULL DEFAULT 'USD',
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -289,7 +289,7 @@ CREATE TABLE `orders` (
   `postal_code` varchar(30) NOT NULL,
   `courier_code` varchar(50) DEFAULT NULL,
   `courier_service` varchar(100) DEFAULT NULL,
-  `currency` varchar(10) NOT NULL DEFAULT 'IDR',
+  `currency` varchar(10) NOT NULL DEFAULT 'USD',
   `subtotal` decimal(12,2) NOT NULL DEFAULT 0.00,
   `shipping_cost` decimal(12,2) NOT NULL DEFAULT 0.00,
   `grand_total` decimal(12,2) NOT NULL DEFAULT 0.00,

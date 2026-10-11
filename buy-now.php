@@ -142,7 +142,7 @@ $_SESSION['buy_now'] = [
     'product_id' => $productId,
     'product_size_id' => $productSizeId,
     'quantity' => $quantity,
-    'currency' => 'IDR',
+    'currency' => 'USD',
     'created_at' => time(),
 ];
 

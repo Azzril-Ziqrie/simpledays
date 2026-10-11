@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/_guard.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/currency_helper.php';
 
 $status = trim((string) ($_GET['status'] ?? ''));
 $allowedStatuses = ['pending', 'waiting_verification', 'paid', 'failed'];
@@ -37,7 +38,7 @@ $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 function formatAdminMoney(string $currency, float $amount): string
 {
-    return strtoupper($currency) . ' ' . number_format($amount, 2, '.', ',');
+    return ddFormatMoney($amount, $currency);
 }
 
 function badgeClass(string $status): string

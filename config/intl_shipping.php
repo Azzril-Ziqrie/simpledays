@@ -1,14 +1,15 @@
 <?php
 /*
- * Ongkir internasional via API RajaOngkir (Komerce) — sama dengan domestik, memakai berat produk
- * (products.weight_gram × qty) dan origin di config/rajaongkir.php.
+ * Ongkir internasional: tarif FLAT (INTL_FLAT_SHIPPING_USD) untuk semua negara tujuan.
+ * Daftar negara tujuan tetap diambil dari API RajaOngkir (Komerce) supaya id negara valid:
  *
  *   GET  /destination/international-destination?search=...   → daftar negara
- *   POST /calculate/international-cost                        → layanan + ongkir (IDR)
- *
- * Kurir yang melayani pengiriman internasional di akun ini: JNE dan POS Indonesia
- * (lion / expedito / ray dicoba dan mengembalikan 404).
  */
+
+require_once __DIR__ . '/../includes/currency_helper.php';
+
+/** Ongkir internasional flat, dalam USD. Ubah angka ini untuk mengganti tarif. */
+const INTL_FLAT_SHIPPING_USD = 25.00;
 
 function intlConfig(): array
 {
@@ -125,46 +126,23 @@ function intlFindCountry(string $id): ?array
 }
 
 /**
- * Daftar layanan + ongkir (IDR) ke satu negara, dihitung dari berat paket (gram).
- * Return null kalau negara/kurir tidak valid. Lempar RuntimeException kalau API menolak
- * (mis. berat melebihi batas) — pesannya aman ditampilkan ke pembeli.
+ * Layanan pengiriman internasional ke satu negara: satu tarif flat, tidak bergantung berat/negara.
+ * Return null kalau negara atau kurir tidak valid.
+ *
+ * Alur ongkir toko menghitung dalam IDR lalu mengonversi ke USD, jadi tarif flat USD dikonversi ke
+ * IDR dengan kurs yang sama — hasilnya kembali tepat INTL_FLAT_SHIPPING_USD di sisi pembeli.
  */
-function intlShippingServices(string $countryId, string $courier, int $weightGram): ?array
+function intlShippingServices(string $countryId, string $courier): ?array
 {
     $courier = strtolower(trim($courier));
     if (!isset(intlCouriers()[$courier]) || !intlFindCountry($countryId)) return null;
 
-    $config = intlConfig();
-    if ($weightGram <= 0) $weightGram = (int)($config['default_weight_gram'] ?? 1000);
-
-    $res = intlApi('POST', '/calculate/international-cost', [
-        'origin'      => (int)$config['origin_city_id'],
-        'destination' => $countryId,
-        'weight'      => $weightGram,
-        'courier'     => $courier,
-        'price'       => 'lowest',
-    ]);
-
-    // Jenis "Document" khusus surat/dokumen, bukan barang → tidak ditawarkan.
-    $rows = array_values(array_filter($res['data'] ?? [], fn($r) => strcasecmp((string)($r['description'] ?? ''), 'Document') !== 0));
-
-    $counts = [];
-    foreach ($rows as $r) $counts[(string)($r['service'] ?? '')] = ($counts[(string)($r['service'] ?? '')] ?? 0) + 1;
-
-    $out = [];
-    foreach ($rows as $r) {
-        $service = (string)($r['service'] ?? 'Service');
-        $desc    = trim((string)($r['description'] ?? ''));
-        // Beberapa layanan bernama sama → bedakan dengan deskripsinya supaya label unik.
-        if (($counts[$service] ?? 0) > 1 && $desc !== '') $service .= ' (' . $desc . ')';
-        $out[] = [
-            'service'     => $service,
-            'code'        => $r['code'] ?? $courier,
-            'description' => $r['description'] ?? null,
-            'cost'        => (float)($r['cost'] ?? 0),
-            'currency'    => 'IDR',
-            'etd'         => $r['etd'] ?? null,
-        ];
-    }
-    return $out;
+    return [[
+        'service'     => 'International Flat Rate',
+        'code'        => $courier,
+        'description' => 'Flat rate shipping worldwide',
+        'cost'        => ddConvertToIdr(INTL_FLAT_SHIPPING_USD),
+        'currency'    => 'IDR',
+        'etd'         => null,
+    ]];
 }

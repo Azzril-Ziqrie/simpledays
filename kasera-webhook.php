@@ -32,8 +32,15 @@ $signatureHeaderLegacy = $_SERVER['HTTP_KASERA_SIGNATURE']
     ?? '';
 
 // 3. Verifikasi Signature
-$secret = defined('KASERA_WEBHOOK_SECRET') ? KASERA_WEBHOOK_SECRET : 'whsec_pX2rMlkOQUbJ5Npv0-85wrBnZgnSWZSrK1_eGDZwfFw';
+$secret  = defined('KASERA_WEBHOOK_SECRET') ? KASERA_WEBHOOK_SECRET : '';
 $isValid = false;
+
+// Tanpa secret yang terkonfigurasi, signature tidak mungkin diverifikasi: tolak (fail closed).
+if ($secret === '') {
+    error_log('[kasera-webhook] KASERA_WEBHOOK_SECRET is not configured');
+    http_response_code(500);
+    exit('Webhook is not configured');
+}
 
 if (!empty($signatureHeaderV1)) {
     $isValid = kaseraVerifyWebhookSignatureV1($rawBody, $signatureHeaderV1, $secret);

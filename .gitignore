@@ -1,0 +1,8 @@
+# Rahasia & konfigurasi lokal — jangan pernah di-commit
+config/secrets.php
+
+# Log & berkas yang dibuat server
+error_log
+*.log
+.user.ini
+php.ini

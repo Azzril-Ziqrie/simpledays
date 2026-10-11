@@ -33,7 +33,7 @@ try {
     if ($grandTotal <= 0) ppJsonError(422, 'Invalid grand total.');
 
     // Nominal selalu dari database, bukan dari browser.
-    // USD/SGD/MYR ditagih dalam mata uangnya; IDR tidak didukung PayPal, jadi dikonversi ke USD.
+    // Selalu USD.
     $charge = ddPaypalCharge($order);
     $amount = new AmountWithBreakdown($charge['currency'], $charge['value']);
 

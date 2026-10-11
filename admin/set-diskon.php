@@ -1,12 +1,13 @@
 <?php
 require_once __DIR__ . '/_guard.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/currency_helper.php';
 
 $message = '';
 $error = '';
 
 $productStmt = $pdo->query("
-    SELECT id, name, slug, price_idr, price_myr, price_sgd, discount_percent, discount_start_at, discount_end_at, is_discount_active
+    SELECT id, name, slug, price_idr, price_usd, discount_percent, discount_start_at, discount_end_at, is_discount_active
     FROM products
     ORDER BY name ASC
 ");
@@ -88,7 +89,7 @@ if (isset($_GET['success']) && $_GET['success'] === '1') {
     }
 
     $refreshStmt = $pdo->prepare("
-        SELECT id, name, slug, price_idr, price_myr, price_sgd, discount_percent, discount_start_at, discount_end_at, is_discount_active
+        SELECT id, name, slug, price_idr, price_usd, discount_percent, discount_start_at, discount_end_at, is_discount_active
         FROM products
         WHERE id = :id
         LIMIT 1
@@ -308,9 +309,7 @@ if (isset($_GET['success']) && $_GET['success'] === '1') {
           <div class="info-box">
             <div class="info-row"><strong>Product:</strong> <?= htmlspecialchars($selectedProduct['name']) ?></div>
             <div class="info-row"><strong>Slug:</strong> <?= htmlspecialchars($selectedProduct['slug']) ?></div>
-            <div class="info-row"><strong>Price IDR:</strong> IDR <?= number_format((float) $selectedProduct['price_idr'], 2, '.', ',') ?></div>
-            <div class="info-row"><strong>Price MYR:</strong> MYR <?= number_format((float) $selectedProduct['price_myr'], 2, '.', ',') ?></div>
-            <div class="info-row"><strong>Price SGD:</strong> SGD <?= number_format((float) $selectedProduct['price_sgd'], 2, '.', ',') ?></div>
+            <div class="info-row"><strong>Price USD:</strong> <?= htmlspecialchars(ddFormatMoney(ddProductBasePrice($selectedProduct))) ?></div>
             <div class="info-row"><strong>Current Discount:</strong> <?= $selectedProduct['discount_percent'] !== null ? number_format((float) $selectedProduct['discount_percent'], 2) . '%' : 'No discount' ?></div>
           </div>
 

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/_guard.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/currency_helper.php';
 
 /* ── ganti password admin ─────────────────────────────── */
 $pwMessage = '';
@@ -107,7 +108,7 @@ $recentPendingOrders = $pdo->query(
 
 function formatDashboardMoney(string $currency, float $amount): string
 {
-    return strtoupper($currency) . ' ' . number_format($amount, 2, '.', ',');
+    return ddFormatMoney($amount, $currency);
 }
 
 function paymentBadgeClass(string $status): string
@@ -365,6 +366,11 @@ function paymentBadgeClass(string $status): string
           <a href="set-diskon.php" class="tile">
             <span class="tile__icon"><svg class="ic"><use href="#i-percent"/></svg></span>
             <span class="tile__text"><div class="tile__title">Discounts</div><div class="tile__desc">Sale prices and strikethrough pricing.</div></span>
+            <svg class="tile__go ic"><use href="#i-go"/></svg>
+          </a>
+          <a href="promo-codes.php" class="tile">
+            <span class="tile__icon"><svg class="ic"><use href="#i-percent"/></svg></span>
+            <span class="tile__text"><div class="tile__title">Promo codes</div><div class="tile__desc">Checkout codes: percent off, fixed off, free shipping.</div></span>
             <svg class="tile__go ic"><use href="#i-go"/></svg>
           </a>
           <a href="admin_products.php" class="tile">

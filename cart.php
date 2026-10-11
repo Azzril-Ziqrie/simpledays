@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/currency_helper.php';
 
 if (!isset($_SESSION['user']['id'])) {
     header('Location: login.php');
@@ -62,7 +63,6 @@ $cart = $cartStmt->fetch();
 $cartItems = [];
 $cartTotal = 0;
 $cartCount = 0;
-$cartCurrency = 'IDR';
 
 if ($cart) {
     $itemsStmt = $pdo->prepare(
@@ -70,7 +70,8 @@ if ($cart) {
             ci.id,
             ci.quantity,
             ci.price,
-            ci.currency,
+            p.price_idr,
+            p.price_usd,
             p.name,
             p.slug,
             p.thumbnail,
@@ -88,16 +89,18 @@ if ($cart) {
     $itemsStmt->execute(['cart_id' => $cart['id']]);
     $cartItems = $itemsStmt->fetchAll();
 
-    foreach ($cartItems as $item) {
+    foreach ($cartItems as &$item) {
+        // Selalu harga USD terkini dari produk (baris keranjang lama masih menyimpan harga rupiah).
+        $item['price'] = ddProductBasePrice($item);
         $cartCount += (int) $item['quantity'];
         $cartTotal += ((float) $item['price'] * (int) $item['quantity']);
-        $cartCurrency = $item['currency'] ?: 'IDR';
     }
+    unset($item);
 }
 
-function formatRupiah($amount): string
+function formatMoney($amount): string
 {
-    return 'Rp ' . number_format((float) $amount, 0, ',', '.');
+    return ddFormatMoney((float) $amount);
 }
 ?>
 <!doctype html>
@@ -401,7 +404,7 @@ function formatRupiah($amount): string
 
             <div class="product-info">
               <h2 class="product-name"><?= htmlspecialchars($item['name']) ?></h2>
-              <p class="product-price"><?= formatRupiah($item['price']) ?></p>
+              <p class="product-price"><?= formatMoney($item['price']) ?></p>
               <?php if (($item['category_slug'] ?? 'fashion') === 'fashion'): ?>
                 <div class="product-meta">Size <?= htmlspecialchars($item['size_name']) ?></div>
               <?php endif; ?>
@@ -425,7 +428,7 @@ function formatRupiah($amount): string
       </section>
 
       <div class="checkout-footer">
-        <div class="total-text">Total <?= formatRupiah($cartTotal) ?></div>
+        <div class="total-text">Total <?= formatMoney($cartTotal) ?></div>
         <a href="checkout.php" class="checkout-button">Continue to Checkout</a>
       </div>
     <?php endif; ?>

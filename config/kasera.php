@@ -2,14 +2,14 @@
 /**
  * Konfigurasi Kasera Pay.
  *
- * PALING AMAN: isi KASERA_API_KEY & KASERA_WEBHOOK_SECRET lewat environment
- * variable server (misalnya di .env yang di-load sebelum file ini, atau di
- * konfigurasi vhost/panel hosting). Kalau tidak bisa, isi langsung di bawah —
- * TAPI JANGAN commit file ini ke repo publik kalau begitu.
+ * KASERA_API_KEY & KASERA_WEBHOOK_SECRET dibaca dari environment variable server
+ * atau dari config/secrets.php (tidak di-commit) — lihat config/env.php.
  *
  * Ambil API key & webhook secret di dashboard: Developer > API keys / Webhooks.
  * https://pay.kasera.id/app/login
  */
+
+require_once __DIR__ . '/env.php';
 
 if (!defined('KASERA_API_BASE_URL')) {
     define('KASERA_API_BASE_URL', 'https://pay.kasera.id/v1');
@@ -17,12 +17,12 @@ if (!defined('KASERA_API_BASE_URL')) {
 
 if (!defined('KASERA_API_KEY')) {
     // kp_live_... untuk transaksi sungguhan, kp_test_... untuk mode tes.
-    define('KASERA_API_KEY', getenv('KASERA_API_KEY') ?: 'kp_live_Q2mv_F0UuJqGJS8djxpH60Rj0WcG2T2fTb2eg2gzSxs');
+    define('KASERA_API_KEY', ddSecret('KASERA_API_KEY'));
 }
 
 if (!defined('KASERA_WEBHOOK_SECRET')) {
     // Signing secret webhook (beda untuk mode live & tes — pastikan sesuai mode).
-    define('KASERA_WEBHOOK_SECRET', getenv('KASERA_WEBHOOK_SECRET') ?: 'whsec_-Wz93onueE6BuRscCafKcFakTCGx3Wa991H1bhEQgBQ');
+    define('KASERA_WEBHOOK_SECRET', ddSecret('KASERA_WEBHOOK_SECRET'));
 }
 
 /**

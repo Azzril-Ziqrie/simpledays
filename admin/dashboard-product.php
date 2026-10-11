@@ -29,14 +29,9 @@ function old(string $key, $default = '')
     return $_POST[$key] ?? $default;
 }
 
-function formatRupiah($amount): string
-{
-    return 'RP ' . number_format((float) $amount, 0, ',', '.');
-}
-
 function formatUsd($amount): string
 {
-    return '$' . number_format((float) $amount, 2, '.', ',');
+    return ddFormatMoney((float) $amount);
 }
 
 function uploadImage(array $file, string $uploadDir, string $uploadBasePath): ?string
@@ -150,11 +145,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $composition = trim($_POST['composition'] ?? '');
     $care        = trim($_POST['care'] ?? '');
 
-    $priceIdr    = (float) ($_POST['price_idr'] ?? 0);
     $priceUsd    = (float) ($_POST['price_usd'] ?? 0);
-    // SGD / MYR: boleh 0 → harga dihitung otomatis dari harga IDR memakai kurs
-    $priceSgd    = max(0.0, (float) ($_POST['price_sgd'] ?? 0));
-    $priceMyr    = max(0.0, (float) ($_POST['price_myr'] ?? 0));
+    // Kolom price_idr lama tetap diisi (turunan dari USD) supaya data lama konsisten.
+    $priceIdr    = ddConvertToIdr($priceUsd);
     $weightGram  = (int) ($_POST['weight_gram'] ?? 0);
     $isActive   = isset($_POST['product_is_active']) ? 1 : 0;
     $isNew      = isset($_POST['is_new']) ? 1 : 0;
@@ -163,8 +156,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Product name and slug are required.';
     } elseif ($categoryId <= 0) {
         $error = 'Please choose a product category.';
-    } elseif ($priceIdr <= 0) {
-        $error = 'Price IDR must be greater than 0.';
     } elseif ($priceUsd <= 0) {
         $error = 'Price USD must be greater than 0.';
     } elseif ($weightGram <= 0) {
@@ -243,8 +234,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'size_chart_image = :size_chart_image',
                         'price_idr = :price_idr',
                         'price_usd = :price_usd',
-                        'price_sgd = :price_sgd',
-                        'price_myr = :price_myr',
                         'weight_gram = :weight_gram',
                         'is_active = :is_active',
                         'is_new = :is_new',
@@ -259,8 +248,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'size_chart_image' => $sizeChartPath,
                         'price_idr'        => $priceIdr,
                         'price_usd'        => $priceUsd,
-                        'price_sgd'        => $priceSgd,
-                        'price_myr'        => $priceMyr,
                         'weight_gram'      => $weightGram,
                         'is_active'        => $isActive,
                         'is_new'           => $isNew,
@@ -279,10 +266,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $insertProduct = $pdo->prepare(
                         'INSERT INTO products (
                             category_id, name, slug, description, composition, care,
-                            thumbnail, size_chart_image, price_idr, price_usd, price_sgd, price_myr, weight_gram, is_active, is_new
+                            thumbnail, size_chart_image, price_idr, price_usd, weight_gram, is_active, is_new
                         ) VALUES (
                             :category_id, :name, :slug, :description, :composition, :care,
-                            :thumbnail, :size_chart_image, :price_idr, :price_usd, :price_sgd, :price_myr, :weight_gram, :is_active, :is_new
+                            :thumbnail, :size_chart_image, :price_idr, :price_usd, :weight_gram, :is_active, :is_new
                         )'
                     );
                     $insertProduct->execute([
@@ -296,8 +283,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'size_chart_image' => $sizeChartPath,
                         'price_idr'        => $priceIdr,
                         'price_usd'        => $priceUsd,
-                        'price_sgd'        => $priceSgd,
-                        'price_myr'        => $priceMyr,
                         'weight_gram'      => $weightGram,
                         'is_active'        => $isActive,
                         'is_new'           => $isNew,
@@ -389,8 +374,6 @@ try {
             products.thumbnail,
             products.price_idr,
             products.price_usd,
-            products.price_sgd,
-            products.price_myr,
             products.is_active,
             products.is_new,
             categories.name AS category_name
@@ -797,7 +780,7 @@ try {
           <?php if ($editProduct): ?>
             Update product details, prices, images, and size inventory. Changes apply to the storefront immediately after saving.
           <?php else: ?>
-            Upload products with dynamic IDR &amp; USD price configurations, category structures, active statuses, thumbnail, and detail images.
+            Upload products with USD pricing, category structures, active statuses, thumbnail, and detail images.
             Now with size management!
           <?php endif; ?>
         </p>
@@ -817,7 +800,7 @@ try {
       <div class="section">
         <div class="section-head">
           <span>Product Details</span>
-          <span>Multi-Currency Setup</span>
+          <span>Prices in USD</span>
         </div>
         <div class="section-body">
 
@@ -875,31 +858,10 @@ try {
               </div>
 
               <div class="form-group">
-                <label class="form-label" for="price_idr">Price IDR</label>
-                <input type="number" step="1" min="0" id="price_idr" name="price_idr"
-                       class="form-input"
-                       value="<?= htmlspecialchars(old('price_idr', $editProduct['price_idr'] ?? '0')) ?>" required>
-              </div>
-
-              <div class="form-group">
                 <label class="form-label" for="price_usd">Price USD</label>
                 <input type="number" step="0.01" min="0" id="price_usd" name="price_usd"
                        class="form-input"
                        value="<?= htmlspecialchars(old('price_usd', $editProduct['price_usd'] ?? '0.00')) ?>" required>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="price_sgd">Price SGD <small>(0 = auto from IDR)</small></label>
-                <input type="number" step="0.01" min="0" id="price_sgd" name="price_sgd"
-                       class="form-input"
-                       value="<?= htmlspecialchars(old('price_sgd', $editProduct['price_sgd'] ?? '0.00')) ?>">
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="price_myr">Price MYR <small>(0 = auto from IDR)</small></label>
-                <input type="number" step="0.01" min="0" id="price_myr" name="price_myr"
-                       class="form-input"
-                       value="<?= htmlspecialchars(old('price_myr', $editProduct['price_myr'] ?? '0.00')) ?>">
               </div>
 
               <div class="form-group">
@@ -1072,14 +1034,14 @@ try {
                   <th>Thumb</th>
                   <th>Name</th>
                   <th>Category</th>
-                  <th>Price IDR</th>
-                  <th>Price USD</th> <th>Price SGD</th> <th>Price MYR</th> <th>Status</th>
+                  <th>Price USD</th>
+                  <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 <?php if (!$recentProducts): ?>
-                  <tr><td colspan="7" style="color:#888;">No products yet.</td></tr>
+                  <tr><td colspan="6" style="color:#888;">No products yet.</td></tr>
                 <?php else: ?>
                   <?php foreach ($recentProducts as $item): ?>
                     <tr>
@@ -1095,8 +1057,8 @@ try {
                         <?= htmlspecialchars($item['category_name'] ?? 'Uncategorized') ?>
                         <?php if (!empty($item['is_new'])): ?><span class="status live" style="margin-left:4px;">New</span><?php endif; ?>
                       </td>
-                      <td><?= formatRupiah($item['price_idr']) ?></td>
-                      <td><?= formatUsd($item['price_usd']) ?></td> <td><?= ddFormatMoney(ddProductBasePrice($item, 'SGD'), 'SGD') ?></td> <td><?= ddFormatMoney(ddProductBasePrice($item, 'MYR'), 'MYR') ?></td> <td>
+                      <td><?= formatUsd(ddProductBasePrice($item)) ?></td>
+                      <td>
                         <span class="status <?= (int) $item['is_active'] === 1 ? 'live' : '' ?>">
                           <?= (int) $item['is_active'] === 1 ? 'Active' : 'Draft' ?>
                         </span>

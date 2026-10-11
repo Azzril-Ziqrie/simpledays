@@ -1,22 +1,11 @@
 <?php
 require_once __DIR__ . '/_guard.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/db_schema.php';
 
 $message = '';
 
-function columnExistsCat(PDO $pdo, string $table, string $column): bool {
-    try {
-        $s = $pdo->prepare(
-            "SELECT COUNT(*) FROM information_schema.COLUMNS
-             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :t AND COLUMN_NAME = :c"
-        );
-        $s->execute(['t' => $table, 'c' => $column]);
-        return ((int) $s->fetchColumn()) > 0;
-    } catch (Throwable $e) {
-        return false;
-    }
-}
-$hasSizeCol = columnExistsCat($pdo, 'categories', 'has_size');
+$hasSizeCol = columnExists($pdo, 'categories', 'has_size');
 $alterError = '';
 
 if (!$hasSizeCol) {

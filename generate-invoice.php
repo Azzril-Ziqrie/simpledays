@@ -5,10 +5,23 @@ use Dompdf\Dompdf;
 use Dompdf\Options;
 
 require_once __DIR__ . '/includes/currency_helper.php';
+require_once __DIR__ . '/includes/promo.php';
 
 function moneyFormatInvoice(float $amount, string $currency): string
 {
     return ddFormatMoney($amount, $currency);
+}
+
+/** Baris "Discount (KODE)" untuk tabel total invoice; kosong kalau order tanpa potongan. */
+function invoiceDiscountRow(array $order): string
+{
+    $discount = promoOrderDiscount($order);
+    if ($discount === null) return '';
+
+    return '<tr>
+                  <td class="label">' . htmlspecialchars($discount['label']) . '</td>
+                  <td class="text-right">-' . moneyFormatInvoice($discount['amount'], (string) $order['currency']) . '</td>
+                </tr>';
 }
 
 function invoiceValue($value): string
@@ -358,6 +371,7 @@ function generateInvoicePDF(PDO $pdo, int $orderId): string
                   <td class="label">Shipping</td>
                   <td class="text-right">' . moneyFormatInvoice((float) ($order['shipping_cost'] ?? 0), (string) $order['currency']) . '</td>
                 </tr>
+' . invoiceDiscountRow($order) . '
                 <tr class="grand">
                   <td>Grand Total</td>
                   <td class="text-right">' . moneyFormatInvoice((float) ($order['grand_total'] ?? 0), (string) $order['currency']) . '</td>

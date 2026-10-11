@@ -129,7 +129,7 @@ function kaseraNormalizePhoneE164(string $phone, string $defaultCountryDialCode 
  * Buat (atau buat ulang) payment request Kasera Pay untuk sebuah order, lalu
  * simpan payment_request_id & checkout_url ke tabel orders.
  *
- * Kasera Pay hanya menerima IDR — kalau order dalam USD/SGD/MYR, jumlahnya dikonversi
+ * Kasera Pay hanya menerima IDR — order dalam USD (mata uang toko) dikonversi
  * ke IDR lewat kaseraAmountIdr() (kurs ddRateFromIdr(), sama dengan checkout.php),
  * supaya nilai yang di-charge sinkron dengan yang dilihat pembeli.
  *
@@ -217,13 +217,12 @@ function kaseraEnsureColumns(PDO $pdo): void
 
 /**
  * Nominal order dalam IDR (bilangan bulat) untuk ditagihkan lewat Kasera.
- * Order IDR dipakai apa adanya; USD/SGD/MYR dikonversi memakai kurs toko (ddRateFromIdr).
+ * Order USD dikonversi memakai kurs toko (ddRateFromIdr); order lama bermata uang IDR dipakai apa adanya.
  */
 function kaseraAmountIdr(array $order): int
 {
-    $cur   = ddNormalizeCurrency($order['currency'] ?? 'IDR');
     $total = (float)($order['grand_total'] ?? 0);
-    return (int)round($cur === 'IDR' ? $total : $total * ddRateFromIdr($cur));
+    return (int)round(ddOrderCurrency($order) === 'IDR' ? $total : ddConvertToIdr($total));
 }
 
 /**

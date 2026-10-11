@@ -1,6 +1,8 @@
 <?php
 // config/database.php
 
+require_once __DIR__ . '/env.php';
+
 $host    = 'localhost';
 $db      = 'simple';
 $user    = 'root';
@@ -71,6 +73,6 @@ function getSettings(): array
 | Client ID & Secret ambil dari PayPal Developer Dashboard.
 */
 
-const PAYPAL_MODE          = 'live'; // ganti ke 'live' saat go-live
-const PAYPAL_CLIENT_ID     = 'BAATGMaHhx2z3Mi-MYXW4JKjs_Mgj8p7R9uG7J8fdwE7Ytd_4Mikz6BXc-QnOTFfHlEwhg8lGd1NMmHBlE';
-const PAYPAL_CLIENT_SECRET = 'EH2MYMpLWTVXKt0rm1J0RhB4OxTgKw3wk36jIj56rdGE8r3hptQSUMSU4wNhXuj-weDNpHXVctpkiHIl';
+const PAYPAL_MODE = 'live'; // ganti ke 'sandbox' untuk testing
+define('PAYPAL_CLIENT_ID',     ddSecret('PAYPAL_CLIENT_ID'));
+define('PAYPAL_CLIENT_SECRET', ddSecret('PAYPAL_CLIENT_SECRET'));

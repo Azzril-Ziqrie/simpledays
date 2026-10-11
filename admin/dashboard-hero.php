@@ -1,21 +1,12 @@
 <?php
 require_once __DIR__ . '/_guard.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/db_schema.php';
 
 $message = '';
 $error   = '';
 
 /* ── helpers ─────────────────────────────────────────── */
-function tableExistsHero(PDO $pdo, string $table): bool
-{
-    try {
-        $stmt = $pdo->query("SHOW TABLES LIKE '{$table}'");
-        return (bool) $stmt->fetchColumn();
-    } catch (Throwable $e) {
-        return false;
-    }
-}
-
 function ensureHeroSlidesTable(PDO $pdo): bool
 {
     try {
@@ -87,7 +78,7 @@ if (!is_dir($uploadDir)) {
 }
 
 /* ── ensure schema ───────────────────────────────────── */
-$tableReady = tableExistsHero($pdo, 'hero_slides');
+$tableReady = tableExists($pdo, 'hero_slides');
 if (!$tableReady) {
     $tableReady = ensureHeroSlidesTable($pdo);
 } else {

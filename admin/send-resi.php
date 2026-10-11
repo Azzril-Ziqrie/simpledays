@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/_guard.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/env.php';
+require_once __DIR__ . '/../includes/currency_helper.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
@@ -9,7 +11,7 @@ use PHPMailer\PHPMailer\Exception;
 const SMTP_HOST       = 'mail.deepdimes.com';
 const SMTP_PORT       = 587;
 const SMTP_USERNAME   = 'studio@deepdimes.com';
-const SMTP_PASSWORD   = 'Agacil12345';
+define('SMTP_PASSWORD', ddSecret('ADMIN_SMTP_PASSWORD'));
 const SMTP_ENCRYPTION = 'tls';
 
 const STORE_NAME  = 'Simple Days';
@@ -634,7 +636,7 @@ if ($order && $trackingNumberInput !== '') {
                 <tr><td class="info-key">Courier</td><td><?= e($previewCourier) ?> / <?= e($previewService) ?></td></tr>
                 <tr><td class="info-key">Payment</td><td><?= e((string) $order['payment_status']) ?></td></tr>
                 <tr><td class="info-key">Fulfillment</td><td><?= e((string) $order['fulfillment_status']) ?></td></tr>
-                <tr><td class="info-key">Grand Total</td><td><?= e((string) $order['currency']) ?> <?= number_format((float) $order['grand_total'], 2, '.', ',') ?></td></tr>
+                <tr><td class="info-key">Grand Total</td><td><?= e(ddFormatMoney((float) $order['grand_total'], (string) $order['currency'])) ?></td></tr>
                 <tr>
                   <td class="info-key">Address</td>
                   <td>
@@ -663,7 +665,7 @@ if ($order && $trackingNumberInput !== '') {
                     <strong><?= e((string) $row['order_number']) ?></strong>
                     <div class="order-meta">
                       <?= e((string) $row['full_name']) ?> — <?= e((string) $row['email']) ?><br>
-                      <?= e((string) $row['currency']) ?> <?= number_format((float) $row['grand_total'], 2, '.', ',') ?><br>
+                      <?= e(ddFormatMoney((float) $row['grand_total'], (string) $row['currency'])) ?><br>
                       Payment: <?= e((string) $row['payment_status']) ?> | Fulfillment: <?= e((string) ($row['fulfillment_status'] ?? '-')) ?>
                     </div>
                   </div>

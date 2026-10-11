@@ -1,17 +1,10 @@
 <?php
 session_start();
 
-// Tangkap pilihan currency dari URL
-if (isset($_GET['currency']) && in_array(strtoupper($_GET['currency']), ['IDR', 'USD', 'SGD', 'MYR'])) {
-    $_SESSION['currency'] = strtoupper($_GET['currency']);
-    $_SESSION['currency_chosen'] = true;
-}
-
-// Default ke IDR jika belum ada session
-$currentCurrency = $_SESSION['currency'] ?? 'IDR';
-
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/db_schema.php';
 require_once __DIR__ . '/includes/currency_helper.php';
+require_once __DIR__ . '/includes/pricing.php';
 
 $search   = isset($_GET['search'])   ? trim((string) $_GET['search'])   : '';
 $category = isset($_GET['category']) ? trim((string) $_GET['category']) : '';
@@ -22,22 +15,6 @@ $searchAction = 'shop.php'; // search tetap di halaman shop (dipakai navbar.php)
 $customHeroImage = '1212ppf.JPEG';
 
 /* ── helpers ─────────────────────────────────────────── */
-function tableExists(PDO $pdo, string $table): bool
-{
-    try {
-        $stmt = $pdo->query("SHOW TABLES LIKE '{$table}'");
-        return (bool) $stmt->fetchColumn();
-    } catch (Throwable $e) { return false; }
-}
-
-function tableColumns(PDO $pdo, string $table): array
-{
-    try {
-        $stmt = $pdo->query("SHOW COLUMNS FROM `{$table}`");
-        return array_map(static fn($row) => $row['Field'], $stmt->fetchAll(PDO::FETCH_ASSOC));
-    } catch (Throwable $e) { return []; }
-}
-
 /* ── schema detection ────────────────────────────────── */
 $productColumns     = tableColumns($pdo, 'products');
 $hasCategoriesTable = tableExists($pdo, 'categories');
@@ -68,7 +45,7 @@ if ($hasProductSizes && $hasMainStock) {
 /* ── product query ───────────────────────────────────── */
 // Menambahkan p.price_usd ke dalam query supaya harga USD ikut terbaca
 $sql = "
-    SELECT p.id, p.name, p.slug, p.price_idr, p.price_usd, p.price_sgd, p.price_myr,
+    SELECT p.id, p.name, p.slug, p.price_idr, p.price_usd,
             p.discount_percent, p.discount_start_at, p.discount_end_at, p.is_discount_active,
             p.thumbnail, {$categorySelect}, {$stockSelect}
      FROM products p
@@ -126,34 +103,6 @@ if ($paymentUploaded && $orderUploaded !== '') {
     $popupStmt = $pdo->prepare("SELECT order_number, payment_status FROM orders WHERE order_number = :order_number LIMIT 1");
     $popupStmt->execute(['order_number' => $orderUploaded]);
     $uploadedOrder = $popupStmt->fetch(PDO::FETCH_ASSOC);
-}
-
-/* ── pricing helpers ─────────────────────────────────── */
-function isDiscountCurrentlyActive(array $product): bool
-{
-    if ((int)($product['is_discount_active'] ?? 0) !== 1) return false;
-    if ((float)($product['discount_percent'] ?? 0) <= 0)  return false;
-    $now = time();
-    if (!empty($product['discount_start_at'])) { $s = strtotime((string)$product['discount_start_at']); if ($s !== false && $now < $s) return false; }
-    if (!empty($product['discount_end_at']))   { $e = strtotime((string)$product['discount_end_at']);   if ($e !== false && $now > $e) return false; }
-    return true;
-}
-
-// Menyesuaikan getBasePrice untuk mengambil IDR / USD sesuai session (sama seperti index.php)
-function getBasePrice(array $product, string $currency = 'IDR'): float {
-    return ddProductBasePrice($product, $currency);
-}
-
-function getFinalPrice(array $product, string $currency = 'IDR'): float
-{
-    $base = getBasePrice($product, $currency);
-    if (!isDiscountCurrentlyActive($product)) return $base;
-    return max($base - ($base * ((float)($product['discount_percent'] ?? 0) / 100)), 0);
-}
-
-// Ganti formatRupiah -> formatCurrency supaya bisa format USD juga
-function formatCurrency(float $amount, string $currency = 'IDR'): string {
-    return ddFormatMoney($amount, $currency);
 }
 
 ?>
@@ -413,6 +362,8 @@ button{cursor:pointer}
 @keyframes pageFadeIn{from{opacity:0}to{opacity:1}}
 @keyframes productFadeIn{from{opacity:0; transform:translateY(10px)}to{opacity:1; transform:translateY(0)}}
   </style>
+  <script><?= ddDisplayJs() ?></script>
+  <script src="assets/js/mini-cart.js"></script>
 </head>
 <body>
   <?php if (file_exists(__DIR__ . '/loader.php')) include_once 'loader.php'; ?>
@@ -466,20 +417,12 @@ button{cursor:pointer}
           </div>
         </div>
         <a href="lookbook.php">LookBook</a>
+        <a href="index.php?choose_currency=1">Currency (<?= htmlspecialchars(ddDisplayCurrency()) ?>)</a>
         <div class="dropdown">
           <button class="dropdown-toggle" id="openAccountBtnMobile" aria-expanded="false" aria-label="Account" style="justify-content:flex-start;">Account</button>
         </div>
 
-        <div class="dropdown" id="currencyDropdown">
-          <button class="dropdown-toggle" id="currencyDropdownBtn" aria-expanded="false">Currency (<?= $currentCurrency ?>)</button>
-          <div class="dropdown-menu">
-            <a href="?currency=IDR<?= $search !== '' ? '&search='.urlencode($search) : '' ?><?= $category !== '' ? '&category='.urlencode($category) : '' ?>">IDR</a>
-            <a href="?currency=USD<?= $search !== '' ? '&search='.urlencode($search) : '' ?><?= $category !== '' ? '&category='.urlencode($category) : '' ?>">USD</a>
-            <a href="?currency=SGD<?= $search !== '' ? '&search='.urlencode($search) : '' ?><?= $category !== '' ? '&category='.urlencode($category) : '' ?>">SGD</a>
-            <a href="?currency=MYR<?= $search !== '' ? '&search='.urlencode($search) : '' ?><?= $category !== '' ? '&category='.urlencode($category) : '' ?>">MYR</a>
-          </div>
-        </div>
-      </nav>
+        </nav>
     </div>
   </aside>
 
@@ -494,7 +437,7 @@ button{cursor:pointer}
     <div class="cart-foot" id="cartFoot" style="display:none">
       <div class="cart-total">
         <span>Total</span>
-        <strong id="cartTotal">RP 0</strong>
+        <strong id="cartTotal">$0.00</strong>
       </div>
       <p class="cart-note">Shipping calculated at checkout.</p>
       <button class="cart-checkout-btn" id="checkoutBtn">Proceed to Checkout</button>
@@ -558,8 +501,8 @@ button{cursor:pointer}
       <main class="product-grid">
         <?php foreach ($products as $product): ?>
           <?php
-            $originalPrice = getBasePrice($product, $currentCurrency);
-            $finalPrice    = getFinalPrice($product, $currentCurrency);
+            $originalPrice = ddProductBasePrice($product);
+            $finalPrice    = productFinalPrice($product);
             $hasDiscount   = $finalPrice < $originalPrice;
             $isInStock     = (int)($product['is_in_stock'] ?? 1) === 1; 
             $slug          = htmlspecialchars((string)$product['slug']);
@@ -591,10 +534,10 @@ button{cursor:pointer}
                 <?php else: ?>
                   <p class="product-price">
                     <?php if ($hasDiscount): ?>
-                      <span class="price-original"><?= htmlspecialchars(formatCurrency($originalPrice, $currentCurrency)) ?></span>
-                      <span class="price-final"><?= htmlspecialchars(formatCurrency($finalPrice, $currentCurrency)) ?></span>
+                      <span class="price-original"><?= htmlspecialchars(ddFormatDisplay($originalPrice)) ?></span>
+                      <span class="price-final"><?= htmlspecialchars(ddFormatDisplay($finalPrice)) ?></span>
                     <?php else: ?>
-                      <span class="price-final"><?= htmlspecialchars(formatCurrency($originalPrice, $currentCurrency)) ?></span>
+                      <span class="price-final"><?= htmlspecialchars(ddFormatDisplay($originalPrice)) ?></span>
                     <?php endif; ?>
                   </p>
                 <?php endif; ?>
@@ -641,8 +584,6 @@ button{cursor:pointer}
   (function () {
     'use strict';
 
-    // Ambil session currency dari PHP ke Javascript
-    const CURRENT_CURRENCY = '<?= $currentCurrency ?>';
 
     const body         = document.body;
     const overlay      = document.getElementById('overlay');
@@ -650,7 +591,10 @@ button{cursor:pointer}
     const cartPanel    = document.getElementById('cartPanel');
     const accountPopup = document.getElementById('accountPopup');
 
-    let cartItems = JSON.parse(localStorage.getItem('ppf_cart') || '[]');
+    // Keranjang mini bersama (assets/js/mini-cart.js)
+    const cart      = DDMiniCart.create({ showToast });
+    function saveCart()   { cart.save(); }
+    function renderCart() { cart.render(); }
 
     function showToast(msg) {
       const container = document.getElementById('toastContainer');
@@ -783,66 +727,6 @@ button{cursor:pointer}
     document.getElementById('faqBackdrop').addEventListener('click',   () => closeModal(faqPopup));
 
     /* ── CART ──────────────────────────────────────────── */
-    function saveCart() { localStorage.setItem('ppf_cart', JSON.stringify(cartItems)); }
-
-    function formatCurrencyJS(amount) {
-      const DD_CUR = {IDR:{s:'RP ',d:0},USD:{s:'$',d:2},SGD:{s:'S$',d:2},MYR:{s:'RM ',d:2}};
-      const m = DD_CUR[CURRENT_CURRENCY] || DD_CUR.IDR;
-      let a = parseFloat(amount); if (!isFinite(a)) a = 0;
-      if (m.d === 0) return m.s + Math.round(a).toLocaleString('id-ID').replace(/,/g, '.');
-      return m.s + a.toFixed(m.d).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    }
-
-    function renderCart() {
-      const body  = document.getElementById('cartBody');
-      const foot  = document.getElementById('cartFoot');
-      const count = cartItems.reduce((s, i) => s + i.qty, 0);
-      const total = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
-
-      const cartCountEl       = document.getElementById('cartCount');
-      const navCartCountEl    = document.getElementById('navCartCount');
-      const menuCartCountEl   = document.getElementById('menuCartCount');
-      if (cartCountEl)       cartCountEl.textContent       = count;
-      if (navCartCountEl)    navCartCountEl.textContent    = count;
-      if (menuCartCountEl)   menuCartCountEl.textContent   = count;
-
-      if (cartItems.length === 0) {
-        body.innerHTML = '<div class="cart-empty"><span>Your cart is empty</span><a class="cart-empty-link" href="shop.php">Continue shopping</a></div>';
-        foot.style.display = 'none';
-        return;
-      }
-
-      foot.style.display = '';
-      document.getElementById('cartTotal').textContent = formatCurrencyJS(total);
-
-      body.innerHTML = cartItems.map((item, idx) => `
-        <div class="cart-item">
-          <img class="cart-item-img" src="${item.thumb}" alt="${item.name}">
-          <div>
-            <div class="cart-item-name">${item.name}</div>
-            <div class="cart-item-price">${formatCurrencyJS(item.price)}</div>
-            <div class="cart-item-qty">
-              <button aria-label="Decrease" data-action="dec" data-idx="${idx}">−</button>
-              <span>${item.qty}</span>
-              <button aria-label="Increase" data-action="inc" data-idx="${idx}">+</button>
-            </div>
-          </div>
-          <button class="cart-item-remove" aria-label="Remove" data-action="remove" data-idx="${idx}">×</button>
-        </div>
-      `).join('');
-
-      body.querySelectorAll('[data-action]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const idx    = parseInt(btn.dataset.idx, 10);
-          const action = btn.dataset.action;
-          if (action === 'inc') { cartItems[idx].qty++; }
-          else if (action === 'dec') { cartItems[idx].qty--; if (cartItems[idx].qty <= 0) cartItems.splice(idx, 1); }
-          else if (action === 'remove') { cartItems.splice(idx, 1); }
-          saveCart(); renderCart();
-        });
-      });
-    }
-
     document.getElementById('checkoutBtn').addEventListener('click', () => {
       window.location.href = 'checkout.php';
     });

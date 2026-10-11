@@ -1,21 +1,12 @@
 <?php
 require_once __DIR__ . '/_guard.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/db_schema.php';
 
 $message = '';
 $error   = '';
 
 /* ── helpers ─────────────────────────────────────────── */
-function tableExistsAdmin(PDO $pdo, string $table): bool
-{
-    try {
-        $stmt = $pdo->query("SHOW TABLES LIKE '{$table}'");
-        return (bool) $stmt->fetchColumn();
-    } catch (Throwable $e) {
-        return false;
-    }
-}
-
 function ensureYearTitlesTable(PDO $pdo): bool
 {
     try {
@@ -84,7 +75,7 @@ function uploadLookbookImage(array $file, string $uploadDir, string $uploadBaseP
 }
 
 /* ── schema check ────────────────────────────────────── */
-$tableReady      = tableExistsAdmin($pdo, 'lookbook_photos');
+$tableReady      = tableExists($pdo, 'lookbook_photos');
 $yearTitlesReady = $tableReady && ensureYearTitlesTable($pdo);
 
 /* ── POST handlers ───────────────────────────────────── */

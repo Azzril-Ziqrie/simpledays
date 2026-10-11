@@ -67,20 +67,15 @@ function ddMarkOrderPaid(PDO $pdo, int $orderId, string $provider, ?string $refe
 }
 
 /**
- * Mata uang & nominal yang ditagihkan PayPal untuk sebuah order.
- * PayPal mendukung USD, SGD, dan MYR langsung. IDR tidak didukung, jadi order IDR
- * ditagih dalam USD hasil konversi (kurs ddRateFromIdr, sama dengan checkout.php).
+ * Mata uang & nominal yang ditagihkan PayPal untuk sebuah order: selalu USD.
+ * Order lama bermata uang IDR (sebelum toko USD saja) dikonversi memakai kurs ddRateFromIdr.
  * @return array{currency: string, value: string}
  */
 function ddPaypalCharge(array $order): array
 {
-    $cur   = ddNormalizeCurrency($order['currency'] ?? 'IDR');
     $total = (float)$order['grand_total'];
-    if ($cur === 'IDR') {
-        $cur   = 'USD';
-        $total = ddConvertFromIdr($total, 'USD');
-    }
-    return ['currency' => $cur, 'value' => number_format($total, 2, '.', '')];
+    if (ddOrderCurrency($order) === 'IDR') $total = ddConvertFromIdr($total);
+    return ['currency' => 'USD', 'value' => number_format($total, 2, '.', '')];
 }
 
 /**

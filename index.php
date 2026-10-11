@@ -1,17 +1,13 @@
 <?php
 session_start();
 
-if (isset($_GET["currency"]) && in_array(strtoupper($_GET["currency"]), ['IDR', 'USD', 'SGD', 'MYR'])) {
-    $_SESSION["currency"] = strtoupper($_GET["currency"]);
-    $_SESSION['currency_chosen'] = true;
-}
-
-// FIX: $currentCurrency dipakai di banyak tempat (dropdown, getBasePrice, JS)
-// tapi sebelumnya tidak pernah didefinisikan di file ini.
-$currentCurrency = $_SESSION["currency"] ?? "IDR";
-
 require_once __DIR__ . "/config/database.php";
+require_once __DIR__ . '/includes/db_schema.php';
 require_once __DIR__ . '/includes/currency_helper.php';
+require_once __DIR__ . '/includes/pricing.php';
+
+// Buka lagi pop-up pilih currency (link "Currency" di menu).
+if (isset($_GET['choose_currency'])) unset($_SESSION['currency_prompt_done']);
 require_once __DIR__ . "/config/kasera_client.php";
 
 // TAHAP PERBAIKAN: Memanggil Composer Autoload agar PHPMailer terdeteksi
@@ -107,22 +103,6 @@ $brandLogo = 'assets/images/logo-putih.png';
 $customHeroImage = '1212ppf.JPEG';
 
 /* ── helpers ─────────────────────────────────────────── */
-function tableExists(PDO $pdo, string $table): bool
-{
-    try {
-        $stmt = $pdo->query("SHOW TABLES LIKE '{$table}'");
-        return (bool) $stmt->fetchColumn();
-    } catch (Throwable $e) { return false; }
-}
-
-function tableColumns(PDO $pdo, string $table): array
-{
-    try {
-        $stmt = $pdo->query("SHOW COLUMNS FROM `{$table}`");
-        return array_map(static fn($row) => $row['Field'], $stmt->fetchAll(PDO::FETCH_ASSOC));
-    } catch (Throwable $e) { return []; }
-}
-
 /* ── schema detection ────────────────────────────────── */
 $productColumns     = tableColumns($pdo, 'products');
 $hasCategoriesTable = tableExists($pdo, 'categories');
@@ -181,7 +161,7 @@ if (!$heroSlides) {
 /* ── product query ───────────────────────────────────── */
 // Menambahkan p.price_usd ke dalam query
 $sql = "
-    SELECT p.id, p.name, p.slug, p.price_idr, p.price_usd, p.price_sgd, p.price_myr,
+    SELECT p.id, p.name, p.slug, p.price_idr, p.price_usd,
             p.discount_percent, p.discount_start_at, p.discount_end_at, p.is_discount_active,
             p.thumbnail, {$categorySelect}, {$stockSelect}
      FROM products p
@@ -264,34 +244,6 @@ if ($paymentUploaded && $orderUploaded !== '') {
     $popupStmt = $pdo->prepare("SELECT order_number, payment_status FROM orders WHERE order_number = :order_number LIMIT 1");
     $popupStmt->execute(['order_number' => $orderUploaded]);
     $uploadedOrder = $popupStmt->fetch(PDO::FETCH_ASSOC);
-}
-
-/* ── pricing helpers ─────────────────────────────────── */
-function isDiscountCurrentlyActive(array $product): bool
-{
-    if ((int)($product['is_discount_active'] ?? 0) !== 1) return false;
-    if ((float)($product['discount_percent'] ?? 0) <= 0)  return false;
-    $now = time();
-    if (!empty($product['discount_start_at'])) { $s = strtotime((string)$product['discount_start_at']); if ($s !== false && $now < $s) return false; }
-    if (!empty($product['discount_end_at']))   { $e = strtotime((string)$product['discount_end_at']);   if ($e !== false && $now > $e) return false; }
-    return true;
-}
-
-// Menyesuaikan getBasePrice untuk mengambil IDR / USD sesuai session
-function getBasePrice(array $product, string $currency = 'IDR'): float {
-    return ddProductBasePrice($product, $currency);
-}
-
-function getFinalPrice(array $product, string $currency = 'IDR'): float
-{
-    $base = getBasePrice($product, $currency);
-    if (!isDiscountCurrentlyActive($product)) return $base;
-    return max($base - ($base * ((float)($product['discount_percent'] ?? 0) / 100)), 0);
-}
-
-// Menyesuaikan format text currency
-function formatCurrency(float $amount, string $currency = 'IDR'): string {
-    return ddFormatMoney($amount, $currency);
 }
 
 /* ── hero copy ───────────────────────────────────────── */
@@ -695,13 +647,14 @@ button{cursor:pointer}
     #openAccountBtnMobile{display:block; text-align:left; width:100%; box-sizing:border-box;}
   }
   </style>
+  <script><?= ddDisplayJs() ?></script>
+  <script src="assets/js/mini-cart.js"></script>
   <script>
-    // Pop-up pilih currency tampil setiap kali web dibuka di tab baru (sessionStorage hilang saat tab ditutup).
-    // Refresh / pindah halaman di tab yang sama tidak menanyakan lagi.
+    // Tab yang sudah memilih currency: sembunyikan pop-up sejak awal (tanpa berkedip).
     (function () {
       try {
-        if (location.search.indexOf('currency=') !== -1) sessionStorage.setItem('ddCurrencyPicked', '1');
-        if (sessionStorage.getItem('ddCurrencyPicked') === '1') document.documentElement.classList.add('cg-skip');
+        if (location.search.indexOf('choose_currency') === -1 && sessionStorage.getItem('ddCurrencyPicked') === '1')
+          document.documentElement.classList.add('cg-skip');
       } catch (e) {}
     })();
   </script>
@@ -709,54 +662,112 @@ button{cursor:pointer}
 <body>
   <?php if (file_exists(__DIR__ . '/loader.php')) include_once 'loader.php'; ?>
 
-  <!-- ── PILIH CURRENCY (setiap web dibuka di tab baru) ─────── -->
+  <?php
+  // Pop-up pilih mata uang setiap web dibuka di tab baru (sessionStorage hilang saat tab ditutup;
+  // refresh / pindah halaman di tab yang sama tidak menanyakan lagi). Negara dideteksi dari IP,
+  // mata uang lokalnya disarankan. Tagihan tetap USD; ini hanya mata uang tampilan harga.
+  $showGate = false; $suggest = null; $gateOptions = [];
+  {
+      $rates = ddExchangeRates();
+      $geo   = ddDetectVisitorCurrency();
+      if ($geo && $geo['currency'] !== 'USD' && $rates && !empty($rates[$geo['currency']])) {
+          $suggest = $geo + ['rate' => (float)$rates[$geo['currency']]];
+      }
+      if ($rates) {
+          $codes = array_unique(array_values(ddCountryCurrencyMap()));
+          sort($codes);
+          foreach ($codes as $c) if ($c !== 'USD' && !empty($rates[$c])) $gateOptions[] = $c;
+      }
+      $showGate = true;
+  }
+  ?>
+  <?php if ($showGate): ?>
   <style>
     #currencyGate{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;
-      background:rgba(0,0,0,.25);-webkit-backdrop-filter:blur(10px) saturate(110%);backdrop-filter:blur(10px) saturate(110%);animation:cgFade .25s ease forwards}
+      background:rgba(0,0,0,.25);-webkit-backdrop-filter:blur(10px) saturate(110%);backdrop-filter:blur(10px) saturate(110%)}
     html.cg-skip #currencyGate{display:none}
     body.cg-lock{overflow:hidden}
-    #currencyGate .cg-dialog{outline:none;position:relative;width:100%;max-width:400px;background:#fff;padding:45px 40px;animation:cgRise .3s ease forwards}
-    #currencyGate .cg-eyebrow{margin-bottom:8px;font-size:10px;letter-spacing:.15em;font-weight:600;color:#888;text-align:center}
-    #currencyGate .cg-title{margin:0 0 12px;font-size:16px;font-weight:700;letter-spacing:.1em;text-align:center}
-    #currencyGate .cg-text{margin:0 auto 26px;max-width:300px;font-size:12px;line-height:1.8;color:#555;text-transform:none;letter-spacing:.02em;text-align:center}
-    #currencyGate .cg-list{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    #currencyGate a.cg-opt{position:relative;min-height:64px;padding:10px 12px;border:1px solid #111;background:transparent;color:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-transform:uppercase;transition:background .15s,color .15s}
+    #currencyGate .cg-dialog{outline:none;width:100%;max-width:400px;background:#fff;padding:40px;text-align:center}
+    #currencyGate .cg-eyebrow{margin-bottom:8px;font-size:10px;letter-spacing:.15em;font-weight:600;color:#888}
+    #currencyGate .cg-title{margin:0 0 12px;font-size:16px;font-weight:700;letter-spacing:.1em}
+    #currencyGate .cg-text{margin:0 auto 22px;max-width:320px;font-size:12px;line-height:1.8;color:#555;text-transform:none;letter-spacing:.02em}
+    #currencyGate .cg-flag{display:inline-block;margin-bottom:10px;border:1px solid #e5e5e5;object-fit:cover}
+    #currencyGate .cg-list{display:grid;gap:10px}
+    #currencyGate a.cg-opt{position:relative;padding:14px 12px;border:1px solid #111;color:#111;text-decoration:none;display:flex;flex-direction:column;gap:3px;text-transform:uppercase;transition:background .15s,color .15s}
     #currencyGate a.cg-opt:hover,#currencyGate a.cg-opt:focus-visible{background:#111;color:#fff;outline:none}
+    #currencyGate a.cg-opt.cg-rec{background:#111;color:#fff}
+    #currencyGate a.cg-opt.cg-rec:hover{background:#333}
     #currencyGate .cg-code{font-size:13px;font-weight:700;letter-spacing:.12em}
-    #currencyGate .cg-name{font-size:9px;font-weight:600;letter-spacing:.08em;opacity:.65}
-    #currencyGate .cg-last{position:absolute;top:5px;right:6px;font-size:8px;font-weight:700;letter-spacing:.1em;opacity:.55}
-    @keyframes cgFade{from{opacity:0}to{opacity:1}}
-    @keyframes cgRise{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
-    @media(max-width:420px){#currencyGate .cg-dialog{padding:35px 25px}#currencyGate .cg-list{grid-template-columns:1fr}}
+    #currencyGate .cg-name{font-size:9px;font-weight:600;letter-spacing:.08em;opacity:.7}
+    #currencyGate .cg-badge{position:absolute;top:6px;right:8px;font-size:8px;font-weight:700;letter-spacing:.1em}
+    #currencyGate select{margin-top:14px;width:100%;padding:10px;border:1px solid #ccc;background:#fff;font-size:12px}
+    #currencyGate .cg-note{margin:16px 0 0;font-size:10px;color:#888;letter-spacing:.02em;text-transform:none}
   </style>
   <div id="currencyGate" role="dialog" aria-modal="true" aria-labelledby="cgTitle">
     <div class="cg-dialog" tabindex="-1" id="cgDialog">
-      <div class="cg-eyebrow"><?= htmlspecialchars($brandName) ?></div>
+      <div class="cg-eyebrow"><?= htmlspecialchars($brandName ?? '') ?></div>
       <h2 class="cg-title" id="cgTitle">Choose your currency</h2>
-      <p class="cg-text">Prices and checkout will use the currency you pick. You can change it later from the menu.</p>
+      <p class="cg-text">
+        <?php if ($suggest): ?>
+          <img class="cg-flag" src="https://flagcdn.com/w80/<?= htmlspecialchars(strtolower($suggest['country_code'])) ?>.png"
+               alt="" width="40" height="30" onerror="this.style.display='none'"><br>
+          Are you from <strong><?= htmlspecialchars($suggest['country']) ?></strong>?
+          The currency there is <strong><?= htmlspecialchars($suggest['currency']) ?></strong>.
+          Would you like to switch to <?= htmlspecialchars($suggest['currency']) ?>, or stay on USD?
+        <?php else: ?>
+          Pick the currency you'd like to see prices in.
+        <?php endif; ?>
+      </p>
       <div class="cg-list">
-        <?php foreach (DD_CURRENCIES as $cgCode => $cgInfo): ?>
-          <a class="cg-opt" href="?currency=<?= $cgCode ?><?= $search !== '' ? '&search=' . urlencode($search) : '' ?><?= $category !== '' ? '&category=' . urlencode($category) : '' ?>">
-            <?php if (!empty($_SESSION['currency_chosen']) && $cgCode === $currentCurrency): ?><span class="cg-last">LAST USED</span><?php endif; ?>
-            <span class="cg-code"><?= $cgCode ?></span>
-            <span class="cg-name"><?= htmlspecialchars(strtoupper($cgInfo['name'])) ?></span>
+        <?php if ($suggest): ?>
+          <a class="cg-opt cg-rec" href="set-currency.php?to=<?= urlencode($suggest['currency']) ?>">
+            <span class="cg-badge">SUGGESTED</span>
+            <span class="cg-code">Switch to <?= htmlspecialchars($suggest['currency']) ?></span>
+            <span class="cg-name">1 USD ≈ <?= htmlspecialchars($suggest['currency']) ?> <?= number_format($suggest['rate'], $suggest['rate'] >= 100 ? 0 : 2, '.', ',') ?></span>
           </a>
-        <?php endforeach; ?>
+        <?php endif; ?>
+        <a class="cg-opt" href="set-currency.php?to=USD">
+          <span class="cg-code"><?= $suggest ? 'Stay on USD' : 'USD' ?></span>
+          <span class="cg-name">US Dollar</span>
+        </a>
       </div>
+      <?php if ($gateOptions): ?>
+        <select id="cgOther" aria-label="Other currency">
+          <option value="">Other currency…</option>
+          <?php foreach ($gateOptions as $c): if ($suggest && $c === $suggest['currency']) continue; ?>
+            <option value="<?= htmlspecialchars($c) ?>"><?= htmlspecialchars($c) ?></option>
+          <?php endforeach; ?>
+        </select>
+      <?php endif; ?>
+      <p class="cg-note">Prices in other currencies are estimates. You will be charged in USD at checkout.</p>
     </div>
   </div>
   <script>
     (function () {
+      var KEY = 'ddCurrencyPicked', root = document.documentElement;
+      try {
+        // Link "Currency" di menu membuka pop-up lagi di tab yang sama.
+        if (location.search.indexOf('choose_currency') !== -1) {
+          sessionStorage.removeItem(KEY);
+          // Buang parameter dari URL supaya refresh / kembali dari pilihan tidak membuka pop-up lagi.
+          history.replaceState(null, '', location.pathname + location.search.replace(/([?&])choose_currency(=[^&]*)?(&|$)/, '$1').replace(/[?&]$/, '') + location.hash);
+        }
+        if (sessionStorage.getItem(KEY) === '1') root.classList.add('cg-skip');
+      } catch (e) {}
       var gate = document.getElementById('currencyGate');
-      if (!gate || document.documentElement.classList.contains('cg-skip')) return;
+      if (!gate || root.classList.contains('cg-skip')) return;
+      function picked() { try { sessionStorage.setItem(KEY, '1'); } catch (e) {} }
       document.body.classList.add('cg-lock');
-      gate.querySelectorAll('a.cg-opt').forEach(function (a) {
-        a.addEventListener('click', function () { try { sessionStorage.setItem('ddCurrencyPicked', '1'); } catch (e) {} });
-      });
-      // fokus ke dialog (bukan ke opsi pertama) supaya tidak ada pilihan yang tampak sudah terpilih; Tab tetap berpindah antar opsi
-      var dlg = document.getElementById('cgDialog'); if (dlg) dlg.focus({ preventScroll: true });
+      gate.querySelectorAll('a.cg-opt').forEach(function (a) { a.addEventListener('click', picked); });
+      var sel = document.getElementById('cgOther');
+      if (sel) sel.addEventListener('change', function () { if (sel.value) { picked(); location.href = 'set-currency.php?to=' + encodeURIComponent(sel.value); } });
+      // Fokus ke mata uang yang disarankan supaya cukup tekan Enter; kalau tak ada saran, fokus ke dialog.
+      var rec = gate.querySelector('a.cg-rec'), dlg = document.getElementById('cgDialog');
+      if (rec) rec.focus({ preventScroll: true }); else if (dlg) dlg.focus({ preventScroll: true });
     })();
   </script>
+  <?php endif; ?>
+
   <div class="overlay" id="overlay"></div>
 
   <div class="toast-container" id="toastContainer" aria-live="polite"></div>
@@ -807,18 +818,10 @@ button{cursor:pointer}
           </div>
         </div>
         <a href="lookbook.php">LookBook</a>
+        <a href="index.php?choose_currency=1">Currency (<?= htmlspecialchars(ddDisplayCurrency()) ?>)</a>
         <button class="nav-btn" id="openAccountBtnMobile" aria-label="Account" style="color: #111;">Account</button>
 
-        <div class="dropdown" id="currencyDropdown">
-          <button class="dropdown-toggle" id="currencyDropdownBtn" aria-expanded="false">Currency (<?= htmlspecialchars($currentCurrency) ?>)</button>
-          <div class="dropdown-menu">
-            <a href="?currency=IDR<?= $search !== '' ? '&search='.urlencode($search) : '' ?><?= $category !== '' ? '&category='.urlencode($category) : '' ?>">IDR</a>
-            <a href="?currency=USD<?= $search !== '' ? '&search='.urlencode($search) : '' ?><?= $category !== '' ? '&category='.urlencode($category) : '' ?>">USD</a>
-            <a href="?currency=SGD<?= $search !== '' ? '&search='.urlencode($search) : '' ?><?= $category !== '' ? '&category='.urlencode($category) : '' ?>">SGD</a>
-            <a href="?currency=MYR<?= $search !== '' ? '&search='.urlencode($search) : '' ?><?= $category !== '' ? '&category='.urlencode($category) : '' ?>">MYR</a>
-          </div>
-        </div>
-      </nav>
+        </nav>
     </div>
   </aside>
 
@@ -833,7 +836,7 @@ button{cursor:pointer}
     <div class="cart-foot" id="cartFoot" style="display:none">
       <div class="cart-total">
         <span>Total</span>
-        <strong id="cartTotal">RP 0</strong>
+        <strong id="cartTotal">$0.00</strong>
       </div>
       <p class="cart-note">Shipping calculated at checkout.</p>
       <button class="cart-checkout-btn" id="checkoutBtn">Proceed to Checkout</button>
@@ -957,8 +960,8 @@ button{cursor:pointer}
         <main class="product-grid">
           <?php foreach ($products as $product): ?>
             <?php
-              $originalPrice = getBasePrice($product, $currentCurrency);
-              $finalPrice    = getFinalPrice($product, $currentCurrency);
+              $originalPrice = ddProductBasePrice($product);
+              $finalPrice    = productFinalPrice($product);
               $hasDiscount   = $finalPrice < $originalPrice;
               $isInStock     = (int)($product['is_in_stock'] ?? 1) === 1; 
               $slug          = htmlspecialchars((string)$product['slug']);
@@ -990,10 +993,10 @@ button{cursor:pointer}
                   <?php else: ?>
                     <p class="product-price">
                       <?php if ($hasDiscount): ?>
-                        <span class="price-original"><?= htmlspecialchars(formatCurrency($originalPrice, $currentCurrency)) ?></span>
-                        <span class="price-final"><?= htmlspecialchars(formatCurrency($finalPrice, $currentCurrency)) ?></span>
+                        <span class="price-original"><?= htmlspecialchars(ddFormatDisplay($originalPrice)) ?></span>
+                        <span class="price-final"><?= htmlspecialchars(ddFormatDisplay($finalPrice)) ?></span>
                       <?php else: ?>
-                        <span class="price-final"><?= htmlspecialchars(formatCurrency($originalPrice, $currentCurrency)) ?></span>
+                        <span class="price-final"><?= htmlspecialchars(ddFormatDisplay($originalPrice)) ?></span>
                       <?php endif; ?>
                     </p>
                   <?php endif; ?>
@@ -1041,8 +1044,6 @@ button{cursor:pointer}
   (function () {
     'use strict';
 
-    // Ambil session currency dari PHP ke Javascript
-    const CURRENT_CURRENCY = '<?= htmlspecialchars($currentCurrency, ENT_QUOTES) ?>';
 
     // ── Helper aman: pasang addEventListener hanya jika elemen ada ──
     // Ini mencegah error "Cannot read properties of null (reading 'addEventListener')"
@@ -1062,7 +1063,10 @@ button{cursor:pointer}
     const cartPanel    = document.getElementById('cartPanel');
     const accountPopup = document.getElementById('accountPopup');
 
-    let cartItems = JSON.parse(localStorage.getItem('ppf_cart') || '[]');
+    // Keranjang mini bersama (assets/js/mini-cart.js)
+    const cart      = DDMiniCart.create({ showToast });
+    function saveCart()   { cart.save(); }
+    function renderCart() { cart.render(); }
 
     function showToast(msg) {
       const container = document.getElementById('toastContainer');
@@ -1253,75 +1257,6 @@ button{cursor:pointer}
     on('faqBackdrop', 'click',   () => closeModal(faqPopup));
 
     /* ── CART ──────────────────────────────────────────── */
-    function saveCart() { localStorage.setItem('ppf_cart', JSON.stringify(cartItems)); }
-
-    // Fungsi Format Currency JS disesuaikan
-    function formatCurrencyJS(amount) {
-      const DD_CUR = {IDR:{s:'RP ',d:0},USD:{s:'$',d:2},SGD:{s:'S$',d:2},MYR:{s:'RM ',d:2}};
-      const m = DD_CUR[CURRENT_CURRENCY] || DD_CUR.IDR;
-      let a = parseFloat(amount); if (!isFinite(a)) a = 0;
-      if (m.d === 0) return m.s + Math.round(a).toLocaleString('id-ID').replace(/,/g, '.');
-      return m.s + a.toFixed(m.d).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    }
-
-    function renderCart() {
-      const cbody  = document.getElementById('cartBody');
-      const foot   = document.getElementById('cartFoot');
-      const count  = cartItems.reduce((s, i) => s + i.qty, 0);
-      const total  = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
-
-      const cartCountEl        = document.getElementById('cartCount');
-      const navCartCountEl     = document.getElementById('navCartCount');
-      if (cartCountEl)       cartCountEl.textContent       = count;
-      if (navCartCountEl)    navCartCountEl.textContent    = count;
-
-      if (!cbody || !foot) return;
-
-      if (cartItems.length === 0) {
-        cbody.innerHTML = '<div class="cart-empty"><span>Your cart is empty</span><a class="cart-empty-link" href="shop.php">Continue shopping</a></div>';
-        foot.style.display = 'none';
-        return;
-      }
-
-      foot.style.display = '';
-      const cartTotalEl = document.getElementById('cartTotal');
-      if (cartTotalEl) cartTotalEl.textContent = formatCurrencyJS(total);
-
-      cbody.innerHTML = cartItems.map((item, idx) => `
-        <div class="cart-item">
-          <img class="cart-item-img" src="${item.thumb}" alt="${item.name}">
-          <div>
-            <div class="cart-item-name">${item.name}</div>
-            <div class="cart-item-price">${formatCurrencyJS(item.price)}</div>
-            <div class="cart-item-qty">
-              <button aria-label="Decrease" data-action="dec" data-idx="${idx}">−</button>
-              <span>${item.qty}</span>
-              <button aria-label="Increase" data-action="inc" data-idx="${idx}">+</button>
-            </div>
-          </div>
-          <button class="cart-item-remove" aria-label="Remove" data-action="remove" data-idx="${idx}">×</button>
-        </div>
-      `).join('');
-
-      cbody.querySelectorAll('[data-action]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const idx    = parseInt(btn.dataset.idx, 10);
-          const action = btn.dataset.action;
-          if (action === 'inc') {
-            const stockLimit = parseInt(cartItems[idx].stock || '0', 10) || 0;
-            if (stockLimit > 0 && cartItems[idx].qty >= stockLimit) {
-              showToast('Out Of Stock');
-              return;
-            }
-            cartItems[idx].qty++;
-          }
-          else if (action === 'dec') { cartItems[idx].qty--; if (cartItems[idx].qty <= 0) cartItems.splice(idx, 1); }
-          else if (action === 'remove') { cartItems.splice(idx, 1); }
-          saveCart(); renderCart();
-        });
-      });
-    }
-
     on('checkoutBtn', 'click', () => {
       window.location.href = 'checkout.php';
     });

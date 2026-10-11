@@ -1,16 +1,9 @@
 <?php
 session_start();
 
-// Tangkap pilihan currency dari URL
-if (isset($_GET['currency']) && in_array(strtoupper($_GET['currency']), ['IDR', 'USD', 'SGD', 'MYR'])) {
-    $_SESSION['currency'] = strtoupper($_GET['currency']);
-    $_SESSION['currency_chosen'] = true;
-}
-
-// Default ke IDR jika belum ada session
-$currentCurrency = $_SESSION['currency'] ?? 'IDR';
-
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/db_schema.php';
+require_once __DIR__ . '/includes/currency_helper.php';
 
 $search   = isset($_GET['search'])   ? trim((string) $_GET['search'])   : '';
 $category = isset($_GET['category']) ? trim((string) $_GET['category']) : '';
@@ -22,22 +15,6 @@ $brandName       = 'deepdimes';
 $brandLogo       = '11newlogo.PNG';
 
 /* ── helpers ─────────────────────────────────────────── */
-function tableExists(PDO $pdo, string $table): bool
-{
-    try {
-        $stmt = $pdo->query("SHOW TABLES LIKE '{$table}'");
-        return (bool) $stmt->fetchColumn();
-    } catch (Throwable $e) { return false; }
-}
-
-function tableColumns(PDO $pdo, string $table): array
-{
-    try {
-        $stmt = $pdo->query("SHOW COLUMNS FROM `{$table}`");
-        return array_map(static fn($row) => $row['Field'], $stmt->fetchAll(PDO::FETCH_ASSOC));
-    } catch (Throwable $e) { return []; }
-}
-
 /* ── schema detection ────────────────────────────────── */
 $productColumns     = tableColumns($pdo, 'products');
 $hasCategoriesTable = tableExists($pdo, 'categories');
@@ -241,6 +218,8 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
 }
 @keyframes pageFadeIn{from{opacity:0}to{opacity:1}}
   </style>
+  <script><?= ddDisplayJs() ?></script>
+  <script src="assets/js/mini-cart.js"></script>
 </head>
 <body>
   <?php if (file_exists(__DIR__ . '/loader.php')) include_once 'loader.php'; ?>
@@ -274,17 +253,9 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
           </div>
         </div>
         <a href="lookbook.php">LookBook</a>
+        <a href="index.php?choose_currency=1">Currency (<?= htmlspecialchars(ddDisplayCurrency()) ?>)</a>
         <a href="research.php">Further Research</a>
         
-        <div class="dropdown" id="currencyDropdown">
-          <button class="dropdown-toggle" id="currencyDropdownBtn" aria-expanded="false">Currency (<?= $currentCurrency ?>)</button>
-          <div class="dropdown-menu">
-            <a href="?currency=IDR<?= $search !== '' ? '&search='.urlencode($search) : '' ?><?= $category !== '' ? '&category='.urlencode($category) : '' ?>">IDR</a>
-            <a href="?currency=USD<?= $search !== '' ? '&search='.urlencode($search) : '' ?><?= $category !== '' ? '&category='.urlencode($category) : '' ?>">USD</a>
-            <a href="?currency=SGD<?= $search !== '' ? '&search='.urlencode($search) : '' ?><?= $category !== '' ? '&category='.urlencode($category) : '' ?>">SGD</a>
-            <a href="?currency=MYR<?= $search !== '' ? '&search='.urlencode($search) : '' ?><?= $category !== '' ? '&category='.urlencode($category) : '' ?>">MYR</a>
-          </div>
-        </div>
       </nav>
 
     
@@ -305,7 +276,7 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
     <div class="cart-foot" id="cartFoot" style="display:none">
       <div class="cart-total">
         <span>Total</span>
-        <strong id="cartTotal">RP 0</strong>
+        <strong id="cartTotal">$0.00</strong>
       </div>
       <button class="cart-checkout-btn" id="checkoutBtn">Proceed to Checkout</button>
     </div>
@@ -457,7 +428,7 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
 
     <section class="legal-section">
       <h2>Currency Rates</h2>
-      <p>PASTPRESENTFURTHER is not responsible for any fluctuations in currency or the exchange rates applied by banks when converting IDR or USD into other currencies.</p>
+      <p>PASTPRESENTFURTHER is not responsible for any fluctuations in currency or the exchange rates applied by banks when converting USD into other currencies.</p>
     </section>
     
 
@@ -487,14 +458,16 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
   (function () {
     'use strict';
 
-    const CURRENT_CURRENCY = '<?= $currentCurrency ?>';
     const body         = document.body;
     const overlay      = document.getElementById('overlay');
     const menuPanel    = document.getElementById('menuPanel');
     const cartPanel    = document.getElementById('cartPanel');
     const accountPopup = document.getElementById('accountPopup');
 
-    let cartItems = JSON.parse(localStorage.getItem('ppf_cart') || '[]');
+    // Keranjang mini bersama (assets/js/mini-cart.js)
+    const cart      = DDMiniCart.create();
+    function saveCart()   { cart.save(); }
+    function renderCart() { cart.render(); }
 
     function setOverlay(active) {
       overlay.classList.toggle('active', active);
@@ -549,62 +522,6 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
     });
 
     /* ── CART FUNCTIONALITY ────────────────────────────── */
-    function saveCart() { localStorage.setItem('ppf_cart', JSON.stringify(cartItems)); }
-
-    function formatCurrencyJS(amount) {
-      const DD_CUR = {IDR:{s:'RP ',d:0},USD:{s:'$',d:2},SGD:{s:'S$',d:2},MYR:{s:'RM ',d:2}};
-      const m = DD_CUR[CURRENT_CURRENCY] || DD_CUR.IDR;
-      let a = parseFloat(amount); if (!isFinite(a)) a = 0;
-      if (m.d === 0) return m.s + Math.round(a).toLocaleString('id-ID').replace(/,/g, '.');
-      return m.s + a.toFixed(m.d).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    }
-
-    function renderCart() {
-      const body  = document.getElementById('cartBody');
-      const foot  = document.getElementById('cartFoot');
-      const count = cartItems.reduce((s, i) => s + i.qty, 0);
-      const total = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
-
-      document.getElementById('cartCount').textContent    = count;
-      document.getElementById('navCartCount').textContent = count;
-
-      if (cartItems.length === 0) {
-        body.innerHTML = '<div class="cart-empty"><span>Your cart is empty</span></div>';
-        foot.style.display = 'none';
-        return;
-      }
-
-      foot.style.display = '';
-      document.getElementById('cartTotal').textContent = formatCurrencyJS(total);
-
-      body.innerHTML = cartItems.map((item, idx) => `
-        <div class="cart-item">
-          <img class="cart-item-img" src="${item.thumb}" alt="${item.name}">
-          <div>
-            <div class="cart-item-name">${item.name}</div>
-            <div class="cart-item-price">${formatCurrencyJS(item.price)}</div>
-            <div class="cart-item-qty">
-              <button aria-label="Decrease" data-action="dec" data-idx="${idx}">−</button>
-              <span>${item.qty}</span>
-              <button aria-label="Increase" data-action="inc" data-idx="${idx}">+</button>
-            </div>
-          </div>
-          <button class="cart-item-remove" aria-label="Remove" data-action="remove" data-idx="${idx}">×</button>
-        </div>
-      `).join('');
-
-      body.querySelectorAll('[data-action]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const idx    = parseInt(btn.dataset.idx, 10);
-          const action = btn.dataset.action;
-          if (action === 'inc') { cartItems[idx].qty++; }
-          else if (action === 'dec') { cartItems[idx].qty--; if (cartItems[idx].qty <= 0) cartItems.splice(idx, 1); }
-          else if (action === 'remove') { cartItems.splice(idx, 1); }
-          saveCart(); renderCart();
-        });
-      });
-    }
-
     document.getElementById('checkoutBtn').addEventListener('click', () => {
       window.location.href = 'checkout.php';
     });

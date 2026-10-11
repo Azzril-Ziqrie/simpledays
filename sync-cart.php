@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cart_data'])) {
                 'product_size_id' => (int)($item['size_id'] ?? 0),
                 'slug'            => (string)($item['slug'] ?? ''),
                 'quantity'        => (int)($item['qty'] ?? 1),
-                'currency'        => 'IDR'
+                'currency'        => 'USD'
             ];
         }
 

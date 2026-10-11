@@ -1,16 +1,9 @@
 <?php
 session_start();
 
-// Tangkap pilihan currency dari URL
-if (isset($_GET['currency']) && in_array(strtoupper($_GET['currency']), ['IDR', 'USD', 'SGD', 'MYR'])) {
-    $_SESSION['currency'] = strtoupper($_GET['currency']);
-    $_SESSION['currency_chosen'] = true;
-}
-
-// Default ke IDR jika belum ada session
-$currentCurrency = $_SESSION['currency'] ?? 'IDR';
-
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/db_schema.php';
+require_once __DIR__ . '/includes/currency_helper.php';
 
 $brandName = 'DEEPDIMES';
 $brandLogo = 'assets/images/1212.png';
@@ -20,14 +13,6 @@ $category = '';
 $search   = '';
 
 /* ── helpers ─────────────────────────────────────────── */
-function tableExists(PDO $pdo, string $table): bool
-{
-    try {
-        $stmt = $pdo->query("SHOW TABLES LIKE '{$table}'");
-        return (bool) $stmt->fetchColumn();
-    } catch (Throwable $e) { return false; }
-}
-
 /* ── schema detection ────────────────────────────────── */
 $tableReady = tableExists($pdo, 'lookbook_photos');
 
@@ -301,6 +286,8 @@ button{cursor:pointer}
     #openAccountBtnMobile{display:block; text-align:left; width:100%; box-sizing:border-box;}
   }
   </style>
+  <script><?= ddDisplayJs() ?></script>
+  <script src="assets/js/mini-cart.js"></script>
 </head>
 <body>
   <?php if (file_exists(__DIR__ . '/loader.php')) include_once 'loader.php'; ?>
@@ -331,16 +318,8 @@ button{cursor:pointer}
         </div>
         <button class="nav-btn" id="openAccountBtnMobile" aria-label="Account" style="color: #111;">Account</button>
         <a href="lookbook.php">LookBook</a>
-        <div class="dropdown" id="currencyDropdown">
-          <button class="dropdown-toggle" id="currencyDropdownBtn" aria-expanded="false">Currency (<?= $currentCurrency ?>)</button>
-          <div class="dropdown-menu">
-            <a href="?currency=IDR">IDR - Rupiah</a>
-            <a href="?currency=USD">USD - US Dollar</a>
-            <a href="?currency=SGD">SGD - Singapore Dollar</a>
-            <a href="?currency=MYR">MYR - Malaysian Ringgit</a>
-          </div>
-        </div>
-      </nav>
+        <a href="index.php?choose_currency=1">Currency (<?= htmlspecialchars(ddDisplayCurrency()) ?>)</a>
+        </nav>
 
       <nav class="menu-nav-secondary">
         <a href="contact.php">CONTACT</a>
@@ -361,7 +340,7 @@ button{cursor:pointer}
     <div class="cart-foot" id="cartFoot" style="display:none">
       <div class="cart-total">
         <span>Total</span>
-        <strong id="cartTotal">RP 0</strong>
+        <strong id="cartTotal">$0.00</strong>
       </div>
       <p class="cart-note">Shipping calculated at checkout.</p>
       <button class="cart-checkout-btn" id="checkoutBtn">Proceed to Checkout</button>
@@ -451,8 +430,6 @@ button{cursor:pointer}
   (function () {
     'use strict';
 
-    // Currency (cart total formatting only)
-    const CURRENT_CURRENCY = '<?= $currentCurrency ?>';
 
     const body         = document.body;
     const overlay      = document.getElementById('overlay');
@@ -460,7 +437,11 @@ button{cursor:pointer}
     const cartPanel    = document.getElementById('cartPanel');
     const accountPopup = document.getElementById('accountPopup');
 
-    let cartItems = JSON.parse(localStorage.getItem('ppf_cart') || '[]');
+    // Keranjang mini bersama (assets/js/mini-cart.js)
+    const cart      = DDMiniCart.create({ showToast });
+    const cartItems = cart.items;
+    function saveCart()   { cart.save(); }
+    function renderCart() { cart.render(); }
 
     function showToast(msg) {
       const container = document.getElementById('toastContainer');
@@ -562,74 +543,6 @@ button{cursor:pointer}
     });
 
     /* Cart */
-    function saveCart() { localStorage.setItem('ppf_cart', JSON.stringify(cartItems)); }
-
-    function formatCurrencyJS(amount) {
-      const DD_CUR = {IDR:{s:'RP ',d:0},USD:{s:'$',d:2},SGD:{s:'S$',d:2},MYR:{s:'RM ',d:2}};
-      const m = DD_CUR[CURRENT_CURRENCY] || DD_CUR.IDR;
-      let a = parseFloat(amount); if (!isFinite(a)) a = 0;
-      if (m.d === 0) return m.s + Math.round(a).toLocaleString('id-ID').replace(/,/g, '.');
-      return m.s + a.toFixed(m.d).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    }
-
-    function renderCart() {
-      const body  = document.getElementById('cartBody');
-      const foot  = document.getElementById('cartFoot');
-      const count = cartItems.reduce((s, i) => s + i.qty, 0);
-      const total = cartItems.reduce((s, i) => s + (parseFloat(i.price) || 0) * i.qty, 0);
-
-      const cartCountEl       = document.getElementById('cartCount');
-      const navCartCountEl    = document.getElementById('navCartCount');
-      const menuCartCountEl   = document.getElementById('menuCartCount');
-      
-      if (cartCountEl)       cartCountEl.textContent       = count;
-      if (navCartCountEl)    navCartCountEl.textContent    = count;
-      if (menuCartCountEl)   menuCartCountEl.textContent   = count;
-
-      if (cartItems.length === 0) {
-        body.innerHTML = '<div class="cart-empty"><span>Your cart is empty</span><a class="cart-empty-link" href="shop.php">Continue shopping</a></div>';
-        foot.style.display = 'none';
-        return;
-      }
-
-      foot.style.display = '';
-      document.getElementById('cartTotal').textContent = formatCurrencyJS(total);
-
-      body.innerHTML = cartItems.map((item, idx) => `
-        <div class="cart-item">
-          <img class="cart-item-img" src="${item.thumb}" alt="${item.name}">
-          <div>
-            <div class="cart-item-name">${item.name}</div>
-            <div class="cart-item-price">${formatCurrencyJS(item.price)}</div>
-            <div class="cart-item-qty">
-              <button aria-label="Decrease" data-action="dec" data-idx="${idx}">−</button>
-              <span>${item.qty}</span>
-              <button aria-label="Increase" data-action="inc" data-idx="${idx}">+</button>
-            </div>
-          </div>
-          <button class="cart-item-remove" aria-label="Remove" data-action="remove" data-idx="${idx}">×</button>
-        </div>
-      `).join('');
-
-      body.querySelectorAll('[data-action]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const idx    = parseInt(btn.dataset.idx, 10);
-          const action = btn.dataset.action;
-          if (action === 'inc') {
-             const stockLimit = parseInt(cartItems[idx].stock || '0', 10) || 0;
-             if (stockLimit > 0 && cartItems[idx].qty >= stockLimit) {
-               showToast('Out Of Stock');
-               return;
-             }
-             cartItems[idx].qty++; 
-          }
-          else if (action === 'dec') { cartItems[idx].qty--; if (cartItems[idx].qty <= 0) cartItems.splice(idx, 1); }
-          else if (action === 'remove') { cartItems.splice(idx, 1); }
-          saveCart(); renderCart();
-        });
-      });
-    }
-
     document.getElementById('checkoutBtn').addEventListener('click', async () => { 
       const btn = document.getElementById('checkoutBtn');
       const origText = btn.textContent;

@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/currency_helper.php';
 
 header('Content-Type: application/json');
 
@@ -30,7 +31,7 @@ if (!$isLoggedIn) {
 $productId = (int) ($_POST['product_id'] ?? 0);
 $productSizeId = (int) ($_POST['product_size_id'] ?? 0);
 $quantity = (int) ($_POST['quantity'] ?? 1);
-$currency = 'IDR';
+$currency = 'USD';
 
 if ($productId <= 0 || $quantity <= 0) {
     http_response_code(422);
@@ -49,6 +50,7 @@ try {
             p.id,
             p.name,
             p.price_idr,
+            p.price_usd,
             p.is_active,
             COALESCE(c.slug, "fashion") AS category_slug
          FROM products p
@@ -112,7 +114,7 @@ try {
         throw new RuntimeException('Not enough stock available.');
     }
 
-    $price = (float) $product['price_idr'];
+    $price = ddProductBasePrice($product);
 
     $pdo->beginTransaction();
 
@@ -152,13 +154,11 @@ try {
          FROM cart_items
          WHERE cart_id = :cart_id
            AND product_size_id = :product_size_id
-           AND currency = :currency
          LIMIT 1'
     );
     $itemStmt->execute([
         'cart_id' => $cartId,
         'product_size_id' => $productSizeId,
-        'currency' => $currency,
     ]);
     $existingItem = $itemStmt->fetch(PDO::FETCH_ASSOC);
 

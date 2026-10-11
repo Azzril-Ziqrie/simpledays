@@ -1,21 +1,12 @@
 <?php
 require_once __DIR__ . '/_guard.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/db_schema.php';
 
 $message = '';
 $error   = '';
 
 /* ── helpers ─────────────────────────────────────────── */
-function blogTableExists(PDO $pdo, string $table): bool
-{
-    try {
-        $stmt = $pdo->query("SHOW TABLES LIKE '{$table}'");
-        return (bool) $stmt->fetchColumn();
-    } catch (Throwable $e) {
-        return false;
-    }
-}
-
 function blogUploadDir(): string
 {
     return __DIR__ . '/../uploads/blogs/';
@@ -67,8 +58,8 @@ function blogUnlinkImage(?string $path): void
 }
 
 /* ── schema check ────────────────────────────────────── */
-$blogsTableReady    = blogTableExists($pdo, 'blogs');
-$galleryTableReady  = blogTableExists($pdo, 'blog_gallery');
+$blogsTableReady    = tableExists($pdo, 'blogs');
+$galleryTableReady  = tableExists($pdo, 'blog_gallery');
 
 /* ── POST handlers ───────────────────────────────────── */
 if ($blogsTableReady && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {

@@ -1,14 +1,10 @@
 <?php
 session_start();
 
-// Tangkap pilihan currency dari URL (sama seperti index.php / product.php)
-if (isset($_GET['currency']) && in_array(strtoupper($_GET['currency']), ['IDR', 'USD', 'SGD', 'MYR'])) {
-    $_SESSION['currency'] = strtoupper($_GET['currency']);
-    $_SESSION['currency_chosen'] = true;
-}
-
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/currency_helper.php';
+require_once __DIR__ . '/includes/pricing.php';
+require_once __DIR__ . '/includes/promo.php';
 require_once __DIR__ . '/config/kasera_client.php';
 require_once __DIR__ . '/config/intl_shipping.php';
 require_once __DIR__ . '/includes/order_payment.php';
@@ -16,33 +12,22 @@ require_once __DIR__ . '/includes/email_helpers.php';
 $composerAutoload = __DIR__ . '/vendor/autoload.php';
 if (is_file($composerAutoload)) require_once $composerAutoload;
 
+promoEnsureSchema($pdo);
+
 /* ── brand constants ─────────────────────────────────── */
 $brandName = 'deepdimes';
 $brandLogo = 'assets/images/1212.png';
 
-// Default ke IDR jika belum ada session
-$currentCurrency = $_SESSION['currency'] ?? 'IDR';
-
 /* ── helpers ─────────────────────────────────────────── */
-function moneyFormatCheckout(float $amount, string $currency): string
-{
-    return ddFormatMoney($amount, $currency);
-}
-
 function makeOrderNumber(): string
 {
     return 'DEEPDIMES-' . date('Ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
 }
 
-function normalizeCurrency(string $currency): string
-{
-    return ddNormalizeCurrency($currency);
-}
-
 /**
  * Hitung ulang ongkir (IDR) di sisi server ke RajaOngkir, supaya nilai
  * shipping_cost dari browser tidak dipercaya begitu saja.
- * Domestik: RajaOngkir. Internasional: tabel tarif lokal.
+ * Domestik: RajaOngkir. Internasional: tarif flat (INTL_FLAT_SHIPPING_USD).
  * Label layanan harus sama dengan yang ditampilkan di checkout (lihat calculateShipping() di JS).
  * Return null kalau gagal / layanan tidak ditemukan.
  */
@@ -50,10 +35,10 @@ function lookupShippingCostIdr(string $mode, string $destination, string $courie
 {
     if ($destination === '' || $courier === '' || $service === '' || $weightGram <= 0) return null;
 
-    // Internasional: API RajaOngkir (config/intl_shipping.php), berdasarkan berat produk
+    // Internasional: tarif flat (config/intl_shipping.php), tidak bergantung berat
     if ($mode !== 'domestic') {
         try {
-            foreach (intlShippingServices($destination, $courier, $weightGram) ?? [] as $row) {
+            foreach (intlShippingServices($destination, $courier) ?? [] as $row) {
                 if ($row['service'] === $service) return (float)$row['cost'];
             }
         } catch (Throwable $e) {
@@ -102,26 +87,10 @@ function lookupShippingCostIdr(string $mode, string $destination, string $courie
     return null;
 }
 
-function isDiscountCurrentlyActiveCheckout(array $item): bool
-{
-    if ((int)($item['is_discount_active'] ?? 0) !== 1) return false;
-    if ((float)($item['discount_percent'] ?? 0) <= 0)  return false;
-    $now = time();
-    if (!empty($item['discount_start_at'])) {
-        $s = strtotime((string)$item['discount_start_at']);
-        if ($s !== false && $now < $s) return false;
-    }
-    if (!empty($item['discount_end_at'])) {
-        $e = strtotime((string)$item['discount_end_at']);
-        if ($e !== false && $now > $e) return false;
-    }
-    return true;
-}
-
 function getProductSizeRow(PDO $pdo, string $slug, int $productSizeId): ?array
 {
     $stmt = $pdo->prepare(
-        'SELECT p.id AS product_id, p.name, p.slug, p.thumbnail, p.price_idr, p.price_usd, p.price_sgd, p.price_myr, p.weight_gram,
+        'SELECT p.id AS product_id, p.name, p.slug, p.thumbnail, p.price_idr, p.price_usd, p.weight_gram,
                 p.discount_percent, p.discount_start_at, p.discount_end_at, p.is_discount_active,
                 COALESCE(c.slug,\'fashion\') AS category_slug,
                 ps.id AS product_size_id, ps.stock, ps.is_active, s.name AS size_name
@@ -140,7 +109,7 @@ function getProductSizeRow(PDO $pdo, string $slug, int $productSizeId): ?array
 function getProductSizeById(PDO $pdo, int $productSizeId): ?array
 {
     $stmt = $pdo->prepare(
-        'SELECT p.id AS product_id, p.name, p.slug, p.thumbnail, p.price_idr, p.price_usd, p.price_sgd, p.price_myr, p.weight_gram,
+        'SELECT p.id AS product_id, p.name, p.slug, p.thumbnail, p.price_idr, p.price_usd, p.weight_gram,
                 p.discount_percent, p.discount_start_at, p.discount_end_at, p.is_discount_active,
                 COALESCE(c.slug,\'fashion\') AS category_slug,
                 ps.id AS product_size_id, ps.stock, ps.is_active, s.name AS size_name
@@ -156,17 +125,6 @@ function getProductSizeById(PDO $pdo, int $productSizeId): ?array
     return ($row && (int)$row['is_active'] === 1) ? $row : null;
 }
 
-function getPriceByCurrency(array $item, string $currency): float
-{
-    $base = ddProductBasePrice($item, $currency);
-
-    if (isDiscountCurrentlyActiveCheckout($item)) {
-        $base = max($base - ($base * ((float)($item['discount_percent'] ?? 0) / 100)), 0);
-    }
-
-    return $base;
-}
-
 function seedGuestCartFromQuery(PDO $pdo): void
 {
     if (!isset($_GET['guest']) || $_GET['guest'] !== '1') return;
@@ -174,7 +132,7 @@ function seedGuestCartFromQuery(PDO $pdo): void
     $sizeId      = (int)($_GET['size_id'] ?? 0);
     $qty         = (int)($_GET['qty'] ?? 1);
     
-    $currency    = normalizeCurrency((string)($_GET['currency'] ?? ($_SESSION['currency'] ?? 'IDR')));
+    $currency    = DD_BASE_CURRENCY;
     if ($productSlug === '' || $sizeId <= 0 || $qty <= 0) return;
     $row = getProductSizeRow($pdo, $productSlug, $sizeId);
     if (!$row || (int)$row['stock'] <= 0) return;
@@ -184,7 +142,7 @@ function seedGuestCartFromQuery(PDO $pdo): void
     foreach ($_SESSION['guest_cart'] as &$ci) {
         if ((int)($ci['product_id'] ?? 0) === (int)$row['product_id'] &&
             (int)($ci['product_size_id'] ?? 0) === (int)$row['product_size_id'] &&
-            strtoupper((string)($ci['currency'] ?? 'IDR')) === $currency) {
+            strtoupper((string)($ci['currency'] ?? 'USD')) === $currency) {
             $ci['quantity'] = min((int)$ci['quantity'] + $qty, (int)$row['stock']);
             $found = true; break;
         }
@@ -198,19 +156,17 @@ function seedGuestCartFromQuery(PDO $pdo): void
 
 function getGuestCartItemsFromSession(PDO $pdo): array
 {
-    global $currentCurrency;
-    $activeCurrency = normalizeCurrency($currentCurrency);
     $sessionCart = $_SESSION['guest_cart'] ?? [];
     if (!is_array($sessionCart) || !$sessionCart) return [];
     $items = [];
     foreach ($sessionCart as $si) {
         $slug = trim((string)($si['slug'] ?? '')); $psid = (int)($si['product_size_id'] ?? 0);
-        $qty  = (int)($si['quantity'] ?? 0); $cur = $activeCurrency;
+        $qty  = (int)($si['quantity'] ?? 0); $cur = DD_BASE_CURRENCY;
         if ($slug === '' || $psid <= 0 || $qty <= 0) continue;
         $row = getProductSizeRow($pdo, $slug, $psid);
         if (!$row || (int)$row['stock'] <= 0) continue;
         $qty   = min($qty, (int)$row['stock']);
-        $price = getPriceByCurrency($row, $cur);
+        $price = productFinalPrice($row);
         $items[] = ['cart_item_id' => null, 'product_id' => (int)$row['product_id'],
             'product_size_id' => (int)$row['product_size_id'], 'name' => $row['name'],
             'slug' => $row['slug'], 'thumbnail' => $row['thumbnail'], 'size_name' => $row['size_name'],
@@ -223,18 +179,16 @@ function getGuestCartItemsFromSession(PDO $pdo): array
 
 function getBuyNowItemsFromSession(PDO $pdo): array
 {
-    global $currentCurrency;
-    $activeCurrency = normalizeCurrency($currentCurrency);
 
     $bn = $_SESSION['buy_now'] ?? [];
     if (!is_array($bn) || !$bn) return [];
     $pid = (int)($bn['product_id'] ?? 0); $psid = (int)($bn['product_size_id'] ?? 0);
-    $qty = (int)($bn['quantity'] ?? 0); $cur = $activeCurrency;
+    $qty = (int)($bn['quantity'] ?? 0); $cur = DD_BASE_CURRENCY;
     if ($pid <= 0 || $psid <= 0 || $qty <= 0) return [];
     $row = getProductSizeById(db(), $psid);
     if (!$row || (int)$row['product_id'] !== $pid || (int)$row['stock'] <= 0) return [];
     $qty = min($qty, (int)$row['stock']); $_SESSION['buy_now']['quantity'] = $qty;
-    $price = getPriceByCurrency($row, $cur);
+    $price = productFinalPrice($row);
     return [['cart_item_id' => null, 'product_id' => (int)$row['product_id'],
         'product_size_id' => (int)$row['product_size_id'], 'name' => $row['name'],
         'slug' => $row['slug'], 'thumbnail' => $row['thumbnail'], 'size_name' => $row['size_name'],
@@ -245,7 +199,6 @@ function getBuyNowItemsFromSession(PDO $pdo): array
 
 function getMemberCartItems(PDO $pdo, int $userId): array
 {
-    global $currentCurrency;
                 $cartStmt = db()->prepare('SELECT id FROM carts WHERE user_id=:uid AND status=:s LIMIT 1');
     $cartStmt->execute(['uid' => $userId, 's' => 'active']);
     $cart = $cartStmt->fetch(PDO::FETCH_ASSOC);
@@ -253,7 +206,7 @@ function getMemberCartItems(PDO $pdo, int $userId): array
 
     $stmt = $pdo->prepare(
         'SELECT ci.id AS cart_item_id, ci.product_id, ci.product_size_id, ci.quantity,
-                p.name, p.slug, p.thumbnail, p.price_idr, p.price_usd, p.price_sgd, p.price_myr, p.weight_gram,
+                p.name, p.slug, p.thumbnail, p.price_idr, p.price_usd, p.weight_gram,
                 p.discount_percent, p.discount_start_at, p.discount_end_at, p.is_discount_active,
                 s.name AS size_name, COALESCE(c.slug,\'fashion\') AS category_slug,
                 ps.stock
@@ -267,9 +220,9 @@ function getMemberCartItems(PDO $pdo, int $userId): array
     $stmt->execute(['cid' => $cart['id']]);
     $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($items as &$item) {
-        $price = getPriceByCurrency($item, $currentCurrency);
+        $price = productFinalPrice($item);
         $item['line_total'] = (float)$price * (int)$item['quantity'];
-        $item['currency'] = $currentCurrency;
+        $item['currency'] = DD_BASE_CURRENCY;
         $item['price'] = $price;
         $item['stock'] = (int)$item['stock'];
     }
@@ -509,14 +462,37 @@ $cartItems = $checkoutMode === 'buy_now'
     ? getBuyNowItemsFromSession($pdo)
     : ($isLoggedIn ? getMemberCartItems($pdo, $userId) : getGuestCartItemsFromSession($pdo));
 
-$subtotal = 0.0; $currency = $currentCurrency;
+$subtotal = 0.0; $currency = DD_BASE_CURRENCY;
 foreach ($cartItems as $item) { $subtotal += (float)$item['line_total']; }
 
 // Berat paket untuk hitung ongkir = Σ (berat produk × qty), dari products.weight_gram
 $totalWeightGram = cartTotalWeightGram($cartItems);
 
-// Rate konversi USD (1 USD = ... IDR) — sinkron dengan JS
-$usdRateFromIdr = ddRateFromIdr('USD');
+/* ════════════════════════════════════════════════════════════
+   AJAX HANDLER: TERAPKAN KODE PROMO (pratinjau; dihitung ulang saat order dibuat)
+═══════════════════════════════════════════════════════════════ */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_apply_promo'])) {
+    header('Content-Type: application/json');
+    $shippingPreviewUsd = max(0.0, (float)($_POST['shipping_usd'] ?? 0));
+    $applied = promoResolve($pdo, (string)($_POST['promo_code'] ?? ''), $subtotal, $shippingPreviewUsd);
+
+    if ($applied['promo'] === null) {
+        echo json_encode(['success' => false, 'message' => $applied['error'] ?? 'Please enter a promo code.']);
+        exit;
+    }
+    echo json_encode([
+        'success'       => true,
+        'code'          => $applied['promo']['code'],
+        'type'          => $applied['promo']['type'],
+        'label'         => promoLabel($applied['promo']),
+        'item_discount' => number_format($applied['discounts']['item'], 2, '.', ''),
+        'message'       => $applied['promo']['code'] . ' applied: ' . promoLabel($applied['promo']) . '.',
+    ]);
+    exit;
+}
+
+// Rate konversi ongkir (1 USD = ... IDR) — sinkron dengan JS
+$usdRateFromIdr = ddRateFromIdr();
 
 $message = ''; $error = '';
 
@@ -531,11 +507,11 @@ $form = [
     'phone' => '', 'shipping_mode' => 'domestic', 'country_code' => 'ID',
     'country_name' => 'Indonesia', 'address_line_1' => '', 'address_line_2' => '',
     'city' => '', 'state' => '', 'postal_code' => '',
-    'courier_code' => '', 'courier_service' => '', 'shipping_cost' => '0', 'notes' => '',
+    'courier_code' => '', 'courier_service' => '', 'shipping_cost' => '0', 'notes' => '', 'promo_code' => '',
 ];
 
 // Pastikan proses checkout hanya jalan jika POST biasa (bukan request AJAX qty / hapus)
-if (!$payOrder && $_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['ajax_update_qty']) && !isset($_POST['ajax_remove_item'])) {
+if (!$payOrder && $_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['ajax_update_qty']) && !isset($_POST['ajax_remove_item']) && !isset($_POST['ajax_apply_promo'])) {
     foreach ($form as $key => $value) $form[$key] = trim((string)($_POST[$key] ?? ''));
     $selectedShippingCost = (float)$form['shipping_cost'];
     $grandTotal = $subtotal + $selectedShippingCost;
@@ -560,6 +536,10 @@ if (!$payOrder && $_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['ajax_u
                   $form['courier_code'], $form['courier_service'], $totalWeightGram
               )) === null) {
         $error = 'Could not verify the shipping cost. Please re-select your destination and courier service.';
+    } elseif (($promoResult = promoResolve(
+                  $pdo, (string)($_POST['promo_code'] ?? ''), $subtotal, ddConvertFromIdr($serverShippingIdr)
+              ))['error'] !== null) {
+        $error = $promoResult['error'];
     } else {
         // Internasional: negara diambil dari daftar RajaOngkir (bukan dari input browser).
         // country_code berisi id negara RajaOngkir; country_name nama negaranya.
@@ -568,10 +548,10 @@ if (!$payOrder && $_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['ajax_u
             $form['country_name'] = $intlCountry['name'];
         }
         // Pakai ongkir hasil hitung server, bukan nilai dari browser
-        $selectedShippingCost = $currency === 'IDR'
-            ? round($serverShippingIdr)
-            : ddConvertFromIdr($serverShippingIdr, $currency);
-        $grandTotal = $subtotal + $selectedShippingCost;
+        $selectedShippingCost = ddConvertFromIdr($serverShippingIdr);
+        $promo         = $promoResult['promo'];
+        $discountTotal = $promoResult['discounts']['total'];
+        $grandTotal    = round($subtotal + $selectedShippingCost - $discountTotal, 2);
         try {
             validateCheckoutStock($pdo, $cartItems);
             $pdo->beginTransaction();
@@ -580,10 +560,10 @@ if (!$payOrder && $_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['ajax_u
             $pdo->prepare(
                 'INSERT INTO orders (order_number,user_id,customer_type,full_name,email,phone,
                  country_code,country_name,address_line_1,address_line_2,city,state,postal_code,
-                 courier_code,courier_service,currency,subtotal,shipping_cost,grand_total,
+                 courier_code,courier_service,currency,subtotal,shipping_cost,promo_code,discount_amount,grand_total,
                  payment_provider,payment_status,fulfillment_status,notes)
                  VALUES (:on,:uid,:ct,:fn,:em,:ph,:cc,:cn,:a1,:a2,:ci,:st,:pc,:coc,:cs,:cur,
-                         :sub,:sc,:gt,:pp,:ps,:fs,:no)'
+                         :sub,:sc,:promo,:disc,:gt,:pp,:ps,:fs,:no)'
             )->execute([
                 'on' => $orderNumber, 'uid' => $userId,
                 'ct' => $isLoggedIn ? 'member' : 'guest',
@@ -595,11 +575,17 @@ if (!$payOrder && $_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['ajax_u
                 'st' => $form['state'] !== '' ? $form['state'] : null,
                 'pc' => $form['postal_code'], 'coc' => $form['courier_code'],
                 'cs' => $form['courier_service'], 'cur' => $currency,
-                'sub' => $subtotal, 'sc' => $selectedShippingCost, 'gt' => $grandTotal,
+                'sub' => $subtotal, 'sc' => $selectedShippingCost,
+                'promo' => $promo ? $promo['code'] : null, 'disc' => $discountTotal, 'gt' => $grandTotal,
                 'pp' => null, 'ps' => 'pending', 'fs' => 'pending',
                 'no' => $form['notes'] !== '' ? $form['notes'] : null,
             ]);
             $orderId = (int)$pdo->lastInsertId();
+
+            // Kuota promo dipakai di transaksi yang sama: gagal → order ikut dibatalkan.
+            if ($promo && !promoConsume($pdo, (int)$promo['id'])) {
+                throw new RuntimeException('This promo code has reached its usage limit.');
+            }
 
             $insertItem = $pdo->prepare(
                 'INSERT INTO order_items (order_id,product_id,product_size_id,product_name,
@@ -644,7 +630,7 @@ if ($payOrder) {
     $payIsPaid       = strtolower((string)$payOrder['payment_status']) === 'paid';
     $payCharge       = ddPaypalCharge($payOrder);
     $payStatusLabel  = strtoupper(str_replace('_', ' ', (string)$payOrder['payment_status']));
-    $payCurrency     = ddNormalizeCurrency($payOrder['currency'] ?? 'IDR');
+    $payCurrency     = ddOrderCurrency($payOrder); // 'USD'; 'IDR' hanya untuk order lama
 
     $itemStmt = $pdo->prepare('SELECT product_name, size_name, quantity, line_total, thumbnail FROM order_items WHERE order_id = :id ORDER BY id');
     $itemStmt->execute(['id' => $payOrder['id']]);
@@ -683,7 +669,7 @@ function bankLogoHtml(string $code, string $label): string
 }
 
 $domesticCouriers      = ['jne' => 'JNE'];
-// Internasional: hanya POS Indonesia (lewat RajaOngkir)
+// Internasional: satu kurir, tarif flat (lihat config/intl_shipping.php)
 $internationalCouriers = intlCouriers();
 $isBuyNow  = $checkoutMode === 'buy_now';
 $pageTitle = $isBuyNow ? 'Checkout Now' : 'Checkout';
@@ -693,11 +679,8 @@ if (!empty($cartItems)) {
     $first = $cartItems[0];
     $firstSlug = (string)($first['slug'] ?? '');
     if ($firstSlug !== '') {
-        $backToProductUrl = 'product.php?slug=' . urlencode($firstSlug)
-            . ($currentCurrency !== 'IDR' ? '&currency=' . urlencode($currentCurrency) : '');
+        $backToProductUrl = 'product.php?slug=' . urlencode($firstSlug);
     }
-} elseif ($currentCurrency !== 'IDR') {
-    $backToProductUrl = 'shop.php?currency=' . urlencode($currentCurrency);
 }
 ?>
 <!doctype html>
@@ -774,6 +757,12 @@ details.opt > summary:hover{text-decoration:underline}
 .btn-primary:disabled{background:#cfcfcf;cursor:not-allowed}
 .btn-secondary{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:0 18px;background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:var(--radius);font-size:14px;transition:border-color .15s;text-decoration:none}
 .btn-secondary:hover{border-color:var(--ink)}
+.promo-row{display:flex;gap:10px;align-items:flex-start;margin-top:8px}
+.promo-row .field{flex:1;margin:0}
+.promo-row .btn-secondary{min-height:48px}
+#promoStatus{min-height:1.2em;margin-top:6px}
+#promoStatus.ok{color:#1d6b3a}
+#promoStatus.err{color:#b3261e}
 .form-actions{margin-top:8px}
 .secure-note{font-size:12px;color:var(--muted);margin-top:12px}
 .back-row{margin-top:14px}
@@ -966,11 +955,11 @@ details.opt > summary:hover{text-decoration:underline}
           <div id="expiredMsg" class="notice error" style="display:none">This payment has expired. Please choose a payment method again.</div>
           <div id="payLive">
             <div class="amount-box">
-              <div><span class="field-hint">Amount to pay</span><br><strong><?= htmlspecialchars(moneyFormatCheckout((float)$kAmountIdr, 'IDR')) ?></strong></div>
+              <div><span class="field-hint">Amount to pay</span><br><strong><?= htmlspecialchars(ddFormatMoney((float)$kAmountIdr, 'IDR')) ?></strong></div>
               <button type="button" class="btn-secondary" data-copy="<?= (int)$kAmountIdr ?>">Copy</button>
             </div>
             <?php if ($payCurrency !== 'IDR'): ?>
-              <p class="field-hint" style="margin:-4px 0 14px">Your order total of <?= htmlspecialchars(moneyFormatCheckout((float)$payOrder['grand_total'], $payCurrency)) ?> <?= htmlspecialchars($payCurrency) ?> is charged in IDR at 1 <?= htmlspecialchars($payCurrency) ?> = <?= htmlspecialchars(moneyFormatCheckout(ddRateFromIdr($payCurrency), 'IDR')) ?>.</p>
+              <p class="field-hint" style="margin:-4px 0 14px">Your order total of <?= htmlspecialchars(ddFormatMoney((float)$payOrder['grand_total'], $payCurrency)) ?> is settled in Indonesian Rupiah by this bank / QRIS payment method (1 USD = <?= htmlspecialchars(ddFormatMoney(ddRateFromIdr(), 'IDR')) ?>).</p>
             <?php endif; ?>
             <?php if ($kIsQris): ?>
               <div class="qr-wrap">
@@ -1004,7 +993,7 @@ details.opt > summary:hover{text-decoration:underline}
         <h2>Payment</h2>
         <p class="sec-sub">All transactions are secure and encrypted.</p>
         <?php if ($payCurrency !== 'IDR'): ?>
-          <p class="field-hint" style="margin:-4px 0 14px">QRIS, Virtual Account and e-wallets are charged in IDR: <strong><?= htmlspecialchars(moneyFormatCheckout((float)kaseraAmountIdr($payOrder), 'IDR')) ?></strong> (1 <?= htmlspecialchars($payCurrency) ?> = <?= htmlspecialchars(moneyFormatCheckout(ddRateFromIdr($payCurrency), 'IDR')) ?>).</p>
+          <p class="field-hint" style="margin:-4px 0 14px">QRIS, Virtual Account and e-wallets settle in Indonesian Rupiah: <strong><?= htmlspecialchars(ddFormatMoney((float)kaseraAmountIdr($payOrder), 'IDR')) ?></strong> (1 USD = <?= htmlspecialchars(ddFormatMoney(ddRateFromIdr(), 'IDR')) ?>).</p>
         <?php endif; ?>
         <div class="pay-list">
           <?php $kEnabled = kaseraEnabledMethods(); $vaBanks = array_diff_key($kEnabled, ['qris' => 1]); ?>
@@ -1062,7 +1051,7 @@ details.opt > summary:hover{text-decoration:underline}
             </div>
           </div>
 
-          <!-- PayPal (order IDR ditagih USD hasil konversi) -->
+          <!-- PayPal (selalu USD) -->
           <div class="pay-opt">
             <input type="radio" class="pm-radio" name="paymethod" id="pm_paypal">
             <label for="pm_paypal" class="pay-row"><span class="rdot"></span><span class="pay-name">PayPal</span><span class="pay-logos"><span class="chip pp"><?= bankLogoHtml('paypal', 'PayPal') ?></span></span></label>
@@ -1102,9 +1091,9 @@ details.opt > summary:hover{text-decoration:underline}
 
       <?php else: ?>
       <!-- ═════════ CHECKOUT FORM ═════════ -->
-      <form method="POST" action="checkout.php<?= $isBuyNow ? '?mode=buy_now' : '' ?><?= $currentCurrency !== 'IDR' ? ($isBuyNow ? '&' : '?').'currency=' . urlencode($currentCurrency) : '' ?>" id="checkoutForm">
+      <form method="POST" action="checkout.php<?= $isBuyNow ? '?mode=buy_now' : '' ?>" id="checkoutForm">
         <input type="hidden" name="checkout_mode" value="<?= htmlspecialchars($checkoutMode) ?>">
-        <input type="hidden" name="currency" value="<?= htmlspecialchars($currentCurrency) ?>">
+        <input type="hidden" name="currency" value="USD">
 
         <section class="sec" aria-label="Contact information">
           <h2>Contact</h2>
@@ -1161,6 +1150,18 @@ details.opt > summary:hover{text-decoration:underline}
               <label for="courier_picker">Courier</label>
             </div>
             <div id="shippingOptions" class="shipping-options-box">Enter your shipping address to view available shipping methods.</div>
+            <details class="opt" id="promoBox"<?= $form['promo_code'] !== '' ? ' open' : '' ?>>
+              <summary>Have a promo code?</summary>
+              <div class="promo-row">
+                <div class="field">
+                  <input type="text" id="promo_code" name="promo_code" placeholder=" " maxlength="32"
+                         autocomplete="off" style="text-transform:uppercase" value="<?= htmlspecialchars($form['promo_code']) ?>">
+                  <label for="promo_code">Promo code (optional)</label>
+                </div>
+                <button type="button" class="btn-secondary" id="applyPromoBtn">Apply</button>
+              </div>
+              <p class="field-hint" id="promoStatus" role="status"></p>
+            </details>
             <details class="opt"<?= $form['notes'] !== '' ? ' open' : '' ?>>
               <summary>Add order note</summary>
               <div class="field">
@@ -1198,8 +1199,8 @@ details.opt > summary:hover{text-decoration:underline}
         $sumHasToggle = $payOrder || !empty($cartItems);
         $sumCur   = $payOrder ? $payCurrency : $currency;
         $sumTotal = $payOrder
-            ? moneyFormatCheckout((float)$payOrder['grand_total'], $payCurrency)
-            : moneyFormatCheckout($grandTotal, $currency);
+            ? ddFormatMoney((float)$payOrder['grand_total'], $payCurrency)
+            : ddFormatMoney($grandTotal, $currency);
       ?>
       <?php if ($sumHasToggle): ?>
       <button type="button" class="summary-toggle" id="summaryToggle" aria-expanded="false" aria-controls="summaryBody">
@@ -1222,13 +1223,16 @@ details.opt > summary:hover{text-decoration:underline}
               <div class="cart-item-name"><?= htmlspecialchars((string)$pi['product_name']) ?></div>
               <?php if (!empty($pi['size_name'])): ?><div class="cart-item-meta"><?= htmlspecialchars((string)$pi['size_name']) ?></div><?php endif; ?>
             </div>
-            <div class="cart-item-price"><?= htmlspecialchars(moneyFormatCheckout((float)$pi['line_total'], $payCurrency)) ?></div>
+            <div class="cart-item-price"><?= htmlspecialchars(ddFormatMoney((float)$pi['line_total'], $payCurrency)) ?></div>
           </div>
         <?php endforeach; ?>
         <div class="totals-block">
-          <div class="total-row"><span>Subtotal</span><span><?= htmlspecialchars(moneyFormatCheckout((float)$payOrder['subtotal'], $payCurrency)) ?></span></div>
-          <div class="total-row"><span>Shipping</span><span><?= htmlspecialchars(moneyFormatCheckout((float)$payOrder['shipping_cost'], $payCurrency)) ?></span></div>
-          <div class="total-row grand"><span>Total</span><span><span class="cur"><?= $payCurrency ?></span><strong><?= htmlspecialchars(moneyFormatCheckout((float)$payOrder['grand_total'], $payCurrency)) ?></strong></span></div>
+          <div class="total-row"><span>Subtotal</span><span><?= htmlspecialchars(ddFormatMoney((float)$payOrder['subtotal'], $payCurrency)) ?></span></div>
+          <div class="total-row"><span>Shipping</span><span><?= htmlspecialchars(ddFormatMoney((float)$payOrder['shipping_cost'], $payCurrency)) ?></span></div>
+          <?php if ((float)($payOrder['discount_amount'] ?? 0) > 0): ?>
+            <div class="total-row"><span>Discount<?= !empty($payOrder['promo_code']) ? ' (' . htmlspecialchars($payOrder['promo_code']) . ')' : '' ?></span><span>−<?= htmlspecialchars(ddFormatMoney((float)$payOrder['discount_amount'], $payCurrency)) ?></span></div>
+          <?php endif; ?>
+          <div class="total-row grand"><span>Total</span><span><span class="cur"><?= $payCurrency ?></span><strong><?= htmlspecialchars(ddFormatMoney((float)$payOrder['grand_total'], $payCurrency)) ?></strong></span></div>
           <div class="total-row muted"><span>Order <?= htmlspecialchars($payOrder['order_number']) ?></span><span><?= htmlspecialchars($payStatusLabel) ?></span></div>
         </div>
       <?php elseif (!$cartItems): ?>
@@ -1254,14 +1258,15 @@ details.opt > summary:hover{text-decoration:underline}
                 <button type="button" class="cart-item-remove-checkout" aria-label="Remove item" onclick="removeCheckoutItem(<?= $item['product_size_id'] ?>)">Remove</button>
               </div>
             </div>
-            <div class="cart-item-price" id="line_total_display_<?= $item['product_size_id'] ?>"><?= htmlspecialchars(moneyFormatCheckout((float)$item['line_total'], $item['currency'])) ?></div>
+            <div class="cart-item-price" id="line_total_display_<?= $item['product_size_id'] ?>"><?= htmlspecialchars(ddFormatMoney((float)$item['line_total'], $item['currency'])) ?></div>
           </div>
         <?php endforeach; ?>
 
         <div class="totals-block">
-          <div class="total-row"><span>Subtotal</span><span id="subtotalDisplay"><?= htmlspecialchars(moneyFormatCheckout($subtotal, $currency)) ?></span></div>
+          <div class="total-row"><span>Subtotal</span><span id="subtotalDisplay"><?= htmlspecialchars(ddFormatMoney($subtotal, $currency)) ?></span></div>
           <div class="total-row"><span>Shipping</span><span id="shippingDisplay" style="color:var(--muted)">Enter shipping address</span></div>
-          <div class="total-row grand"><span>Total</span><span><span class="cur"><?= htmlspecialchars($currency) ?></span><strong id="grandTotalDisplay"><?= htmlspecialchars(moneyFormatCheckout($grandTotal, $currency)) ?></strong></span></div>
+          <div class="total-row" id="discountRow" style="display:none"><span id="discountLabel">Discount</span><span id="discountDisplay"></span></div>
+          <div class="total-row grand"><span>Total</span><span><span class="cur"><?= htmlspecialchars($currency) ?></span><strong id="grandTotalDisplay"><?= htmlspecialchars(ddFormatMoney($grandTotal, $currency)) ?></strong></span></div>
         </div>
       <?php endif; ?>
       </div></div>
@@ -1438,8 +1443,7 @@ details.opt > summary:hover{text-decoration:underline}
     /* ── PHP vars ───────────────────────────────────── */
     let subtotal                = <?= json_encode((float)$subtotal) ?>;
     let totalWeightGram         = <?= (int)$totalWeightGram ?>;
-    const currency              = <?= json_encode($currency) ?>;
-    const CUR_RATE_FROM_IDR     = <?= ddRateFromIdr($currency) ?>;
+    const CUR_RATE_FROM_IDR     = <?= ddRateFromIdr() ?>; // 1 USD = ... IDR (ongkir kurir dalam IDR)
     const domesticCouriers      = <?= json_encode($domesticCouriers) ?>;
     const internationalCouriers = <?= json_encode($internationalCouriers) ?>;
 
@@ -1463,22 +1467,82 @@ details.opt > summary:hover{text-decoration:underline}
     const submitBtn            = document.getElementById('submitBtn');
 
     function formatCurrencyJS(amount) {
-      const DD_CUR = {IDR:{s:'RP ',d:0},USD:{s:'$',d:2},SGD:{s:'S$',d:2},MYR:{s:'RM ',d:2}};
-      const m = DD_CUR[currency] || DD_CUR.IDR;
       const a = Number(amount) || 0;
-      if (m.d === 0) return m.s + Math.round(a).toLocaleString('id-ID');
-      return m.s + a.toFixed(m.d).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      return '$' + a.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     }
 
     function convertFromIdr(amountIdr) {
-      if (currency === 'IDR') return Number(amountIdr);
-      return Number(amountIdr) / CUR_RATE_FROM_IDR;
+      return Math.round(Number(amountIdr) / CUR_RATE_FROM_IDR * 100) / 100;
     }
+
+    /* ── PROMO ──────────────────────────────────────── */
+    const MIN_PAYABLE = 0.01;
+    let appliedPromo = null; // {code, type, label, itemDiscount}
+    const promoInput    = document.getElementById('promo_code');
+    const promoStatus   = document.getElementById('promoStatus');
+    const discountRow   = document.getElementById('discountRow');
+    const discountLabel = document.getElementById('discountLabel');
+    const discountValue = document.getElementById('discountDisplay');
+
+    /** Potongan yang berlaku untuk ongkir tertentu (rumus sama dengan promoDiscounts() di PHP). */
+    function promoDiscountFor(shippingUsd) {
+      if (!appliedPromo) return 0;
+      const item = appliedPromo.itemDiscount;
+      const ship = appliedPromo.type === 'free_shipping' ? shippingUsd : 0;
+      const maxTotal = Math.max(subtotal + shippingUsd - MIN_PAYABLE, 0);
+      return Math.min(item + ship, maxTotal);
+    }
+
+    function setPromoStatus(text, ok) {
+      if (!promoStatus) return;
+      promoStatus.textContent = text;
+      promoStatus.className = 'field-hint ' + (text ? (ok ? 'ok' : 'err') : '');
+    }
+
+    async function applyPromo() {
+      const code = promoInput.value.trim();
+      if (!code) { appliedPromo = null; setPromoStatus('', true); updateGrandTotal(Number(shippingCostIdrInput.value || 0)); return; }
+
+      const fd = new FormData();
+      fd.append('ajax_apply_promo', '1');
+      fd.append('promo_code', code);
+      fd.append('shipping_usd', convertFromIdr(Number(shippingCostIdrInput.value || 0)));
+      fd.append('checkout_mode', document.querySelector('input[name="checkout_mode"]').value);
+
+      try {
+        const res  = await fetch(window.location.href, { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.success) {
+          appliedPromo = { code: data.code, type: data.type, label: data.label, itemDiscount: Number(data.item_discount) || 0 };
+          promoInput.value = data.code;
+          setPromoStatus(data.message, true);
+        } else {
+          appliedPromo = null;
+          setPromoStatus(data.message || 'Could not apply this code.', false);
+        }
+      } catch (err) {
+        appliedPromo = null;
+        setPromoStatus('Could not check the promo code. Please try again.', false);
+      }
+      updateGrandTotal(Number(shippingCostIdrInput.value || 0));
+    }
+
+    const applyPromoBtn = document.getElementById('applyPromoBtn');
+    if (applyPromoBtn) applyPromoBtn.addEventListener('click', applyPromo);
+    if (promoInput) promoInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); applyPromo(); } });
 
     function updateGrandTotal(shippingCostIdr) {
       const shippingConverted = convertFromIdr(shippingCostIdr);
       const subtotalConverted = subtotal; 
-      const total = subtotalConverted + shippingConverted;
+      const discount = promoDiscountFor(shippingConverted);
+      const total = subtotalConverted + shippingConverted - discount;
+      if (discountRow) {
+        discountRow.style.display = discount > 0 ? '' : 'none';
+        if (discount > 0) {
+          discountLabel.textContent = 'Discount (' + appliedPromo.code + ')';
+          discountValue.textContent = '−' + formatCurrencyJS(discount);
+        }
+      }
       // Belum ada layanan kurir dipilih → tampilkan petunjuk, bukan "RP 0"
       const hasService = courierServiceInput.value !== '';
       shippingDisplay.textContent   = hasService ? formatCurrencyJS(shippingConverted) : 'Enter shipping address';
@@ -1525,6 +1589,7 @@ details.opt > summary:hover{text-decoration:underline}
                 subtotal = parseFloat(data.new_subtotal);
                 document.getElementById('subtotalDisplay').textContent = formatCurrencyJS(subtotal);
                 totalWeightGram = parseInt(data.new_total_weight, 10) || totalWeightGram;
+                if (appliedPromo) applyPromo(); // subtotal berubah → syarat & nilai promo dihitung ulang
 
                 // Berat berubah → ongkir lama tidak valid lagi, hitung ulang
                 if (destSelect.value && courierPicker.value) {
@@ -1728,7 +1793,7 @@ details.opt > summary:hover{text-decoration:underline}
             courierCodeInput.value     = courier;
             courierServiceInput.value  = service;
             shippingCostIdrInput.value = costIdr;
-            shippingCostInput.value    = currency === 'IDR' ? costIdr : costShown.toFixed(2);
+            shippingCostInput.value    = costShown.toFixed(2);
             updateGrandTotal(costIdr);
             showToast(service + ' selected');
           });

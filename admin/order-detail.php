@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/_guard.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/currency_helper.php';
+require_once __DIR__ . '/../includes/promo.php';
 
 $orderId = (int) ($_GET['id'] ?? 0);
 if ($orderId <= 0) {
@@ -52,7 +54,7 @@ $success = trim((string) ($_GET['success'] ?? ''));
 
 function detailMoney(string $currency, float $amount): string
 {
-    return strtoupper($currency) . ' ' . number_format($amount, 2, '.', ',');
+    return ddFormatMoney($amount, $currency);
 }
 
 function statusBadgeClass(string $status): string
@@ -433,6 +435,9 @@ function statusBadgeClass(string $status): string
             <strong>Fulfillment Status:</strong>
             <span class="status <?= statusBadgeClass($fulfillmentStatus) ?>"><?= htmlspecialchars($fulfillmentStatus) ?></span>
           </div>
+          <?php if ($orderDiscount = promoOrderDiscount($order)): ?>
+            <div class="row"><strong>Promo:</strong> <?= htmlspecialchars($orderDiscount['label']) ?> −<?= htmlspecialchars(detailMoney($order['currency'], $orderDiscount['amount'])) ?></div>
+          <?php endif; ?>
           <div class="row"><strong>Grand Total:</strong> <?= htmlspecialchars(detailMoney($order['currency'], (float) $order['grand_total'])) ?></div>
           <div class="row"><strong>Created:</strong> <?= htmlspecialchars((string) $order['created_at']) ?></div>
 
