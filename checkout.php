@@ -275,7 +275,9 @@ if ($payOrder && strtolower((string)$payOrder['payment_status']) !== 'paid' && $
 
     if (isset($_POST['kasera_method'])) {
         $method = (string)$_POST['kasera_method'];
-        if (!isset($kaseraMethods[$method]) && $method !== 'checkout') {
+        if (!KASERA_ENABLED) {
+            $payError = 'This payment method is not available right now. Please choose another method.';
+        } elseif (!isset($kaseraMethods[$method]) && $method !== 'checkout') {
             $payError = 'Invalid payment method.';
         } else {
             try {
@@ -807,7 +809,9 @@ details.opt[open]>summary{margin-bottom:10px}
 .bank-value small{display:block;font-weight:400;color:var(--ink-2);font-size:11px}
 .upload-zone{border:1px dashed #bbb;padding:16px;margin:14px 0;background:#fff}
 .file-input{width:100%;font-size:12px}
-#paypal-button-container{max-width:440px}
+#paypal-button-container,#apple-pay-button,#google-pay-button{max-width:440px}
+apple-pay-button{--apple-pay-button-width:100%;--apple-pay-button-height:44px;--apple-pay-button-border-radius:0;--apple-pay-button-padding:0;display:block}
+.pay-opt[hidden]{display:none}
 .copy-status{font-size:11px;color:var(--ok);min-height:16px;margin-top:6px}
 .pay-note{font-size:12px;color:var(--ink-2);line-height:1.7}
 
@@ -945,11 +949,11 @@ siteBodyOpen(['bodyClass' => 'page-checkout', 'searchAction' => 'shop.php']);
 
         <?php else: ?>
         <p class="sec-sub">All transactions are secure and encrypted.</p>
-        <?php if ($payCurrency !== 'IDR'): ?>
+        <?php if (KASERA_ENABLED && $payCurrency !== 'IDR'): ?>
           <p class="field-hint" style="margin:-4px 0 14px">QRIS, Virtual Account and e-wallets settle in Indonesian Rupiah: <strong><?= htmlspecialchars(ddFormatMoney((float)kaseraAmountIdr($payOrder), 'IDR')) ?></strong> (1 USD = <?= htmlspecialchars(ddFormatMoney(ddRateFromIdr(), 'IDR')) ?>).</p>
         <?php endif; ?>
         <div class="pay-list">
-          <?php $kEnabled = kaseraEnabledMethods(); $vaBanks = array_diff_key($kEnabled, ['qris' => 1]); ?>
+          <?php $kEnabled = KASERA_ENABLED ? kaseraEnabledMethods() : []; $vaBanks = array_diff_key($kEnabled, ['qris' => 1]); ?>
 
           <?php if (isset($kEnabled['qris'])): ?>
           <div class="pay-opt">
@@ -992,6 +996,7 @@ siteBodyOpen(['bodyClass' => 'page-checkout', 'searchAction' => 'shop.php']);
           </div>
           <?php endif; ?>
 
+          <?php if (KASERA_ENABLED): ?>
           <div class="pay-opt">
             <input type="radio" class="pm-radio" name="paymethod" id="pm_other">
             <label for="pm_other" class="pay-row"><span class="rdot"></span><span class="pay-name bold">E-wallet &amp; other methods</span></label>
@@ -1003,6 +1008,26 @@ siteBodyOpen(['bodyClass' => 'page-checkout', 'searchAction' => 'shop.php']);
               </form>
             </div>
           </div>
+          <?php endif; ?>
+
+          <!-- Apple Pay & Google Pay (lewat PayPal): baris muncul hanya jika perangkat & akun mendukung -->
+          <div class="pay-opt" data-express="apple" hidden>
+            <input type="radio" class="pm-radio" name="paymethod" id="pm_apple">
+            <label for="pm_apple" class="pay-row"><span class="rdot"></span><span class="pay-name">Apple Pay</span></label>
+            <div class="pay-panel">
+              <p class="pay-note">Pay with Touch ID or Face ID. Your card details are never shared with us.</p>
+              <div id="apple-pay-button"></div>
+            </div>
+          </div>
+          <div class="pay-opt" data-express="google" hidden>
+            <input type="radio" class="pm-radio" name="paymethod" id="pm_google">
+            <label for="pm_google" class="pay-row"><span class="rdot"></span><span class="pay-name">Google Pay</span></label>
+            <div class="pay-panel">
+              <p class="pay-note">Pay with a card saved to your Google account.</p>
+              <div id="google-pay-button"></div>
+            </div>
+          </div>
+          <div class="copy-status" id="express-status" style="color:var(--err)"></div>
 
           <!-- PayPal (selalu USD) -->
           <div class="pay-opt">
@@ -1243,7 +1268,19 @@ siteBodyClose();
 ?>
   <?php if ($payOrder): ?>
   <?php if (!$payIsPaid && !$showKasera): ?>
-  <script src="https://www.paypal.com/sdk/js?client-id=<?= htmlspecialchars(PAYPAL_CLIENT_ID) ?>&currency=<?= htmlspecialchars($payCharge['currency']) ?>&intent=capture"></script>
+  <script src="https://www.paypal.com/sdk/js?client-id=<?= htmlspecialchars(PAYPAL_CLIENT_ID) ?>&components=buttons,applepay,googlepay&currency=<?= htmlspecialchars($payCharge['currency']) ?>&intent=capture"></script>
+  <script src="https://applepay.cdn-apple.com/jsapi/v1.1.0/apple-pay-sdk.js" async></script>
+  <script src="https://pay.google.com/gp/p/js/pay.js" async></script>
+  <script>
+  window.EXPRESS_PAY = <?= json_encode([
+      'orderNumber' => (string)$payOrder['order_number'],
+      'amount'      => $payCharge['value'],
+      'currency'    => $payCharge['currency'],
+      'shop'        => BRAND_NAME,
+      'sandbox'     => PAYPAL_MODE === 'sandbox',
+  ], JSON_HEX_TAG | JSON_HEX_AMP) ?>;
+  </script>
+  <script src="<?= esc(siteAsset('assets/js/express-pay.js')) ?>" defer></script>
   <script>
   (function () {
     'use strict';

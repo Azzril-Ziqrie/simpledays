@@ -9,7 +9,8 @@ return [
     'PAYPAL_CLIENT_ID'     => '',
     'PAYPAL_CLIENT_SECRET' => '',
 
-    // Kasera Pay (pay.kasera.id → Developer)
+    // Kasera Pay (pay.kasera.id → Developer). Set '1' untuk menyalakan QRIS / VA / e-wallet.
+    'KASERA_ENABLED'        => '',
     'KASERA_API_KEY'        => '',
     'KASERA_WEBHOOK_SECRET' => '',
 

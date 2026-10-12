@@ -15,6 +15,11 @@ if (!defined('KASERA_API_BASE_URL')) {
     define('KASERA_API_BASE_URL', 'https://pay.kasera.id/v1');
 }
 
+if (!defined('KASERA_ENABLED')) {
+    // Sakelar pembayaran Kasera (QRIS, Virtual Account, e-wallet). Mati kecuali KASERA_ENABLED=1.
+    define('KASERA_ENABLED', ddSecret('KASERA_ENABLED') === '1');
+}
+
 if (!defined('KASERA_API_KEY')) {
     // kp_live_... untuk transaksi sungguhan, kp_test_... untuk mode tes.
     define('KASERA_API_KEY', ddSecret('KASERA_API_KEY'));
