@@ -22,7 +22,7 @@ function makeOrderNumber(): string
 }
 
 /**
- * Hitung ulang ongkir (IDR) di sisi server ke RajaOngkir, supaya nilai
+ * Hitung ulang ongkir (IDR) di sisi server, supaya nilai
  * shipping_cost dari browser tidak dipercaya begitu saja.
  * Domestik: RajaOngkir. Internasional: tarif flat (INTL_FLAT_SHIPPING_USD).
  * Label layanan harus sama dengan yang ditampilkan di checkout (lihat calculateShipping() di JS).
@@ -540,8 +540,7 @@ if (!$payOrder && $_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['ajax_u
               ))['error'] !== null) {
         $error = $promoResult['error'];
     } else {
-        // Internasional: negara diambil dari daftar RajaOngkir (bukan dari input browser).
-        // country_code berisi id negara RajaOngkir; country_name nama negaranya.
+        // Internasional: negara diambil dari daftar statis (bukan dari input browser); country_code = kode ISO.
         if ($form['shipping_mode'] !== 'domestic' && ($intlCountry = intlFindCountry((string)($_POST['destination_id'] ?? '')))) {
             $form['country_code'] = $intlCountry['code'];
             $form['country_name'] = $intlCountry['name'];
@@ -1658,6 +1657,10 @@ siteBodyClose();
         o.value = code; o.textContent = label;
         courierPicker.appendChild(o);
       });
+      // Internasional hanya punya satu kurir: dipilih otomatis, tanpa field.
+      const isIntl = shippingModeEl.value !== 'domestic';
+      courierPicker.closest('.field').style.display = isIntl ? 'none' : '';
+      if (isIntl) courierPicker.value = Object.keys(map)[0];
     }
 
     function resetShipping() {
@@ -1781,7 +1784,7 @@ siteBodyClose();
                 ${etdText}
               </div>
             </div>
-            <div class="shipping-courier-badge">${courier.toUpperCase()}</div>`;
+            ${shippingModeEl.value === 'domestic' ? `<div class="shipping-courier-badge">${courier.toUpperCase()}</div>` : ''}`;
           wrapper.querySelector('input').addEventListener('change', () => {
             courierCodeInput.value     = courier;
             courierServiceInput.value  = service;
