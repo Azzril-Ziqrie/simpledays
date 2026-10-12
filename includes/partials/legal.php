@@ -11,17 +11,3 @@
     </div>
   </div>
 </div>
-
-<div id="faqPopup" class="modal" role="dialog" aria-modal="true" aria-label="FAQ">
-  <div class="modal-backdrop" data-close="faqPopup"></div>
-  <div class="modal-dialog">
-    <button class="modal-close" data-close="faqPopup" aria-label="Close">×</button>
-    <h2 class="modal-title">FAQ</h2>
-    <div class="info-content">
-      <section><h3>Do I need an account to order?</h3><p>No. An account lets you track orders and view your order history.</p></section>
-      <section><h3>How do I place an order?</h3><p>Pick a product, choose your option, add it to the cart and proceed to checkout.</p></section>
-      <section><h3>How can I check my order status?</h3><p>After payment is verified you will receive order and shipping updates by email.</p></section>
-      <section><h3>Do you accept returns or exchanges?</h3><p>All sales are final unless the received item is defective or incorrect.</p></section>
-    </div>
-  </div>
-</div>

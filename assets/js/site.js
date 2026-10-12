@@ -62,7 +62,7 @@
   document.querySelectorAll('[data-close]').forEach(function (el) {
     el.addEventListener('click', function () { close(el.dataset.close); });
   });
-  [['footerTermsLink', 'termsPopup'], ['footerFAQLink', 'faqPopup']].forEach(function (pair) {
+  [['footerTermsLink', 'termsPopup']].forEach(function (pair) {
     on(pair[0], 'click', function (e) { e.preventDefault(); open(pair[1]); });
   });
   document.querySelectorAll('.dropdown-toggle').forEach(function (toggle) {

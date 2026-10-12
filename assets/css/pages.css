@@ -1,0 +1,60 @@
+/* Halaman informasi: About, FAQ, Contact, Privacy. Dimuat setelah site.css, memakai token yang sama. */
+
+.info-wrap{max-width:760px;margin:0 auto;padding:clamp(28px,5vw,64px) var(--gutter) clamp(56px,8vw,112px)}
+.info-eyebrow{color:var(--mute);margin-bottom:12px}
+/* Tracking mengecil seiring ukuran huruf membesar; line-height rapat untuk judul besar. */
+.info-title{font-size:clamp(28px,5vw,44px);font-weight:500;letter-spacing:-.03em;line-height:1.08;margin-bottom:clamp(16px,2.4vw,24px)}
+.info-lede{font-size:clamp(14px,1.6vw,16px);line-height:1.7;letter-spacing:-.005em;color:var(--ink-2);max-width:560px}
+.info-sec{padding:24px 0;border-top:1px solid var(--line)}
+.info-sec h2{font-size:14px;font-weight:500;letter-spacing:-.01em;margin-bottom:10px}
+.info-sec p,.info-sec li{font-size:13px;line-height:1.8;color:var(--ink-2)}
+.info-sec p+p{margin-top:12px}
+.info-sec ul{padding-left:18px;margin-top:8px}
+.info-sec a{text-decoration:underline;text-underline-offset:3px}
+.info-sec strong{font-weight:500;color:var(--ink)}
+.info-updated{font-size:12px;color:var(--mute);padding-top:24px;border-top:1px solid var(--line)}
+
+/* About */
+.about-photo{margin:clamp(28px,5vw,56px) calc(var(--gutter) * -1);background:var(--tile)}
+.about-photo img{width:100%;height:auto;aspect-ratio:4/3;object-fit:cover}
+@media(min-width:760px){.about-photo{margin-left:0;margin-right:0}}
+.about-values{display:grid;gap:0;margin:8px 0 24px}
+.about-values .info-sec{display:grid;grid-template-columns:minmax(120px,1fr) 2fr;gap:8px 24px}
+.about-values .info-sec h2{margin:0}
+@media(max-width:600px){.about-values .info-sec{grid-template-columns:1fr}}
+.info-cta{display:inline-flex;align-items:center;min-height:48px;padding:0 24px;margin-top:24px;background:var(--ink);color:#fff;font-weight:500;
+  transition:transform .12s ease-out,opacity .2s}
+.info-cta:active{transform:scale(.97);opacity:.85}
+
+/* FAQ: <details> asli (bisa di-tap, keyboard, dan dibaca screen reader), konten masuk pelan. */
+.faq-group{margin-top:clamp(28px,4vw,48px)}
+.faq-group h2{font-size:12px;font-weight:500;color:var(--mute);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px}
+.faq-item{border-top:1px solid var(--line)}
+.faq-group .faq-item:last-child{border-bottom:1px solid var(--line)}
+.faq-item summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:56px;padding:14px 0;
+  font-size:14px;font-weight:500;letter-spacing:-.01em;-webkit-tap-highlight-color:transparent;transition:opacity .15s}
+.faq-item summary::-webkit-details-marker{display:none}
+.faq-item summary:active{opacity:.5}
+.faq-item summary::after{content:'';flex:0 0 10px;height:10px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;
+  transform:translateY(-3px) rotate(45deg);transition:transform .35s var(--ease)}
+.faq-item[open] summary::after{transform:translateY(2px) rotate(-135deg)}
+.faq-item .faq-a{padding:0 0 18px;font-size:13px;line-height:1.8;color:var(--ink-2);max-width:620px}
+.faq-item .faq-a a{text-decoration:underline;text-underline-offset:3px}
+.faq-item[open] .faq-a{animation:faqIn .35s var(--ease)}
+@keyframes faqIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+/* Contact: dua kartu besar yang mudah di-tap. */
+.contact-cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:clamp(28px,4vw,44px) 0 8px}
+@media(max-width:600px){.contact-cards{grid-template-columns:1fr}}
+.contact-card{display:flex;flex-direction:column;gap:6px;min-height:112px;padding:20px;border:1px solid var(--line);background:var(--bg);
+  transition:transform .12s ease-out,background-color .2s,border-color .2s;-webkit-tap-highlight-color:transparent}
+.contact-card:hover{background:var(--tile);border-color:var(--ink)}
+.contact-card:active{transform:scale(.98)}
+.contact-card small{color:var(--mute)}
+.contact-card strong{font-size:15px;font-weight:500;letter-spacing:-.01em;word-break:break-word}
+.contact-card span{color:var(--ink-2);line-height:1.6;margin-top:auto}
+
+@media(prefers-reduced-motion:reduce){
+  .faq-item[open] .faq-a{animation:none}
+  .faq-item summary::after,.contact-card,.info-cta{transition:none}
+}

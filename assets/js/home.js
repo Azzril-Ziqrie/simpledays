@@ -5,20 +5,41 @@
   var $ = function (id) { return document.getElementById(id); };
   function on(id, event, handler) { var el = $(id); if (el) el.addEventListener(event, handler); return el; }
 
-  /* ── hero: foto baru memudar masuk di atas foto lama ── */
+  /* ── hero: foto memudar bergantian; pindah hanya setelah foto sebelumnya tampil penuh ──
+     Urutan: memudar masuk → tampil penuh → tahan HOLD_MS → pastikan foto berikutnya sudah ter-decode → memudar lagi.
+     (setTimeout berantai, bukan setInterval, supaya jeda dihitung dari saat foto benar-benar tampil penuh.) */
   (function () {
     var slides = document.querySelectorAll('#heroSlider .hero-slide');
     if (slides.length < 2) return;
-    var current = 0, HOLD_MS = 7500, FADE_MS = 2300;
-    setInterval(function () {
-      var previous = slides[current];
-      previous.classList.remove('active');
-      previous.classList.add('leaving');          // tetap tampil di bawah selama foto baru memudar masuk
-      current = (current + 1) % slides.length;
-      slides[current].classList.remove('leaving');
-      slides[current].classList.add('active');
-      setTimeout(function () { previous.classList.remove('leaving'); }, FADE_MS);
-    }, HOLD_MS);
+    var FADE_MS = 1400, HOLD_MS = 5000, current = 0, timer = null;
+
+    /* Foto siap = sudah terunduh & ter-decode. Dibatasi waktu: kalau browser tak kunjung selesai, tetap lanjut
+       (daripada slider macet selamanya). */
+    function ready(slide) {
+      var img = slide.querySelector('img');
+      if (!img) return Promise.resolve();
+      var loaded = img.complete ? Promise.resolve() : new Promise(function (r) { img.onload = img.onerror = r; });
+      var decoded = loaded.then(function () { return img.decode ? img.decode().catch(function () {}) : null; });
+      var giveUp = new Promise(function (r) { setTimeout(r, 2500); });
+      return Promise.race([decoded, giveUp]);
+    }
+
+    function next() {
+      var previous = slides[current], nextIndex = (current + 1) % slides.length, incoming = slides[nextIndex];
+      ready(incoming).then(function () {
+        if (document.hidden) { schedule(HOLD_MS); return; }   // tab di belakang: jangan jalan, coba lagi nanti
+        previous.classList.remove('active');
+        previous.classList.add('leaving');
+        incoming.classList.add('active');
+        current = nextIndex;
+        setTimeout(function () { previous.classList.remove('leaving'); }, FADE_MS + 50);
+        schedule(FADE_MS + HOLD_MS);                          // jeda dimulai setelah foto baru tampil penuh
+      });
+    }
+
+    function schedule(ms) { clearTimeout(timer); timer = setTimeout(next, ms); }
+
+    ready(slides[0]).then(function () { schedule(HOLD_MS); });
   })();
 
   /* ── hero: foto membesar pelan & logo naik/pudar saat scroll ── */

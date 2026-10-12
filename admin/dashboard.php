@@ -373,6 +373,11 @@ function paymentBadgeClass(string $status): string
             <span class="tile__text"><div class="tile__title">Promo codes</div><div class="tile__desc">Checkout codes: percent off, fixed off, free shipping.</div></span>
             <svg class="tile__go ic"><use href="#i-go"/></svg>
           </a>
+          <a href="payments.php" class="tile">
+            <span class="tile__icon"><svg class="ic"><use href="#i-tag"/></svg></span>
+            <span class="tile__text"><div class="tile__title">Payments</div><div class="tile__desc">Enter an amount in any currency, convert to USD, pay with PayPal.</div></span>
+            <svg class="tile__go ic"><use href="#i-go"/></svg>
+          </a>
           <a href="admin_products.php" class="tile">
             <span class="tile__icon"><svg class="ic"><use href="#i-grid"/></svg></span>
             <span class="tile__text"><div class="tile__title">Product order</div><div class="tile__desc">Arrange products on the home and shop pages.</div></span>

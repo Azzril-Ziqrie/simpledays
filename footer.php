@@ -12,10 +12,14 @@
     </a>
   </div>
 
-  <div class="footer-links-row">
+  <nav class="footer-links-row" aria-label="Information">
+    <a href="about.php">About</a>
+    <a href="faq.php">FAQ</a>
+    <a href="shipping.php">Shipping &amp; Returns</a>
+    <a href="contact.php">Contact Us</a>
+    <a href="privacy.php">Privacy</a>
     <a href="#" id="footerTermsLink">Terms of Service</a>
-    <a href="#" id="footerFAQLink">FAQ</a>
-  </div>
+  </nav>
 
   <div class="footer"><span class="footer-copy">© <?= date('Y') ?> <?= esc(BRAND_NAME) ?>. All rights reserved. Development by Cantum Studio.</span></div>
 </footer>

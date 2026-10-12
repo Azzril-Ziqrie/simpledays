@@ -20,11 +20,12 @@ body.cg-lock{overflow:hidden}
 .hero-slider{position:relative;overflow:hidden;height:100vh;height:100svh;min-height:520px}
 /* Mobile: banner tidak full satu layar. */
 @media(max-width:700px){.hero-slider{height:58vh;height:58svh;min-height:360px}}
-.hero-slider::before{content:'';position:absolute;inset:0;z-index:3;pointer-events:none;background:linear-gradient(rgba(0,0,0,.34),transparent 150px),linear-gradient(transparent 50%,rgba(0,0,0,.4))}
-/* Pergantian foto: foto baru memudar masuk pelan di atas foto lama (tanpa "dip" gelap) sambil mengendap dari zoom 106% ke 100%. */
-.hero-slide{position:absolute;inset:0;z-index:1;opacity:0;visibility:hidden;transform:scale(1.06);transition:opacity 2.2s cubic-bezier(.4,0,.2,1),transform 8s cubic-bezier(.2,.6,.2,1),visibility 0s 2.2s}
-.hero-slide.active{z-index:2;opacity:1;visibility:visible;transform:scale(1);transition:opacity 2.2s cubic-bezier(.4,0,.2,1),transform 8s cubic-bezier(.2,.6,.2,1),visibility 0s}
-.hero-slide.leaving{z-index:1;opacity:1;visibility:visible;transform:scale(1);transition:none}
+.hero-slider::before{content:'';position:absolute;inset:0;z-index:3;pointer-events:none;background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.22) 90px,transparent 190px),linear-gradient(transparent 50%,rgba(0,0,0,.4))}
+/* Pergantian foto: foto baru memudar masuk di atas foto lama (foto lama tetap penuh di bawahnya, jadi tidak ada
+   "dip" ke gelap), lalu foto lama dilepas setelah foto baru tampil penuh. Hanya opacity (compositor). */
+.hero-slide{position:absolute;inset:0;z-index:1;opacity:0;visibility:hidden}
+.hero-slide.active{z-index:2;opacity:1;visibility:visible;transition:opacity 1.4s cubic-bezier(.4,0,.2,1)}
+.hero-slide.leaving{z-index:1;opacity:1;visibility:visible}
 .hero-media{position:absolute;inset:0;overflow:hidden;will-change:transform}
 .hero-slide img{display:block;width:100%;height:100%;object-fit:cover;object-position:center}
 /* Mobile: satu foto landscape bergeser pelan ke samping (bukan ganti foto). */
@@ -41,10 +42,11 @@ body.cg-lock{overflow:hidden}
 .hero-shop{position:absolute;right:var(--gutter);bottom:clamp(24px,4vw,48px);z-index:4;font-weight:500}
 
 /* ── intro ───────────────────────────────────────────── */
-.intro{padding:clamp(80px,13vw,190px) var(--gutter)}
-.intro-copy{margin-left:50%;max-width:330px;line-height:1.75}
-.intro-copy p+p{margin-top:1.1em}
-@media(max-width:700px){.intro-copy{margin-left:0}}
+/* Mengikuti referensi (goldwin11.png): teks besar, rata kiri selebar layar dengan gutter, ~57 karakter per baris di mobile, leading 1.3
+   (≈18px per baris di 390px), tracking sedikit negatif, jeda antar paragraf = satu baris kosong. */
+.intro{padding:clamp(72px,10vw,150px) var(--gutter) clamp(88px,12vw,180px)}
+.intro-copy{max-width:min(100%,34em);text-align:justify;text-align-last:left;hyphens:auto;-webkit-hyphens:auto;font-size:clamp(14px,.9vw + 10.5px,26px);line-height:1.3;letter-spacing:-.01em;font-weight:400;color:var(--ink);text-wrap:pretty}
+.intro-copy p+p{margin-top:1.3em}
 
 /* ── gallery (foto / GIF dari admin) ─────────────────── */
 .media{padding:clamp(48px,8vw,140px) 0 0}
@@ -84,6 +86,5 @@ body.cg-lock{overflow:hidden}
 
 /* ── reduced motion ──────────────────────────────────────── */
 @media (prefers-reduced-motion:reduce){
-  .hero-slide,.hero-slide.active{transform:none;transition:opacity .3s}
   .hero-slide img{animation:none}
 }

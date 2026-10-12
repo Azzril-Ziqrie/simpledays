@@ -145,7 +145,7 @@ siteBodyOpen([
 
         <img class="hero-mark" src="<?= esc(BRAND_LOGO) ?>" alt="<?= esc(BRAND_NAME) ?>">
         <?php if (!$isFiltered): ?>
-          <a href="shop.php" class="hero-shop link-u">Shop now</a>
+          <a href="shop.php" class="hero-shop link-u">SHOP NOW</a>
         <?php endif; ?>
       </div>
     </section>
@@ -153,8 +153,12 @@ siteBodyOpen([
     <?php if (!$isFiltered): ?>
     <section class="intro" aria-label="About">
       <div class="intro-copy">
-        <p><?= esc(BRAND_NAME) ?> is built around the days that don't need an occasion. Clean shapes, honest materials and quiet details — pieces made to be worn on repeat.</p>
-        <p>Easy to layer, easy to live in. Nothing more than it needs to be.</p>
+        <p>S/DAYS (Simple Days) - Inspired by Breakin’ - Tools for the Creative Mind</p>
+        <p>S/DAYS draws inspiration from breakin’, where originality and style stand alone; ideals stamped and expressed in the craft.</p>
+        <p>With breakin’ as the foundation of our approach, we embrace curiosity, play and fun in our creative process and product testing, making sure all our tools are “breakin’ tested”.</p>
+        <p>Balancing comfort, style and function, we design with the lifestyle of the active creative in mind to equip you for your adventures.</p>
+        <p>We’ll worry about the gears so you can focus on your craft.</p>
+        <p>Create. Just Because.</p>
       </div>
     </section>
     <?php endif; ?>
