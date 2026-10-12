@@ -810,7 +810,7 @@ details.opt[open]>summary{margin-bottom:10px}
 .file-input{width:100%;font-size:12px}
 #paypal-button-container,#apple-pay-button,#google-pay-button{max-width:440px}
 apple-pay-button{--apple-pay-button-width:100%;--apple-pay-button-height:44px;--apple-pay-button-border-radius:0;--apple-pay-button-padding:0;display:block}
-.pay-opt[hidden]{display:none}
+.pay-opt[hidden],#express-status:empty{display:none}
 .copy-status{font-size:11px;color:var(--ok);min-height:16px;margin-top:6px}
 .pay-note{font-size:12px;color:var(--ink-2);line-height:1.7}
 
