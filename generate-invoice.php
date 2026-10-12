@@ -6,6 +6,7 @@ use Dompdf\Options;
 
 require_once __DIR__ . '/includes/currency_helper.php';
 require_once __DIR__ . '/includes/promo.php';
+require_once __DIR__ . '/includes/brand.php';
 
 function moneyFormatInvoice(float $amount, string $currency): string
 {
@@ -76,6 +77,12 @@ function generateInvoicePDF(PDO $pdo, int $orderId): string
     $paymentStatus = ucwords(str_replace('_', ' ', (string) ($order['payment_status'] ?? '-')));
     $fulfillmentStatus = ucwords(str_replace('_', ' ', (string) ($order['fulfillment_status'] ?? '-')));
 
+    $logoFile = __DIR__ . '/' . BRAND_LOGO;
+    $logoTag = is_file($logoFile)
+        ? '<img src="data:image/png;base64,' . base64_encode((string) file_get_contents($logoFile)) . '" alt="' . htmlspecialchars(BRAND_NAME) . '" style="height:34px;width:auto;">'
+        : '<span class="brand-mark">' . htmlspecialchars(BRAND_NAME) . '</span>';
+    $brandName = htmlspecialchars(BRAND_NAME);
+
     $html = '
     <!doctype html>
     <html>
@@ -87,7 +94,7 @@ function generateInvoicePDF(PDO $pdo, int $orderId): string
         }
 
         body {
-          font-family: DejaVu Sans, sans-serif;
+          font-family: DejaVu Sans, Helvetica, sans-serif;
           font-size: 11px;
           color: #111;
           margin: 0;
@@ -100,7 +107,7 @@ function generateInvoicePDF(PDO $pdo, int $orderId): string
         }
 
         .topbar {
-          border: 1px solid #bdbdbd;
+          border: 1px solid #e5e5e5;
           padding: 18px 20px;
           margin-bottom: 18px;
         }
@@ -119,9 +126,7 @@ function generateInvoicePDF(PDO $pdo, int $orderId): string
         .brand-mark {
           font-size: 18px;
           font-weight: bold;
-          text-transform: uppercase;
-          letter-spacing: 1.4px;
-          color: #111;
+                              color: #111;
         }
 
         .brand-right {
@@ -130,18 +135,14 @@ function generateInvoicePDF(PDO $pdo, int $orderId): string
 
         .eyebrow {
           font-size: 10px;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          color: #666;
+                              color: #666;
           margin-bottom: 6px;
         }
 
         .invoice-title {
-          font-size: 24px;
+          font-size: 22px;
           font-weight: bold;
-          letter-spacing: .8px;
-          text-transform: uppercase;
-          margin: 0 0 6px;
+                              margin: 0 0 6px;
         }
 
         .invoice-subtitle {
@@ -151,18 +152,16 @@ function generateInvoicePDF(PDO $pdo, int $orderId): string
         }
 
         .section {
-          border: 1px solid #bdbdbd;
+          border: 1px solid #e5e5e5;
           margin-bottom: 18px;
         }
 
         .section-head {
           padding: 10px 14px;
-          border-bottom: 1px solid #bdbdbd;
+          border-bottom: 1px solid #e5e5e5;
           font-size: 10px;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          color: #444;
-          background: #f7f7f7;
+                              color: #444;
+          background: #fafafa;
           font-weight: bold;
         }
 
@@ -176,7 +175,7 @@ function generateInvoicePDF(PDO $pdo, int $orderId): string
         }
 
         .info-table td {
-          border: 1px solid #dcdcdc;
+          border: 1px solid #ececec;
           padding: 10px 12px;
           vertical-align: top;
         }
@@ -184,9 +183,7 @@ function generateInvoicePDF(PDO $pdo, int $orderId): string
         .info-label {
           display: block;
           font-size: 9px;
-          text-transform: uppercase;
-          letter-spacing: .8px;
-          color: #666;
+                              color: #666;
           margin-bottom: 4px;
         }
 
@@ -198,18 +195,16 @@ function generateInvoicePDF(PDO $pdo, int $orderId): string
 
         .items-table th,
         .items-table td {
-          border: 1px solid #dcdcdc;
+          border: 1px solid #ececec;
           padding: 10px 12px;
           vertical-align: top;
         }
 
         .items-table th {
-          background: #f3f3f3;
+          background: #f5f5f5;
           text-align: left;
           font-size: 10px;
-          text-transform: uppercase;
-          letter-spacing: .8px;
-        }
+                            }
 
         .items-table td {
           font-size: 11px;
@@ -235,7 +230,7 @@ function generateInvoicePDF(PDO $pdo, int $orderId): string
         }
 
         .totals-table td {
-          border: 1px solid #dcdcdc;
+          border: 1px solid #ececec;
           padding: 10px 12px;
           font-size: 11px;
         }
@@ -247,12 +242,12 @@ function generateInvoicePDF(PDO $pdo, int $orderId): string
         .totals-table tr.grand td {
           font-weight: bold;
           font-size: 12px;
-          background: #f3f3f3;
+          background: #f5f5f5;
         }
 
         .footer-note {
           margin-top: 20px;
-          border: 1px solid #bdbdbd;
+          border: 1px solid #e5e5e5;
           padding: 12px 14px;
           font-size: 10px;
           color: #444;
@@ -266,12 +261,11 @@ function generateInvoicePDF(PDO $pdo, int $orderId): string
           <table class="brand-table">
             <tr>
               <td>
-                <div class="brand-mark">Albrycia</div>
+                ' . $logoTag . '
               </td>
               <td class="brand-right">
-                <div class="eyebrow">Albrycia Official Invoice</div>
-                <div class="invoice-title">Invoice</div>
-                <p class="invoice-subtitle">Thank you for shopping with Albrycia.</p>
+                                <div class="invoice-title">Invoice</div>
+                <p class="invoice-subtitle">Thank you for shopping with ' . $brandName . '.</p>
               </td>
             </tr>
           </table>
@@ -382,7 +376,7 @@ function generateInvoicePDF(PDO $pdo, int $orderId): string
         </div>
 
         <div class="footer-note">
-          This invoice was generated automatically by Albrycia. Please keep this document for your payment and order reference.
+          This invoice was generated automatically by ' . $brandName . '. Please keep this document for your payment and order reference.
         </div>
       </div>
     </body>

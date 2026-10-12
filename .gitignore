@@ -6,3 +6,6 @@ error_log
 *.log
 .user.ini
 php.ini
+
+# Folder drop aset mentah dari client (1+ GB) — jangan di-commit
+new assets/

@@ -39,10 +39,8 @@
   }
 
   .loader-logo {
-    width: 76px;
-    height: 76px;
-    border-radius: 50%;
-    object-fit: cover;
+    width: 150px;
+    height: auto;
     animation: ldBreath 2.6s ease-in-out .7s infinite;
     will-change: transform, opacity;
   }
@@ -84,7 +82,7 @@
 
 <div id="global-loader" class="is-initial" role="status" aria-live="polite" aria-label="Loading">
   <div class="loader-stack">
-    <img src="assets/images/1212.png" alt="" class="loader-logo">
+    <img src="assets/images/simple-days-logo.png" alt="" class="loader-logo">
     <div class="loader-track" aria-hidden="true"><div class="loader-bar" id="loaderBar"></div></div>
   </div>
 </div>

@@ -223,9 +223,47 @@ CREATE TABLE `hero_slides` (
 -- Dumping data for table `hero_slides`
 --
 
-INSERT INTO `hero_slides` (`id`, `title`, `subtitle`, `button_text`, `button_link`, `image`, `image_mobile`, `sort_order`, `is_active`, `created_at`, `updated_at`) VALUES
-(17, NULL, NULL, NULL, NULL, 'assets/images/hero/hero_6aa26609774894.19123749.png', 'assets/images/hero/hero_6aa0e5c9db4b79.19021543.jpg', 0, 1, '2026-09-09 04:51:21', '2026-09-10 08:10:49'),
-(18, NULL, NULL, NULL, NULL, 'assets/images/hero/hero_6aa0e5fbc97695.39793199.png', 'assets/images/hero/hero_6aa0e5fbca8ef8.94646816.jpg', 0, 1, '2026-09-09 04:52:11', '2026-09-09 04:52:11');
+INSERT INTO `hero_slides` (`id`, `title`, `subtitle`, `button_text`, `button_link`, `image`, `image_mobile`, `sort_order`, `is_active`) VALUES
+(19, NULL, NULL, NULL, NULL, 'assets/images/hero/sd-hero-1.webp', NULL, 0, 1),
+(20, NULL, NULL, NULL, NULL, 'assets/images/hero/sd-hero-2.webp', NULL, 1, 1),
+(21, NULL, NULL, NULL, NULL, 'assets/images/hero/sd-hero-3.webp', NULL, 2, 1),
+(22, NULL, NULL, NULL, NULL, 'assets/images/hero/sd-hero-4.webp', NULL, 3, 1);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `home_media`
+--
+
+CREATE TABLE `home_media` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `media` varchar(500) NOT NULL,
+  `placement` varchar(10) NOT NULL DEFAULT 'top',
+  `title` varchar(150) DEFAULT NULL,
+  `subtitle` varchar(255) DEFAULT NULL,
+  `link` varchar(500) DEFAULT NULL,
+  `width` smallint(5) UNSIGNED DEFAULT NULL,
+  `height` smallint(5) UNSIGNED DEFAULT NULL,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `home_media`
+--
+
+INSERT INTO `home_media` (`id`, `media`, `placement`, `title`, `subtitle`, `link`, `width`, `height`, `sort_order`, `is_active`) VALUES
+(1, 'assets/images/home/sd-01.webp', 'top', NULL, NULL, NULL, 900, 1599, 0, 1),
+(2, 'assets/images/home/sd-clip-1.gif', 'top', NULL, NULL, NULL, 440, 248, 1, 1),
+(3, 'assets/images/home/sd-03.webp', 'top', NULL, NULL, NULL, 900, 1599, 2, 1),
+(4, 'assets/images/home/sd-clip-2.gif', 'top', NULL, NULL, NULL, 440, 248, 3, 1),
+(5, 'assets/images/home/sd-05.webp', 'top', NULL, NULL, NULL, 900, 1597, 4, 1),
+(6, 'assets/images/home/sd-09.webp', 'bottom', NULL, NULL, NULL, 900, 1597, 0, 1),
+(7, 'assets/images/home/sd-clip-3.gif', 'bottom', NULL, NULL, NULL, 440, 248, 1, 1),
+(8, 'assets/images/home/sd-10.webp', 'bottom', NULL, NULL, NULL, 900, 1597, 2, 1),
+(9, 'assets/images/home/sd-06.webp', 'bottom', NULL, NULL, NULL, 900, 1597, 3, 1);
 
 -- --------------------------------------------------------
 
@@ -781,6 +819,13 @@ ALTER TABLE `hero_slides`
   ADD PRIMARY KEY (`id`);
 
 --
+-- Indexes for table `home_media`
+--
+ALTER TABLE `home_media`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_placement_sort` (`placement`,`is_active`,`sort_order`);
+
+--
 -- Indexes for table `kasera_webhook_events`
 --
 ALTER TABLE `kasera_webhook_events`
@@ -918,7 +963,13 @@ ALTER TABLE `collection_images`
 -- AUTO_INCREMENT for table `hero_slides`
 --
 ALTER TABLE `hero_slides`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
+
+--
+-- AUTO_INCREMENT for table `home_media`
+--
+ALTER TABLE `home_media`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `lookbook_photos`

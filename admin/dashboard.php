@@ -384,7 +384,12 @@ function paymentBadgeClass(string $status): string
           <h2>Storefront content</h2>
           <a href="dashboard-hero.php" class="tile">
             <span class="tile__icon"><svg class="ic"><use href="#i-image"/></svg></span>
-            <span class="tile__text"><div class="tile__title">Hero slides</div><div class="tile__desc">Homepage carousel photos and buttons.</div></span>
+            <span class="tile__text"><div class="tile__title">Hero banner</div><div class="tile__desc">Landscape photos at the top of the homepage.</div></span>
+            <svg class="tile__go ic"><use href="#i-go"/></svg>
+          </a>
+          <a href="dashboard-home-media.php" class="tile">
+            <span class="tile__icon"><svg class="ic"><use href="#i-grid"/></svg></span>
+            <span class="tile__text"><div class="tile__title">Homepage media</div><div class="tile__desc">Photos and GIFs between the products while scrolling.</div></span>
             <svg class="tile__go ic"><use href="#i-go"/></svg>
           </a>
           <a href="lookbook.php" class="tile">

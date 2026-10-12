@@ -1,0 +1,89 @@
+/* Halaman depan: hero, intro, galeri foto/GIF, pop-up mata uang. Dimuat setelah site.css. */
+
+/* ── pop-up mata uang ────────────────────────────────────── */
+#currencyGate{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.25);-webkit-backdrop-filter:blur(12px) saturate(120%);backdrop-filter:blur(12px) saturate(120%)}
+html.cg-skip #currencyGate{display:none}
+body.cg-lock{overflow:hidden}
+#currencyGate .cg-dialog{outline:none;width:100%;max-width:380px;background:#fff;padding:40px 32px 32px;text-align:center}
+#currencyGate .cg-flag{display:inline-block;width:40px;height:30px;margin-bottom:12px;border:1px solid var(--line);object-fit:cover}
+#currencyGate .cg-list{display:grid;gap:8px}
+#currencyGate a.cg-opt{position:relative;padding:14px 12px;border:1px solid var(--ink);display:flex;flex-direction:column;gap:2px;transition:background .15s,color .15s}
+#currencyGate a.cg-opt:hover,#currencyGate a.cg-opt:focus-visible,#currencyGate a.cg-opt.cg-rec{background:var(--ink);color:#fff;outline:none}
+#currencyGate .cg-code{font-size:12px;font-weight:600}
+#currencyGate .cg-name{font-size:10px;opacity:.7}
+#currencyGate .cg-badge{position:absolute;top:6px;right:8px;font-size:9px;font-weight:600;letter-spacing:.08em}
+#currencyGate select{margin-top:12px;width:100%;padding:10px;border:1px solid #ccc;background:#fff;font-size:12px}
+#currencyGate .cg-note{margin-top:16px;font-size:10px;color:var(--mute)}
+
+/* ── hero ────────────────────────────────────────────── */
+.hero{position:relative;background:#111;color:#fff}
+.hero-slider{position:relative;overflow:hidden;height:100vh;height:100svh;min-height:520px}
+/* Mobile: banner tidak full satu layar. */
+@media(max-width:700px){.hero-slider{height:58vh;height:58svh;min-height:360px}}
+.hero-slider::before{content:'';position:absolute;inset:0;z-index:3;pointer-events:none;background:linear-gradient(rgba(0,0,0,.34),transparent 150px),linear-gradient(transparent 50%,rgba(0,0,0,.4))}
+/* Pergantian foto: foto baru memudar masuk pelan di atas foto lama (tanpa "dip" gelap) sambil mengendap dari zoom 106% ke 100%. */
+.hero-slide{position:absolute;inset:0;z-index:1;opacity:0;visibility:hidden;transform:scale(1.06);transition:opacity 2.2s cubic-bezier(.4,0,.2,1),transform 8s cubic-bezier(.2,.6,.2,1),visibility 0s 2.2s}
+.hero-slide.active{z-index:2;opacity:1;visibility:visible;transform:scale(1);transition:opacity 2.2s cubic-bezier(.4,0,.2,1),transform 8s cubic-bezier(.2,.6,.2,1),visibility 0s}
+.hero-slide.leaving{z-index:1;opacity:1;visibility:visible;transform:scale(1);transition:none}
+.hero-media{position:absolute;inset:0;overflow:hidden;will-change:transform}
+.hero-slide img{display:block;width:100%;height:100%;object-fit:cover;object-position:center}
+/* Mobile: satu foto landscape bergeser pelan ke samping (bukan ganti foto). */
+@media(max-width:700px){
+  .hero-slide img{width:auto;min-width:100%;max-width:none;animation:heroPan 30s ease-in-out infinite alternate}
+}
+/* Bergeser hanya di bagian tengah foto (18%–82%): tepi foto jarang berisi subjek. */
+@keyframes heroPan{0%,8%{transform:translateX(calc((100vw - 100%) * .18))}92%,100%{transform:translateX(calc((100vw - 100%) * .82))}}
+.hero-mark{position:absolute;left:var(--gutter);bottom:clamp(24px,4vw,48px);z-index:4;width:clamp(180px,30vw,440px);filter:invert(1)}
+.hero-copy{position:absolute;right:var(--gutter);bottom:clamp(52px,6vw,76px);z-index:4;text-align:right;max-width:min(320px,60vw)}
+.hero-sub{opacity:.75;margin-bottom:2px}
+.hero-title{font-size:11px;font-weight:500;letter-spacing:.01em}
+.hero-cta{display:inline-block;margin-top:8px}
+.hero-shop{position:absolute;right:var(--gutter);bottom:clamp(24px,4vw,48px);z-index:4;font-weight:500}
+
+/* ── intro ───────────────────────────────────────────── */
+.intro{padding:clamp(80px,13vw,190px) var(--gutter)}
+.intro-copy{margin-left:50%;max-width:330px;line-height:1.75}
+.intro-copy p+p{margin-top:1.1em}
+@media(max-width:700px){.intro-copy{margin-left:0}}
+
+/* ── gallery (foto / GIF dari admin) ─────────────────── */
+.media{padding:clamp(48px,8vw,140px) 0 0}
+.media--bottom{padding:0 0 clamp(48px,8vw,120px)}
+.media-item{margin:0}
+.media-link{display:block}
+.media-item img{display:block;width:100%;height:auto;background:var(--tile)}
+.media-strip{display:flex;gap:12px;overflow-x:auto;padding:0 var(--gutter);scroll-snap-type:x proximity;scroll-padding-inline:var(--gutter);scrollbar-width:none;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+.media-strip::-webkit-scrollbar{display:none}
+.media-strip > *{flex:0 0 auto;scroll-snap-align:start}
+.media-strip .media-item img{width:auto;max-width:none;height:clamp(300px,62vh,700px)}
+.media-item figcaption{display:flex;flex-direction:column;padding:8px var(--gutter) 0}
+
+.media-strip .media-item figcaption{padding-left:0;padding-right:0}
+.media-title{font-weight:500;text-decoration:underline;text-underline-offset:2px;text-decoration-thickness:1px}
+.media-sub{color:var(--mute)}
+/* Teks brand di atas video pertama */
+.media-item.has-overlay{position:relative;background:#111}
+.media-item.has-overlay::after{content:'';position:absolute;inset:auto 0 0 0;height:55%;background:linear-gradient(transparent,rgba(0,0,0,.62));pointer-events:none}
+.has-overlay figcaption{position:absolute;z-index:1;left:clamp(16px,2vw,28px);bottom:clamp(16px,2vw,28px);max-width:min(460px,calc(100% - 32px));padding:0;color:#fff;gap:6px}
+.has-overlay .media-title{font-size:clamp(14px,1.25vw,17px);font-weight:500;letter-spacing:-.01em;line-height:1.3;text-decoration:none}
+.has-overlay .media-text,.has-overlay .media-more{font-size:11px;line-height:1.55;color:rgba(255,255,255,.85)}
+.has-overlay .media-more a{color:#fff}
+/* Mobile: baris geser dengan "intip" item berikutnya. Foto = kartu portrait; video lebih lebar & gelap supaya jadi sorotan. */
+@media(max-width:700px){
+  .media{padding:clamp(40px,12vw,64px) 0 0}
+  .media--bottom{padding:0 0 clamp(40px,12vw,64px)}
+  .media-strip{gap:10px;scroll-snap-type:x proximity}
+  .media-item{width:68vw;background:var(--tile)}
+  .media-strip .media-item img{width:100%;height:auto;aspect-ratio:4/5;object-fit:cover}
+  .media-item.is-video{display:flex;flex-direction:column;justify-content:center;width:88vw;background:#111;color:#fff}
+  .media-strip .media-item.is-video img{aspect-ratio:16/9}
+  .media-item.has-overlay::after{display:none}
+  .media-item.has-overlay figcaption{position:static;max-width:none;padding:16px 16px 18px;gap:6px}
+  .has-overlay .media-title{font-size:15px}
+}
+
+/* ── reduced motion ──────────────────────────────────────── */
+@media (prefers-reduced-motion:reduce){
+  .hero-slide,.hero-slide.active{transform:none;transition:opacity .3s}
+  .hero-slide img{animation:none}
+}

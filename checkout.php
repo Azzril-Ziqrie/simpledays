@@ -9,19 +9,16 @@ require_once __DIR__ . '/config/kasera_client.php';
 require_once __DIR__ . '/config/intl_shipping.php';
 require_once __DIR__ . '/includes/order_payment.php';
 require_once __DIR__ . '/includes/email_helpers.php';
+require_once __DIR__ . '/includes/layout.php';
 $composerAutoload = __DIR__ . '/vendor/autoload.php';
 if (is_file($composerAutoload)) require_once $composerAutoload;
 
 promoEnsureSchema($pdo);
 
-/* ── brand constants ─────────────────────────────────── */
-$brandName = 'deepdimes';
-$brandLogo = 'assets/images/1212.png';
-
 /* ── helpers ─────────────────────────────────────────── */
 function makeOrderNumber(): string
 {
-    return 'DEEPDIMES-' . date('Ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
+    return 'SIMPLEDAYS-' . date('Ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
 }
 
 /**
@@ -648,14 +645,14 @@ if ($payOrder) {
         && !isset($_GET['change']);
 }
 
-/** Input dengan label mengambang (gaya checkout). $o: type, autocomplete, required. */
+/** Field form dengan label di atas input (komponen .field). $o: type, autocomplete, required. */
 function ckField(string $id, string $label, string $value, array $o = []): string
 {
-    return '<div class="field"><input type="' . htmlspecialchars($o['type'] ?? 'text') . '" id="' . $id . '" name="' . $id . '"'
-        . ' value="' . htmlspecialchars($value) . '" placeholder=" "'
+    return '<div class="field"><label for="' . $id . '">' . htmlspecialchars($label) . '</label>'
+        . '<input type="' . htmlspecialchars($o['type'] ?? 'text') . '" id="' . $id . '" name="' . $id . '"'
+        . ' value="' . htmlspecialchars($value) . '"'
         . (!empty($o['autocomplete']) ? ' autocomplete="' . htmlspecialchars($o['autocomplete']) . '"' : '')
-        . (!empty($o['required']) ? ' required' : '') . '>'
-        . '<label for="' . $id . '">' . htmlspecialchars($label) . '</label></div>';
+        . (!empty($o['required']) ? ' required' : '') . '></div>';
 }
 
 function bankLogoHtml(string $code, string $label): string
@@ -682,262 +679,219 @@ if (!empty($cartItems)) {
         $backToProductUrl = 'product.php?slug=' . urlencode($firstSlug);
     }
 }
+siteHeadOpen([
+    'title'       => $payOrder ? 'Payment' : $pageTitle,
+    'description' => 'Secure checkout — ' . BRAND_NAME . '.',
+    'noindex'     => true,
+]);
 ?>
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><?= htmlspecialchars($payOrder ? 'Payment' : $pageTitle) ?> — <?= htmlspecialchars($brandName) ?></title>
-  <style>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap');
-:root{--ink:#1a1a1a;--muted:#707070;--line:#d9d9d9;--soft:#f5f5f5;--panel:#fafafa;--radius:10px}
-*{margin:0;padding:0;box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{background:#fff;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;animation:pageFadeIn .3s ease forwards;-webkit-font-smoothing:antialiased}
-a{color:inherit}
-img{display:block;max-width:100%}
-button,input,select,textarea{font:inherit;color:inherit}
-button{cursor:pointer}
+<style>
+:root{--muted:var(--mute)}
 
-/* ── layout ─────────────────────────────────────────── */
-.checkout-wrapper{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);min-height:100vh}
-.left-col{display:flex;justify-content:flex-end;padding:32px 48px 56px}
-.left-inner{width:100%;max-width:560px}
-.right-col{background:var(--panel);border-left:1px solid #e1e1e1;padding:40px 48px}
-.right-inner{width:100%;max-width:460px;position:sticky;top:32px}
-.co-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
-.brand-mark img{height:52px;width:auto;border-radius:50%}
-.back-link{font-size:13px;color:var(--muted);text-decoration:none}
-.back-link:hover{color:var(--ink);text-decoration:underline}
+/* ── kerangka: form kiri, ringkasan kanan ───────────── */
+.co-top{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:clamp(20px,3vw,36px)}
+.co-top .page-title{margin:0}
+.co-back{color:var(--ink-2);text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px;white-space:nowrap}
+.co-back:hover{color:var(--ink)}
+.co-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,380px);gap:clamp(40px,6vw,88px);align-items:start}
+.co-form{counter-reset:step;min-width:0}
+.co-summary{position:sticky;top:calc(var(--nav-h) + 24px);background:var(--tile);padding:24px}
 
-/* ── sections ───────────────────────────────────────── */
-.sec{margin-bottom:30px}
-.sec h2{font-size:21px;font-weight:500;margin-bottom:14px}
-.sec h3{font-size:17px;font-weight:500;margin-bottom:12px}
-.sec-sub{color:var(--muted);font-size:14px;margin:-8px 0 14px}
+/* ── langkah / section ──────────────────────────────── */
+.sec{margin-bottom:36px}
+.step-title,.sec-title{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500;letter-spacing:-.01em;margin-bottom:16px}
+.step-title::before{counter-increment:step;content:counter(step);display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border:1px solid var(--ink);font-size:10px;line-height:1;font-weight:600}
+.sec-sub{color:var(--ink-2);margin:-8px 0 16px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.stack{display:flex;flex-direction:column;gap:12px}
+.stack{display:flex;flex-direction:column;gap:14px}
+.field-hint{font-size:11px;color:var(--ink-2);line-height:1.6}
+.field .field-hint{margin-top:2px}
 
-/* ── floating-label fields ──────────────────────────── */
-.field{position:relative}
-.field input,.field select,.field textarea{width:100%;height:54px;border:1px solid var(--line);border-radius:var(--radius);background:#fff;padding:21px 14px 6px;font-size:15px;outline:none;-webkit-appearance:none;appearance:none;transition:box-shadow .12s,border-color .12s}
-.field textarea{height:auto;min-height:92px;padding-top:24px;resize:vertical}
-.field select{padding-right:38px;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23707070' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 16px center;cursor:pointer}
-.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
-.field label{position:absolute;left:15px;top:17px;font-size:15px;color:var(--muted);pointer-events:none;transition:top .12s,font-size .12s}
-.field input:focus + label,.field input:not(:placeholder-shown) + label,.field textarea:focus + label,.field textarea:not(:placeholder-shown) + label,.field select + label{top:8px;font-size:11.5px}
-.field-hint{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
+/* ── field opsional (dropdown) ──────────────────────── */
+details.opt>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:8px;min-height:32px;font-weight:500;text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px}
+details.opt>summary::-webkit-details-marker{display:none}
+details.opt>summary::before{content:'+';text-decoration:none;display:inline-block;width:10px;font-size:14px;line-height:1}
+details.opt[open]>summary::before{content:'−'}
+details.opt[open]>summary{margin-bottom:10px}
 
-/* ── optional fields (dropdown) ─────────────────────── */
-details.opt{margin:0}
-details.opt > summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:14px;color:#2a5db0;padding:4px 0}
-details.opt > summary::-webkit-details-marker{display:none}
-details.opt > summary::before{content:'+';font-size:16px;line-height:1}
-details.opt[open] > summary::before{content:'−'}
-details.opt[open] > summary{margin-bottom:10px}
-details.opt > summary:hover{text-decoration:underline}
-
-/* ── shipping ───────────────────────────────────────── */
-.shipping-options-box{background:var(--soft);border-radius:var(--radius);padding:20px 16px;text-align:center;color:var(--muted);font-size:14px}
-.shipping-options-box:has(.shipping-option){padding:0;background:#fff;text-align:left;border:1px solid var(--line);overflow:hidden}
-.shipping-option{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px;cursor:pointer;border-top:1px solid var(--line);margin:0}
+/* ── pengiriman ─────────────────────────────────────── */
+.shipping-options-box{background:var(--tile);padding:18px 16px;text-align:center;color:var(--ink-2)}
+.shipping-options-box:has(.shipping-option){padding:0;background:#fff;text-align:left;border:1px solid var(--line)}
+.shipping-option{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;min-height:56px;cursor:pointer;border-top:1px solid var(--line);margin:0}
 .shipping-option:first-child{border-top:none}
-.shipping-option:has(input:checked){background:var(--soft);box-shadow:inset 0 0 0 2px var(--ink)}
-.shipping-option input[type=radio]{width:18px;height:18px;accent-color:var(--ink);flex-shrink:0}
+.shipping-option:has(input:checked){background:var(--tile);box-shadow:inset 0 0 0 1px var(--ink)}
+.shipping-option input[type=radio]{width:16px;height:16px;accent-color:var(--ink);flex-shrink:0}
 .shipping-option-left{display:flex;align-items:center;gap:12px}
-.shipping-service-name{font-size:14px}
-.shipping-service-price{font-size:14px;font-weight:600}
-.shipping-service-etd{font-size:12px;color:var(--muted);margin-top:2px}
-.shipping-courier-badge{font-size:11px;padding:2px 8px;border:1px solid var(--line);border-radius:6px;color:var(--muted)}
+.shipping-service-name{font-weight:500;font-size:12px}
+.shipping-service-price{font-weight:500;font-size:12px;font-variant-numeric:tabular-nums}
+.shipping-service-etd{color:var(--ink-2);margin-top:2px}
+.shipping-courier-badge{padding:2px 8px;border:1px solid var(--line);color:var(--ink-2);font-size:10px}
 
-/* ── buttons ────────────────────────────────────────── */
-.btn-primary{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:56px;padding:0 24px;background:var(--ink);color:#fff;border:none;border-radius:var(--radius);font-size:15px;font-weight:600;transition:background .15s;text-decoration:none}
-.btn-primary:hover{background:#000}
-.btn-primary:disabled{background:#cfcfcf;cursor:not-allowed}
-.btn-secondary{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:0 18px;background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:var(--radius);font-size:14px;transition:border-color .15s;text-decoration:none}
-.btn-secondary:hover{border-color:var(--ink)}
-.promo-row{display:flex;gap:10px;align-items:flex-start;margin-top:8px}
-.promo-row .field{flex:1;margin:0}
-.promo-row .btn-secondary{min-height:48px}
-#promoStatus{min-height:1.2em;margin-top:6px}
-#promoStatus.ok{color:#1d6b3a}
-#promoStatus.err{color:#b3261e}
+/* ── promo, aksi, catatan ───────────────────────────── */
+.promo-row{display:flex;gap:10px;align-items:flex-end}
+.promo-row .field{flex:1;min-width:0}
+.promo-row .btn{padding:0 20px}
+#promoStatus{min-height:1.4em;margin-top:6px}
+#promoStatus.ok{color:var(--ok)}
+#promoStatus.err{color:var(--err)}
+#promo_code{text-transform:uppercase}
 .form-actions{margin-top:8px}
-.secure-note{font-size:12px;color:var(--muted);margin-top:12px}
-.back-row{margin-top:14px}
+.secure-note{color:var(--ink-2);margin-top:12px}
+.back-row{margin-top:16px}
+.co-form .alert{margin-bottom:20px}
+.co-form .btn:disabled{background:#cfcfcf;border-color:#cfcfcf;color:#fff}
 
-/* ── notices ────────────────────────────────────────── */
-.notice{padding:12px 14px;font-size:14px;border-radius:var(--radius);margin-bottom:18px}
-.notice.error{color:#b3261e;background:#fdecea;border:1px solid #f5c6c2}
-.notice.success{color:#1e6b34;background:#eaf6ee;border:1px solid #bfe2c9}
-
-/* ── order summary (right) ──────────────────────────── */
-.cart-item-row{display:grid;grid-template-columns:64px 1fr auto;gap:14px;align-items:center;margin-bottom:16px}
-.cart-thumb-wrap{position:relative;width:64px;height:64px}
-.cart-thumb{width:64px;height:64px;object-fit:contain;border-radius:12px;border:1px solid #e6e6e6;background:#fff;padding:3px}
-.cart-qty-badge{position:absolute;top:-8px;right:-8px;min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:var(--ink);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center}
-.cart-item-name{font-size:14px;font-weight:500;line-height:1.3}
-.cart-item-meta{font-size:12.5px;color:var(--muted);margin-top:2px}
-.cart-item-price{font-size:14px;text-align:right}
-.checkout-qty-ctrl{display:inline-flex;align-items:center;gap:2px;margin-top:6px;border:1px solid var(--line);border-radius:8px;background:#fff}
-.checkout-qty-ctrl button{width:26px;height:26px;border:none;background:transparent;font-size:15px;color:var(--ink)}
-.checkout-qty-ctrl button:hover:not(:disabled){background:var(--soft)}
+/* ── ringkasan pesanan ──────────────────────────────── */
+.co-item{display:grid;grid-template-columns:64px 1fr auto;gap:14px;align-items:start;margin-bottom:18px}
+.co-thumb-wrap{position:relative;width:64px;height:80px}
+.co-thumb{width:64px;height:80px;object-fit:cover;background:#fff}
+.co-qty-badge{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--ink);color:#fff;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.co-item-name{font-weight:500;line-height:1.35}
+.co-item-meta{color:var(--ink-2);margin-top:2px}
+.co-item-price{text-align:right;font-variant-numeric:tabular-nums}
+.checkout-qty-ctrl{display:inline-flex;align-items:center;margin-top:8px;border:1px solid var(--line);background:#fff}
+.checkout-qty-ctrl button{width:32px;height:32px;font-size:15px}
+.checkout-qty-ctrl button:hover:not(:disabled){background:var(--tile)}
 .checkout-qty-ctrl button:disabled{opacity:.4;cursor:not-allowed}
-.checkout-qty-ctrl span{min-width:20px;text-align:center;font-size:13px}
-.cart-item-remove-checkout{background:none;border:none;color:var(--muted);font-size:12px;text-decoration:underline;margin-left:8px;padding:4px 0}
-.cart-item-remove-checkout:hover{color:#b3261e}
-/* ringkasan: bar toggle (hanya mobile) + body yang membuka/menutup halus */
+.checkout-qty-ctrl span{min-width:26px;text-align:center;font-size:12px;font-variant-numeric:tabular-nums}
+.cart-item-remove-checkout{color:var(--ink-2);text-decoration:underline;text-underline-offset:3px;margin-left:10px;min-height:32px;padding:0 4px}
+.cart-item-remove-checkout:hover{color:var(--err)}
+/* bar toggle hanya tampil di mobile */
 .summary-toggle{display:none}
 .summary-body{display:grid;grid-template-rows:1fr}
 .summary-inner{min-height:0;overflow:visible}
-.totals-block{margin-top:22px;padding-top:6px}
-.total-row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;font-size:14px}
-.total-row span:last-child{text-align:right}
-.total-row.muted span:last-child{color:var(--muted)}
-.total-row.grand{padding-top:14px;font-size:19px;font-weight:500}
-.total-row.grand .cur{font-size:12px;color:var(--muted);margin-right:6px;font-weight:400}
-.total-row.grand strong{font-size:22px;font-weight:600}
-.summary-note{font-size:12px;color:var(--muted);margin-top:8px}
-.empty-cart{padding:24px 0;color:var(--muted)}
+.totals-block{margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}
+.total-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:5px 0;font-size:12px}
+.total-row span:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.total-row.muted{color:var(--ink-2);font-size:11px}
+.total-row.grand{padding-top:14px;font-size:14px;font-weight:500}
+.total-row.grand .cur{font-size:10px;color:var(--ink-2);margin-right:6px;font-weight:400}
+.total-row.grand strong{font-size:18px;font-weight:500;letter-spacing:-.02em}
+.empty-cart{padding:12px 0;color:var(--ink-2)}
 
-/* ── payment list (Shopify-style) ───────────────────── */
-.pay-list{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+/* ── daftar metode bayar ────────────────────────────── */
+.pay-list{border:1px solid var(--line)}
 .pay-opt{border-top:1px solid var(--line);position:relative}
 .pay-opt:first-child{border-top:none}
 .pm-radio{position:absolute;opacity:0;width:1px;height:1px}
-.pay-row{display:flex;align-items:center;gap:12px;padding:16px;cursor:pointer;background:#fff;min-height:60px}
-.pay-row:hover{background:#fcfcfc}
-.rdot{width:20px;height:20px;border-radius:50%;border:1.5px solid #b5b5b5;background:#fff;flex-shrink:0;transition:border .12s}
-.pay-name{font-size:15px;flex:1}
-.pay-name.bold{font-weight:700}
+.pay-row{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;background:#fff;min-height:56px}
+.pay-row:hover{background:#fafafa}
+.rdot{width:16px;height:16px;border-radius:50%;border:1px solid #aaa;background:#fff;flex-shrink:0;transition:border-width .12s,border-color .12s}
+.pay-name{flex:1;font-size:12px}
+.pay-name.bold{font-weight:500}
 .pay-logos{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-.chip{display:inline-flex;align-items:center;justify-content:center;height:30px;min-width:46px;padding:0 7px;background:#fff;border:1px solid #e6e6e6;border-radius:6px}
+.chip{display:inline-flex;align-items:center;justify-content:center;height:28px;min-width:44px;padding:0 7px;background:#fff;border:1px solid var(--line)}
 .chip img{height:16px;width:auto;max-width:56px;object-fit:contain}
 .chip.pp img{height:20px}
 .chip .bank-wordmark{font-size:10px}
-.chip-more{font-size:12px;color:var(--muted);padding:0 4px}
-.pm-radio:checked + .pay-row{background:var(--soft);box-shadow:inset 0 0 0 2px var(--ink)}
-.pm-radio:checked + .pay-row .rdot{border:6px solid var(--ink)}
-.pm-radio:focus-visible + .pay-row{outline:2px solid #2a5db0;outline-offset:-4px}
-.pay-panel{display:none;padding:18px 16px 20px;background:var(--panel);border-top:1px solid #e6e6e6}
-.pm-radio:checked ~ .pay-panel{display:block}
-.pay-panel .pay-note{font-size:13.5px;color:#555;line-height:1.6;margin-bottom:14px}
+.chip-more{color:var(--ink-2);padding:0 4px}
+.pm-radio:checked+.pay-row{background:var(--tile);box-shadow:inset 0 0 0 1px var(--ink)}
+.pm-radio:checked+.pay-row .rdot{border:5px solid var(--ink)}
+.pm-radio:focus-visible+.pay-row{outline:2px solid var(--ink);outline-offset:-4px}
+.pay-panel{display:none;padding:18px 16px 20px;background:#fff;border-top:1px solid var(--line)}
+.pm-radio:checked~.pay-panel{display:block}
+.pay-panel .pay-note{margin-bottom:14px}
 .va-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-bottom:14px}
 .va-tile{position:relative;display:block;cursor:pointer}
 .va-tile input{position:absolute;opacity:0;width:1px;height:1px}
-.va-tile .tile{display:flex;align-items:center;justify-content:center;height:52px;padding:6px 8px;background:#fff;border:1px solid var(--line);border-radius:8px;transition:border-color .12s,box-shadow .12s}
+.va-tile .tile{display:flex;align-items:center;justify-content:center;height:52px;padding:6px 8px;background:#fff;border:1px solid var(--line);transition:border-color .12s,box-shadow .12s}
 .va-tile img{max-height:24px;max-width:78px;width:auto;object-fit:contain}
-.va-tile .bank-wordmark{font-size:11px}
-.va-tile input:checked + .tile{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
-.va-tile input:focus-visible + .tile{outline:2px solid #2a5db0;outline-offset:2px}
-.bank-wordmark{font-weight:700;text-align:center}
-.bank-row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #e6e6e6;font-size:14px}
+.va-tile .bank-wordmark{font-size:10px}
+.va-tile input:checked+.tile{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.va-tile input:focus-visible+.tile{outline:2px solid var(--ink);outline-offset:2px}
+.bank-wordmark{font-weight:600;text-align:center}
+.bank-row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:12px}
 .bank-row:first-of-type{border-top:none;padding-top:0}
-.bank-key{font-weight:700}
-.bank-value{text-align:right;font-weight:600;word-break:break-all}
-.bank-value small{display:block;font-weight:400;color:var(--muted);font-size:12px}
-.upload-zone{border:1px dashed #bdbdbd;border-radius:var(--radius);padding:16px;margin:14px 0;background:#fff}
-.file-input{width:100%;font-size:13px}
+.bank-key{font-weight:600}
+.bank-value{text-align:right;font-weight:500;word-break:break-all}
+.bank-value small{display:block;font-weight:400;color:var(--ink-2);font-size:11px}
+.upload-zone{border:1px dashed #bbb;padding:16px;margin:14px 0;background:#fff}
+.file-input{width:100%;font-size:12px}
 #paypal-button-container{max-width:440px}
-.copy-status{font-size:12px;color:#1e6b34;min-height:16px;margin-top:6px}
+.copy-status{font-size:11px;color:var(--ok);min-height:16px;margin-top:6px}
+.pay-note{font-size:12px;color:var(--ink-2);line-height:1.7}
 
-/* ── direct Kasera view (QR / VA) ───────────────────── */
+/* ── tampilan langsung Kasera (QR / VA) ─────────────── */
 .pay-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
-.pay-head h2{margin:0}
-.countdown{font-family:'JetBrains Mono',monospace;font-size:15px;background:var(--soft);border-radius:8px;padding:6px 12px}
-.countdown.warn{color:#b3261e;animation:blink 1s step-end infinite}
+.pay-head .sec-title{margin:0}
+.countdown{font-variant-numeric:tabular-nums;font-size:13px;font-weight:500;background:var(--tile);padding:6px 12px}
+.countdown.warn{color:var(--err);animation:blink 1s step-end infinite}
 @keyframes blink{50%{opacity:.35}}
-.amount-box,.code-box{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px;background:#fff}
-.amount-box strong{font-size:20px}
-.code-box strong{font-family:'JetBrains Mono',monospace;font-size:20px;letter-spacing:.06em;word-break:break-all}
+.amount-box,.code-box{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid var(--line);padding:14px 16px;margin-bottom:14px;background:#fff}
+.amount-box strong{font-size:18px;font-weight:500;letter-spacing:-.02em}
+.code-box strong{font-size:18px;font-weight:500;letter-spacing:.04em;word-break:break-all;font-variant-numeric:tabular-nums}
 .qr-wrap{display:flex;flex-direction:column;align-items:center;gap:12px;margin:8px 0 18px}
-#qrbox canvas,#qrbox img{width:240px!important;height:240px!important;border:1px solid #e6e6e6;border-radius:10px;padding:8px;background:#fff}
-.pay-instr{font-size:13.5px;color:#555;line-height:1.7;margin-top:18px;border-top:1px solid #e6e6e6;padding-top:16px}
-.pay-instr ol{margin:8px 0 0 20px}
-.pay-note{font-size:13.5px;color:#555;line-height:1.6}
+#qrbox canvas,#qrbox img{width:240px!important;height:240px!important;border:1px solid var(--line);padding:8px;background:#fff}
+.pay-instr{color:var(--ink-2);line-height:1.8;margin-top:18px;border-top:1px solid var(--line);padding-top:16px}
+.pay-instr strong{color:var(--ink);font-weight:500}
+.pay-instr ol{margin:8px 0 0 18px}
+.btn--sm{min-height:40px;padding:0 16px}
 
-.footer{margin-top:36px;font-size:12px;color:var(--muted)}
-.toast-container{position:fixed;bottom:24px;right:24px;z-index:200;display:flex;flex-direction:column;gap:6px;pointer-events:none}
-.toast{background:var(--ink);color:#fff;padding:10px 16px;font-size:13px;border-radius:8px;opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s;max-width:280px}
-.toast.show{opacity:1;transform:translateY(0)}
-
+/* ── mobile: ringkasan di atas, bisa diciutkan ──────── */
 @media(max-width:900px){
-  /* urutan mobile: logo -> ringkasan pesanan (collapsible) -> form -> footer */
-  .checkout-wrapper{display:flex;flex-direction:column;min-height:100vh;min-height:100dvh}
-  .left-col,.left-inner{display:contents}
-  .left-inner>*{order:2;margin-left:20px;margin-right:20px}
-  .left-inner>.co-head{order:0;margin-top:20px;margin-bottom:16px}
-  .left-inner>.footer{margin-bottom:max(36px,env(safe-area-inset-bottom))}
-  .right-col{order:1;background:var(--panel);border-left:none;border-top:1px solid #e1e1e1;border-bottom:1px solid #e1e1e1;padding:0;margin-bottom:24px}
-  .right-inner{position:static;max-width:none}
-  .summary-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:58px;padding:0 20px;background:transparent;border:none;text-align:left;font-size:14px;color:#2a5db0}
-  .summary-toggle:active{background:rgba(0,0,0,.04)}
+  .co-grid{display:flex;flex-direction:column;align-items:stretch;gap:32px}
+  .co-summary{order:-1;position:static;padding:0;margin:0 calc(var(--gutter) * -1)}
+  .co-top{margin-bottom:20px}
+  .summary-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:56px;padding:0 var(--gutter);text-align:left;font-size:12px}
   .summary-toggle-l{display:inline-flex;align-items:center;gap:8px}
-  .summary-toggle .chev{transition:transform .4s cubic-bezier(.32,.72,0,1)}
+  .summary-toggle .chev{transition:transform .4s var(--ease)}
   .summary-toggle[aria-expanded=true] .chev{transform:rotate(180deg)}
-  .summary-toggle-r{display:inline-flex;align-items:baseline;gap:6px;color:var(--ink)}
-  .summary-toggle-r .cur{font-size:11px;color:var(--muted)}
-  .summary-toggle-r strong{font-size:17px;font-weight:600}
-  .summary-body{grid-template-rows:0fr;transition:grid-template-rows .4s cubic-bezier(.32,.72,0,1)}
+  .summary-toggle-r{display:inline-flex;align-items:baseline;gap:6px}
+  .summary-toggle-r .cur{font-size:10px;color:var(--ink-2)}
+  .summary-toggle-r strong{font-size:15px;font-weight:500}
+  .summary-body{grid-template-rows:0fr;transition:grid-template-rows .4s var(--ease)}
   .summary-body.is-open{grid-template-rows:1fr}
-  .summary-inner{overflow:hidden;padding:0 20px;opacity:0;transition:opacity .25s ease}
+  .summary-inner{overflow:hidden;padding:0 var(--gutter);opacity:0;transition:opacity .25s ease}
   .summary-body.is-open .summary-inner{opacity:1;padding-bottom:20px;padding-top:4px}
   .summary-body:not(.is-open) .summary-inner{visibility:hidden;transition:opacity .2s ease,visibility 0s .4s}
-  /* target sentuh yang layak untuk qty & remove */
-  .checkout-qty-ctrl button{width:34px;height:34px;font-size:17px}
-  .checkout-qty-ctrl span{min-width:24px}
-  .cart-item-remove-checkout{min-height:34px;padding:0 6px}
-  .cart-item-row{align-items:start}
-  .cart-item-price{padding-top:2px}
-  .totals-block{border-top:1px solid #e6e6e6;padding-top:12px}
+  .checkout-qty-ctrl button{width:40px;height:40px;font-size:17px}
+  .cart-item-remove-checkout{min-height:40px}
+  .totals-block{margin-top:12px}
 }
-@media (prefers-reduced-motion:reduce){
-  .summary-body,.summary-toggle .chev,.summary-inner{transition-duration:.01ms!important}
-}
-@media(max-width:560px){
+@media(max-width:600px){
   .grid2{grid-template-columns:1fr}
   .va-grid{grid-template-columns:repeat(3,1fr)}
-  .pay-name{white-space:nowrap}
   .pay-logos .chip:nth-child(n+3),.pay-logos .chip-more{display:none}
-  .toast-container{right:12px;left:12px;bottom:12px}
-  .toast{max-width:100%}
+  /* ≥16px agar iOS tidak zoom saat fokus */
+  .co-form input,.co-form select,.co-form textarea{font-size:16px}
+  .promo-row{flex-direction:column;align-items:stretch}
 }
-@keyframes pageFadeIn{from{opacity:0}to{opacity:1}}
-  </style>
-</head>
-<body>
-  <?php if (file_exists(__DIR__ . '/loader.php')) include_once 'loader.php'; ?>
+@media(prefers-reduced-motion:reduce){
+  .summary-body,.summary-toggle .chev,.summary-inner{transition-duration:.01ms!important}
+  .countdown.warn{animation:none}
+}
+</style>
+<?php
+siteBodyOpen(['bodyClass' => 'page-checkout', 'searchAction' => 'shop.php']);
+?>
+<main class="page-main">
+<div class="page-wrap">
 
-  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+  <div class="co-top">
+    <h1 class="page-title"><?= $payOrder ? 'Payment' : htmlspecialchars($pageTitle) ?></h1>
+    <a href="<?= $payOrder ? 'index.php' : htmlspecialchars($backToProductUrl) ?>" class="co-back">← <?= $payOrder ? 'Shop' : 'Product' ?></a>
+  </div>
 
-  <!-- ── CHECKOUT WRAPPER ────────────────────────────── -->
-  <div class="checkout-wrapper">
+  <div class="co-grid">
 
-    <!-- ── LEFT ───────────────────────────────────────── -->
-    <div class="left-col"><div class="left-inner">
-
-      <header class="co-head">
-        <a href="index.php" class="brand-mark"><img src="<?= htmlspecialchars($brandLogo) ?>" alt="<?= htmlspecialchars($brandName) ?>"></a>
-        <a href="<?= $payOrder ? 'index.php' : htmlspecialchars($backToProductUrl) ?>" class="back-link">← <?= $payOrder ? 'Shop' : 'Product' ?></a>
-      </header>
+    <!-- ── KIRI: form / pembayaran ─────────────────────── -->
+    <div class="co-form">
 
       <?php if ($error !== ''): ?>
-        <div class="notice error" role="alert"><?= htmlspecialchars($error) ?></div>
+        <div class="alert alert--error" role="alert"><?= htmlspecialchars($error) ?></div>
       <?php endif; ?>
       <?php if ($message !== ''): ?>
-        <div class="notice success" role="status"><?= htmlspecialchars($message) ?></div>
+        <div class="alert alert--ok" role="status"><?= htmlspecialchars($message) ?></div>
       <?php endif; ?>
 
       <?php if ($payOrder): ?>
       <!-- ═════════ PAYMENT ═════════ -->
       <section class="sec" aria-label="Payment">
         <?php if ($payIsPaid): ?>
-          <h2>Payment</h2>
           <p class="pay-note">This order has been paid. Thank you!</p>
         <?php else: ?>
         <?php if ($payError !== ''): ?>
-          <div class="notice error" role="alert"><?= htmlspecialchars($payError) ?></div>
+          <div class="alert alert--error" role="alert"><?= htmlspecialchars($payError) ?></div>
         <?php endif; ?>
 
         <?php if ($showKasera): ?>
@@ -948,15 +902,15 @@ details.opt > summary:hover{text-decoration:underline}
           $kSteps    = is_array($kData['instructions']['steps'] ?? null) ? $kData['instructions']['steps'] : [];
         ?>
         <div class="pay-head">
-          <h2><?= htmlspecialchars($kLabel) ?></h2>
+          <h2 class="sec-title"><?= htmlspecialchars($kLabel) ?></h2>
           <span class="countdown" id="countdown" data-expires="<?= htmlspecialchars($kExpiresAt) ?>">--:--</span>
         </div>
         <div id="kaseraPay">
-          <div id="expiredMsg" class="notice error" style="display:none">This payment has expired. Please choose a payment method again.</div>
+          <div id="expiredMsg" class="alert alert--error" style="display:none">This payment has expired. Please choose a payment method again.</div>
           <div id="payLive">
             <div class="amount-box">
               <div><span class="field-hint">Amount to pay</span><br><strong><?= htmlspecialchars(ddFormatMoney((float)$kAmountIdr, 'IDR')) ?></strong></div>
-              <button type="button" class="btn-secondary" data-copy="<?= (int)$kAmountIdr ?>">Copy</button>
+              <button type="button" class="btn btn--sm" data-copy="<?= (int)$kAmountIdr ?>">Copy</button>
             </div>
             <?php if ($payCurrency !== 'IDR'): ?>
               <p class="field-hint" style="margin:-4px 0 14px">Your order total of <?= htmlspecialchars(ddFormatMoney((float)$payOrder['grand_total'], $payCurrency)) ?> is settled in Indonesian Rupiah by this bank / QRIS payment method (1 USD = <?= htmlspecialchars(ddFormatMoney(ddRateFromIdr(), 'IDR')) ?>).</p>
@@ -964,17 +918,17 @@ details.opt > summary:hover{text-decoration:underline}
             <?php if ($kIsQris): ?>
               <div class="qr-wrap">
                 <div id="qrbox"></div>
-                <div class="copy-status" id="qrFallback" style="color:#b3261e"></div>
+                <div class="copy-status" id="qrFallback" style="color:var(--err)"></div>
                 <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
-                  <button type="button" class="btn-secondary" id="qrDownload">Download QR</button>
-                  <button type="button" class="btn-secondary" data-copy="<?= htmlspecialchars((string)($kPay['qr_string'] ?? '')) ?>">Copy QR code text</button>
+                  <button type="button" class="btn btn--sm" id="qrDownload">Download QR</button>
+                  <button type="button" class="btn btn--sm" data-copy="<?= htmlspecialchars((string)($kPay['qr_string'] ?? '')) ?>">Copy QR code text</button>
                 </div>
               </div>
             <?php else: ?>
               <div style="display:flex;justify-content:center;margin-bottom:14px"><span class="chip" style="height:44px;padding:0 14px"><?= bankLogoHtml($kMethod, $kLabel) ?></span></div>
               <div class="code-box">
                 <div><span class="field-hint">Virtual account number</span><br><strong><?= htmlspecialchars((string)($kPay['payment_code'] ?? '')) ?></strong></div>
-                <button type="button" class="btn-secondary" data-copy="<?= htmlspecialchars((string)($kPay['payment_code'] ?? '')) ?>">Copy</button>
+                <button type="button" class="btn btn--sm" data-copy="<?= htmlspecialchars((string)($kPay['payment_code'] ?? '')) ?>">Copy</button>
               </div>
               <p class="pay-note">Transfer the exact amount shown above.</p>
             <?php endif; ?>
@@ -986,11 +940,10 @@ details.opt > summary:hover{text-decoration:underline}
             <?php endif; ?>
           </div>
           <div class="copy-status" id="copyStatus"></div>
-          <div class="back-row"><a href="checkout.php?order=<?= urlencode((string)$payOrder['order_number']) ?>&change=1" class="btn-secondary">← Choose another method</a></div>
+          <div class="back-row"><a href="checkout.php?order=<?= urlencode((string)$payOrder['order_number']) ?>&change=1" class="btn btn--sm">← Choose another method</a></div>
         </div>
 
         <?php else: ?>
-        <h2>Payment</h2>
         <p class="sec-sub">All transactions are secure and encrypted.</p>
         <?php if ($payCurrency !== 'IDR'): ?>
           <p class="field-hint" style="margin:-4px 0 14px">QRIS, Virtual Account and e-wallets settle in Indonesian Rupiah: <strong><?= htmlspecialchars(ddFormatMoney((float)kaseraAmountIdr($payOrder), 'IDR')) ?></strong> (1 USD = <?= htmlspecialchars(ddFormatMoney(ddRateFromIdr(), 'IDR')) ?>).</p>
@@ -1006,7 +959,7 @@ details.opt > summary:hover{text-decoration:underline}
               <p class="pay-note">Scan with any e-wallet or mobile banking app. Confirmed automatically.</p>
               <form method="POST" data-pay>
                 <input type="hidden" name="kasera_method" value="qris">
-                <button type="submit" class="btn-primary">Pay with QRIS</button>
+                <button type="submit" class="btn btn--solid btn--block">Pay with QRIS</button>
               </form>
             </div>
           </div>
@@ -1033,7 +986,7 @@ details.opt > summary:hover{text-decoration:underline}
                     </label>
                   <?php endforeach; ?>
                 </div>
-                <button type="submit" class="btn-primary" id="vaBtn" disabled>Select a bank</button>
+                <button type="submit" class="btn btn--solid btn--block" id="vaBtn" disabled>Select a bank</button>
               </form>
             </div>
           </div>
@@ -1046,7 +999,7 @@ details.opt > summary:hover{text-decoration:underline}
               <p class="pay-note">You will be redirected to a secure page to choose another payment method.</p>
               <form method="POST" data-pay>
                 <input type="hidden" name="kasera_method" value="checkout">
-                <button type="submit" class="btn-primary">Continue</button>
+                <button type="submit" class="btn btn--solid btn--block">Continue</button>
               </form>
             </div>
           </div>
@@ -1061,7 +1014,7 @@ details.opt > summary:hover{text-decoration:underline}
                 <?php if ($payCurrency === 'IDR'): ?>PayPal does not support IDR, so you will be charged <strong>$<?= htmlspecialchars($payCharge['value']) ?> USD</strong>.<?php endif; ?>
               </p>
               <div id="paypal-button-container"></div>
-              <div class="copy-status" id="paypal-status" style="color:#b3261e"></div>
+              <div class="copy-status" id="paypal-status" style="color:var(--err)"></div>
             </div>
           </div>
 
@@ -1079,7 +1032,7 @@ details.opt > summary:hover{text-decoration:underline}
                   <input type="file" name="payment_proof" id="payment_proof" class="file-input" accept=".jpg,.jpeg,.png,.pdf" required>
                   <p class="field-hint">Amount, date, and reference number must be clearly visible.</p>
                 </div>
-                <button type="submit" class="btn-primary" id="uploadBtn">Submit payment proof</button>
+                <button type="submit" class="btn btn--solid btn--block" id="uploadBtn">Submit payment proof</button>
               </form>
               <p class="field-hint" style="margin-top:10px">After submission, your payment status will change to "Waiting Verification".</p>
             </div>
@@ -1096,7 +1049,7 @@ details.opt > summary:hover{text-decoration:underline}
         <input type="hidden" name="currency" value="USD">
 
         <section class="sec" aria-label="Contact information">
-          <h2>Contact</h2>
+          <h2 class="step-title">Contact</h2>
           <div class="stack">
             <?= ckField('email', 'Email', $form['email'], ['type' => 'email', 'autocomplete' => 'email', 'required' => true]) ?>
             <?= ckField('phone', 'Phone', $form['phone'], ['type' => 'tel', 'autocomplete' => 'tel', 'required' => true]) ?>
@@ -1104,25 +1057,25 @@ details.opt > summary:hover{text-decoration:underline}
         </section>
 
         <section class="sec" aria-label="Delivery address">
-          <h2>Delivery</h2>
+          <h2 class="step-title">Delivery</h2>
           <div class="stack">
             <div class="field">
+              <label for="shipping_mode">Country/Region</label>
               <select id="shipping_mode" name="shipping_mode">
                 <option value="domestic" <?= $form['shipping_mode'] === 'domestic' ? 'selected' : '' ?>>Indonesia (Domestic)</option>
                 <?php if ($internationalShippingEnabled): ?>
                 <option value="international" <?= $form['shipping_mode'] === 'international' ? 'selected' : '' ?>>International</option>
                 <?php endif; ?>
               </select>
-              <label for="shipping_mode">Country/Region</label>
               <?php if (!$internationalShippingEnabled): ?><p class="field-hint">International shipping is currently unavailable.</p><?php endif; ?>
             </div>
             <div class="field">
-              <input type="text" id="destination_search" placeholder=" " autocomplete="off">
               <label for="destination_search" id="destinationSearchLabel">City / Destination</label>
+              <input type="text" id="destination_search" autocomplete="off">
             </div>
             <div class="field">
-              <select id="destination_select"><option value="">Choose destination</option></select>
               <label for="destination_select">Select destination</label>
+              <select id="destination_select"><option value="">Choose destination</option></select>
               <p class="field-hint">Make sure your address is accurate — incorrect addresses may cause delivery failure.</p>
             </div>
             <?= ckField('full_name', 'Full name', $form['full_name'], ['autocomplete' => 'name', 'required' => true]) ?>
@@ -1143,30 +1096,30 @@ details.opt > summary:hover{text-decoration:underline}
         </section>
 
         <section class="sec" aria-label="Shipping method">
-          <h3>Shipping method</h3>
+          <h2 class="step-title">Shipping method</h2>
           <div class="stack">
             <div class="field">
-              <select id="courier_picker"></select>
               <label for="courier_picker">Courier</label>
+              <select id="courier_picker"></select>
             </div>
             <div id="shippingOptions" class="shipping-options-box">Enter your shipping address to view available shipping methods.</div>
             <details class="opt" id="promoBox"<?= $form['promo_code'] !== '' ? ' open' : '' ?>>
               <summary>Have a promo code?</summary>
               <div class="promo-row">
                 <div class="field">
-                  <input type="text" id="promo_code" name="promo_code" placeholder=" " maxlength="32"
-                         autocomplete="off" style="text-transform:uppercase" value="<?= htmlspecialchars($form['promo_code']) ?>">
                   <label for="promo_code">Promo code (optional)</label>
+                  <input type="text" id="promo_code" name="promo_code" maxlength="32"
+                         autocomplete="off" value="<?= htmlspecialchars($form['promo_code']) ?>">
                 </div>
-                <button type="button" class="btn-secondary" id="applyPromoBtn">Apply</button>
+                <button type="button" class="btn btn--sm" id="applyPromoBtn">Apply</button>
               </div>
               <p class="field-hint" id="promoStatus" role="status"></p>
             </details>
             <details class="opt"<?= $form['notes'] !== '' ? ' open' : '' ?>>
               <summary>Add order note</summary>
               <div class="field">
-                <textarea id="notes" name="notes" placeholder=" "><?= htmlspecialchars($form['notes']) ?></textarea>
                 <label for="notes">Special instructions</label>
+                <textarea id="notes" name="notes"><?= htmlspecialchars($form['notes']) ?></textarea>
               </div>
             </details>
           </div>
@@ -1182,17 +1135,15 @@ details.opt > summary:hover{text-decoration:underline}
         </section>
 
         <div class="form-actions">
-          <button type="submit" class="btn-primary" id="submitBtn">Proceed to payment</button>
-          <p class="secure-note">🔒 Your data is encrypted and secure. We never store your payment details.</p>
+          <button type="submit" class="btn btn--solid btn--block" id="submitBtn">Proceed to payment</button>
+          <p class="secure-note">Your data is encrypted and secure. We never store your payment details.</p>
         </div>
       </form>
       <?php endif; ?>
-
-      <footer class="footer" aria-label="Site footer">© 2026 DEEPDIMES. All rights reserved. Development by Cantum Studio.</footer>
-    </div></div>
+    </div>
 
     <!-- ── RIGHT: SUMMARY ─────────────────────────────── -->
-    <aside class="right-col" aria-label="Order summary"><div class="right-inner">
+    <aside class="co-summary" aria-label="Order summary">
       <span id="cartCountHeader" hidden><?= count($cartItems) ?></span>
       <?php
         // Ringkasan collapsible di mobile: total selalu terlihat di bar, detail produk dibuka dengan sekali tap.
@@ -1214,16 +1165,16 @@ details.opt > summary:hover{text-decoration:underline}
       <div class="summary-body<?= $sumHasToggle ? '' : ' is-open' ?>" id="summaryBody"><div class="summary-inner">
       <?php if ($payOrder): ?>
         <?php foreach ($payItems as $pi): ?>
-          <div class="cart-item-row">
-            <div class="cart-thumb-wrap">
-              <img class="cart-thumb" src="<?= htmlspecialchars((string)$pi['thumbnail']) ?>" alt="<?= htmlspecialchars((string)$pi['product_name']) ?>" loading="lazy">
-              <span class="cart-qty-badge"><?= (int)$pi['quantity'] ?></span>
+          <div class="co-item">
+            <div class="co-thumb-wrap">
+              <img class="co-thumb" src="<?= htmlspecialchars((string)$pi['thumbnail']) ?>" alt="<?= htmlspecialchars((string)$pi['product_name']) ?>" loading="lazy">
+              <span class="co-qty-badge"><?= (int)$pi['quantity'] ?></span>
             </div>
             <div>
-              <div class="cart-item-name"><?= htmlspecialchars((string)$pi['product_name']) ?></div>
-              <?php if (!empty($pi['size_name'])): ?><div class="cart-item-meta"><?= htmlspecialchars((string)$pi['size_name']) ?></div><?php endif; ?>
+              <div class="co-item-name"><?= htmlspecialchars((string)$pi['product_name']) ?></div>
+              <?php if (!empty($pi['size_name'])): ?><div class="co-item-meta"><?= htmlspecialchars((string)$pi['size_name']) ?></div><?php endif; ?>
             </div>
-            <div class="cart-item-price"><?= htmlspecialchars(ddFormatMoney((float)$pi['line_total'], $payCurrency)) ?></div>
+            <div class="co-item-price"><?= htmlspecialchars(ddFormatMoney((float)$pi['line_total'], $payCurrency)) ?></div>
           </div>
         <?php endforeach; ?>
         <div class="totals-block">
@@ -1239,15 +1190,15 @@ details.opt > summary:hover{text-decoration:underline}
         <div class="empty-cart">No items in cart.</div>
       <?php else: ?>
         <?php foreach ($cartItems as $item): ?>
-          <div class="cart-item-row" id="row_psid_<?= $item['product_size_id'] ?>">
-            <div class="cart-thumb-wrap">
-              <img class="cart-thumb" src="<?= htmlspecialchars($item['thumbnail']) ?>" alt="<?= htmlspecialchars($item['name']) ?>" loading="lazy">
-              <span class="cart-qty-badge" id="qty_badge_<?= $item['product_size_id'] ?>"><?= (int)$item['quantity'] ?></span>
+          <div class="co-item" id="row_psid_<?= $item['product_size_id'] ?>">
+            <div class="co-thumb-wrap">
+              <img class="co-thumb" src="<?= htmlspecialchars($item['thumbnail']) ?>" alt="<?= htmlspecialchars($item['name']) ?>" loading="lazy">
+              <span class="co-qty-badge" id="qty_badge_<?= $item['product_size_id'] ?>"><?= (int)$item['quantity'] ?></span>
             </div>
             <div>
-              <div class="cart-item-name"><?= htmlspecialchars($item['name']) ?></div>
+              <div class="co-item-name"><?= htmlspecialchars($item['name']) ?></div>
               <?php if (strtolower((string)($item['category_slug'] ?? 'fashion')) === 'fashion'): ?>
-                <div class="cart-item-meta"><?= htmlspecialchars((string)$item['size_name']) ?></div>
+                <div class="co-item-meta"><?= htmlspecialchars((string)$item['size_name']) ?></div>
               <?php endif; ?>
               <div>
                 <span class="checkout-qty-ctrl">
@@ -1258,7 +1209,7 @@ details.opt > summary:hover{text-decoration:underline}
                 <button type="button" class="cart-item-remove-checkout" aria-label="Remove item" onclick="removeCheckoutItem(<?= $item['product_size_id'] ?>)">Remove</button>
               </div>
             </div>
-            <div class="cart-item-price" id="line_total_display_<?= $item['product_size_id'] ?>"><?= htmlspecialchars(ddFormatMoney((float)$item['line_total'], $item['currency'])) ?></div>
+            <div class="co-item-price" id="line_total_display_<?= $item['product_size_id'] ?>"><?= htmlspecialchars(ddFormatMoney((float)$item['line_total'], $item['currency'])) ?></div>
           </div>
         <?php endforeach; ?>
 
@@ -1270,7 +1221,7 @@ details.opt > summary:hover{text-decoration:underline}
         </div>
       <?php endif; ?>
       </div></div>
-    </div></aside>
+    </aside>
     <script>
     (function () {
       var btn = document.getElementById('summaryToggle'), body = document.getElementById('summaryBody');
@@ -1285,7 +1236,11 @@ details.opt > summary:hover{text-decoration:underline}
     </script>
 
   </div>
-
+</div>
+</main>
+<?php
+siteBodyClose();
+?>
   <?php if ($payOrder): ?>
   <?php if (!$payIsPaid && !$showKasera): ?>
   <script src="https://www.paypal.com/sdk/js?client-id=<?= htmlspecialchars(PAYPAL_CLIENT_ID) ?>&currency=<?= htmlspecialchars($payCharge['currency']) ?>&intent=capture"></script>
@@ -1430,15 +1385,7 @@ details.opt > summary:hover{text-decoration:underline}
     'use strict';
 
     /* ── toast ──────────────────────────────────────── */
-    function showToast(msg) {
-      const container = document.getElementById('toastContainer');
-      const t = document.createElement('div');
-      t.className = 'toast';
-      t.textContent = msg;
-      container.appendChild(t);
-      requestAnimationFrame(() => { requestAnimationFrame(() => { t.classList.add('show'); }); });
-      setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 250); }, 2600);
-    }
+    function showToast(msg) { Site.showToast(msg); }
 
     /* ── PHP vars ───────────────────────────────────── */
     let subtotal                = <?= json_encode((float)$subtotal) ?>;
@@ -1552,6 +1499,14 @@ details.opt > summary:hover{text-decoration:underline}
       if (heroGrandTotalTop) heroGrandTotalTop.textContent = formatCurrencyJS(total);
     }
 
+    /** Samakan panel keranjang bersama (Site.cart) dengan localStorage yang baru diubah di halaman ini. */
+    function syncSiteCart(items) {
+      if (!window.Site || !Site.cart) return;
+      Site.cart.items.length = 0;
+      items.filter(i => i && i.currency === 'USD').forEach(i => Site.cart.items.push(i));
+      Site.cart.render();
+    }
+
     /* ── AJAX QTY UPDATE LOGIC ────────────────────────── */
     window.updateCheckoutQty = async function(psid, change, maxStock) {
         const displayEl = document.getElementById('qty_display_' + psid);
@@ -1610,6 +1565,7 @@ details.opt > summary:hover{text-decoration:underline}
                     }
                     if (updated) {
                         localStorage.setItem('ppf_cart', JSON.stringify(lsCart));
+                        syncSiteCart(lsCart);
                         const totalCount = lsCart.reduce((sum, item) => sum + item.qty, 0);
                         const hdrEl = document.getElementById('cartCountHeader');
                         if(hdrEl) hdrEl.textContent = totalCount;
@@ -1820,5 +1776,4 @@ details.opt > summary:hover{text-decoration:underline}
   })();
   </script>
   <?php endif; ?>
-</body>
-</html>
+<?php siteDocClose();

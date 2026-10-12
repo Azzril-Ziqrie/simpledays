@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../config/env.php';
+require_once __DIR__ . '/brand.php';
 
 // Konstanta Konfigurasi SMTP & URL
 if (!defined('DD_SMTP_HOST')) {
@@ -20,7 +21,7 @@ if (!defined('DD_SMTP_FROM_EMAIL')) {
     define('DD_SMTP_FROM_EMAIL', 'studio@deepdimes.com');
 }
 if (!defined('DD_SMTP_FROM_NAME')) {
-    define('DD_SMTP_FROM_NAME', 'DEEPDIMES');
+    define('DD_SMTP_FROM_NAME', BRAND_NAME);
 }
 if (!defined('DD_ADMIN_EMAIL')) {
     define('DD_ADMIN_EMAIL', '');
@@ -99,7 +100,7 @@ function sendDDInvoiceEmail(PDO $pdo, array $order): bool
               <tr>
                 <td style="vertical-align:top;padding-right:18px;">' . $thumbHtml . '</td>
                 <td style="vertical-align:top;">
-                  <div style="font-size:11px;font-weight:700;letter-spacing:.05em;color:#111;text-transform:uppercase;margin-bottom:6px;">' . $pName . '</div>
+                  <div style="font-size:11px;font-weight:700;letter-spacing:.05em;color:#111;margin-bottom:6px;">' . $pName . '</div>
                   ' . $sizeHtml . '
                   <div style="font-size:10px;font-weight:600;letter-spacing:.1em;color:#888;margin-top:8px;">QTY: ' . $qty . '</div>
                   <div style="font-size:11px;font-weight:600;letter-spacing:.05em;color:#111;margin-top:6px;">' . $unitPrice . '</div>
@@ -132,7 +133,7 @@ function sendDDInvoiceEmail(PDO $pdo, array $order): bool
 
         $adminEmail = trim(DD_ADMIN_EMAIL);
         if ($adminEmail !== '' && filter_var($adminEmail, FILTER_VALIDATE_EMAIL)) {
-            $mail->addBCC($adminEmail, 'DEEPDIMES Admin');
+            $mail->addBCC($adminEmail, BRAND_NAME . ' Admin');
         }
 
         $orderNumber = htmlspecialchars((string)($order['order_number'] ?? ''), ENT_QUOTES, 'UTF-8');
@@ -143,7 +144,7 @@ function sendDDInvoiceEmail(PDO $pdo, array $order): bool
         $discountRow = '';
         if ($orderDiscount = promoOrderDiscount($order)) {
             $discountRow = '<tr>
-                  <td style="padding:8px 0;color:#555;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;">' . htmlspecialchars($orderDiscount['label'], ENT_QUOTES, 'UTF-8') . '</td>
+                  <td style="padding:8px 0;color:#555;font-size:11px;font-weight:600;letter-spacing:.1em;">' . htmlspecialchars($orderDiscount['label'], ENT_QUOTES, 'UTF-8') . '</td>
                   <td style="padding:8px 0;text-align:right;font-size:11px;font-weight:600;letter-spacing:.08em;">-' . formatDDEmailMoney($orderDiscount['amount'], (string)($order['currency'] ?? 'USD')) . '</td>
                 </tr>';
         }
@@ -152,64 +153,64 @@ function sendDDInvoiceEmail(PDO $pdo, array $order): bool
         $country = htmlspecialchars((string)($order['country_name'] ?? 'Indonesia'), ENT_QUOTES, 'UTF-8');
 
         $mail->isHTML(true);
-        $mail->Subject = 'DEEPDIMES Order Invoice — ' . (string)($order['order_number'] ?? '');
+        $mail->Subject = BRAND_NAME . ' Order Invoice — ' . (string)($order['order_number'] ?? '');
         $mail->Body = '
         <div style="font-family:\'Helvetica Neue\',Helvetica,Arial,sans-serif;color:#111;background:#fafafa;padding:40px 20px;line-height:1.6;letter-spacing:.02em;">
           <div style="max-width:600px;margin:0 auto;background:#fff;border:1px solid #eee;">
 
             <!-- Header -->
             <div style="padding:40px 30px;text-align:center;border-bottom:1px solid #eee;">
-              <img src="' . rtrim(DD_SITE_URL, '/') . '/assets/images/1212.png" alt="DEEPDIMES Logo" style="height:60px;width:auto;border-radius:50%;display:inline-block;">
-              <div style="font-size:10px;font-weight:600;color:#888;margin-top:15px;letter-spacing:.15em;text-transform:uppercase;">Order Invoice</div>
+              <img src="' . rtrim(DD_SITE_URL, '/') . '/' . BRAND_LOGO . '" alt="' . BRAND_NAME . '" style="height:40px;width:auto;display:inline-block;">
+              <div style="font-size:10px;font-weight:600;color:#888;margin-top:15px;letter-spacing:.15em;">Order Invoice</div>
             </div>
 
             <div style="padding:40px 30px;">
-              <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#111;">Hi ' . $fullName . ',</p>
-              <p style="margin:0 0 30px;color:#555;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;">Your payment has been received &mdash; your order is now being processed.</p>
+              <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.1em;color:#111;">Hi ' . $fullName . ',</p>
+              <p style="margin:0 0 30px;color:#555;font-size:11px;font-weight:500;letter-spacing:.08em;">Your payment has been received &mdash; your order is now being processed.</p>
 
               <div style="background:#fafafa;border:1px solid #eee;padding:20px;margin-bottom:35px;text-align:center;">
-                <div style="font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.15em;">Order Number</div>
+                <div style="font-size:10px;font-weight:600;color:#888;letter-spacing:.15em;">Order Number</div>
                 <div style="font-size:16px;font-weight:700;margin-top:8px;letter-spacing:.1em;color:#111;">' . $orderNumber . '</div>
               </div>
 
-              <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#111;padding-bottom:12px;border-bottom:2px solid #111;margin-bottom:8px;">Items</div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:.1em;color:#111;padding-bottom:12px;border-bottom:2px solid #111;margin-bottom:8px;">Items</div>
               <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:30px;">' . $itemRows . '</table>
 
               <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-top:1px solid #eee;padding-top:15px;">
                 <tr>
-                  <td style="padding:8px 0;color:#555;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;">Subtotal</td>
+                  <td style="padding:8px 0;color:#555;font-size:11px;font-weight:600;letter-spacing:.1em;">Subtotal</td>
                   <td style="padding:8px 0;text-align:right;font-size:11px;font-weight:600;letter-spacing:.08em;">' . $subtotal . '</td>
                 </tr>
                 <tr>
-                  <td style="padding:8px 0;color:#555;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;">Shipping</td>
+                  <td style="padding:8px 0;color:#555;font-size:11px;font-weight:600;letter-spacing:.1em;">Shipping</td>
                   <td style="padding:8px 0;text-align:right;font-size:11px;font-weight:600;letter-spacing:.08em;">' . $shipping . '</td>
                 </tr>' . $discountRow . '
                 <tr>
-                  <td style="padding:20px 0 0;border-top:1px solid #eee;font-weight:700;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#111;">Grand Total</td>
+                  <td style="padding:20px 0 0;border-top:1px solid #eee;font-weight:700;font-size:12px;letter-spacing:.1em;color:#111;">Grand Total</td>
                   <td style="padding:20px 0 0;border-top:1px solid #eee;text-align:right;font-weight:700;font-size:14px;letter-spacing:.05em;color:#111;">' . $grandTotal . '</td>
                 </tr>
               </table>
 
               <div style="margin-top:35px;padding:20px;border:1px solid #eee;background:#fafafa;">
-                <div style="font-size:10px;font-weight:700;color:#111;text-transform:uppercase;letter-spacing:.15em;margin-bottom:12px;">Shipping Address</div>
-                <div style="font-size:11px;font-weight:500;line-height:1.8;text-transform:uppercase;letter-spacing:.08em;color:#555;">' . $address . '<br>' . $cityLine . '<br>' . $country . '</div>
+                <div style="font-size:10px;font-weight:700;color:#111;letter-spacing:.15em;margin-bottom:12px;">Shipping Address</div>
+                <div style="font-size:11px;font-weight:500;line-height:1.8;letter-spacing:.08em;color:#555;">' . $address . '<br>' . $cityLine . '<br>' . $country . '</div>
               </div>
 
-              <p style="margin:35px 0 0;color:#555;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;">Thank you for shopping with us.</p>
-              <p style="margin:10px 0 0;font-size:12px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:#111;">DEEPDIMES</p>
+              <p style="margin:35px 0 0;color:#555;font-size:11px;font-weight:600;letter-spacing:.1em;">Thank you for shopping with us.</p>
+              <p style="margin:10px 0 0;font-size:12px;font-weight:900;letter-spacing:.1em;color:#111;">' . BRAND_NAME . '</p>
             </div>
 
             <!-- Footer -->
             <div style="border-top:1px solid #eee;padding:25px 30px;background:#fafafa;text-align:center;">
-              <div style="font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:#888;">
-                &copy; ' . date('Y') . ' DEEPDIMES<br><br>
+              <div style="font-size:10px;font-weight:500;letter-spacing:.1em;color:#888;">
+                &copy; ' . date('Y') . ' ' . BRAND_NAME . '<br><br>
               </div>
             </div>
 
           </div>
         </div>';
 
-        $mail->AltBody = 'DEEPDIMES Order Invoice — ' . (string)($order['order_number'] ?? '') . '. Total: ' . $grandTotal . '.';
+        $mail->AltBody = BRAND_NAME . ' Order Invoice — ' . (string)($order['order_number'] ?? '') . '. Total: ' . $grandTotal . '.';
         $mail->send();
         return true;
     } catch (Throwable $e) {

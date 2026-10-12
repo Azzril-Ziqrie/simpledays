@@ -2,6 +2,9 @@
 require_once __DIR__ . '/_guard.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/db_schema.php';
+require_once __DIR__ . '/../includes/media_upload.php';
+
+const HERO_MAX_WIDTH = 2200;
 
 $message = '';
 $error   = '';
@@ -18,7 +21,6 @@ function ensureHeroSlidesTable(PDO $pdo): bool
                 button_text VARCHAR(80) DEFAULT NULL,
                 button_link VARCHAR(500) DEFAULT NULL,
                 image VARCHAR(500) NOT NULL,
-                image_mobile VARCHAR(500) DEFAULT NULL,
                 sort_order INT NOT NULL DEFAULT 0,
                 is_active TINYINT(1) NOT NULL DEFAULT 1,
                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -33,42 +35,6 @@ function ensureHeroSlidesTable(PDO $pdo): bool
     }
 }
 
-function uploadHeroImage(array $file, string $uploadDir, string $uploadBasePath): ?string
-{
-    if (!isset($file['error']) || $file['error'] === UPLOAD_ERR_NO_FILE) {
-        return null;
-    }
-    if ($file['error'] !== UPLOAD_ERR_OK) {
-        throw new RuntimeException('Image upload failed.');
-    }
-    $allowedMime = [
-        'image/jpeg' => 'jpg',
-        'image/png'  => 'png',
-        'image/webp' => 'webp',
-        'image/gif'  => 'gif',
-    ];
-    $finfo = finfo_open(FILEINFO_MIME_TYPE);
-    $mime  = finfo_file($finfo, $file['tmp_name']);
-    finfo_close($finfo);
-    if (!isset($allowedMime[$mime])) {
-        throw new RuntimeException('Only JPG, PNG, WEBP, and GIF files are allowed.');
-    }
-    $extension  = $allowedMime[$mime];
-    $filename   = uniqid('hero_', true) . '.' . $extension;
-    $targetPath = $uploadDir . $filename;
-    if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
-        throw new RuntimeException('Failed to move uploaded image.');
-    }
-    return $uploadBasePath . $filename;
-}
-
-function deleteImageFile(?string $relativePath): void
-{
-    if (!$relativePath) return;
-    $abs = __DIR__ . '/../' . ltrim($relativePath, '/');
-    if (is_file($abs)) { @unlink($abs); }
-}
-
 /* ── upload directory setup ──────────────────────────── */
 $uploadDir      = __DIR__ . '/../assets/images/hero/';
 $uploadBasePath = 'assets/images/hero/';
@@ -81,15 +47,6 @@ if (!is_dir($uploadDir)) {
 $tableReady = tableExists($pdo, 'hero_slides');
 if (!$tableReady) {
     $tableReady = ensureHeroSlidesTable($pdo);
-} else {
-    try {
-        $stmt = $pdo->query("SHOW COLUMNS FROM `hero_slides` LIKE 'image_mobile'");
-        if (!$stmt->fetch()) {
-            $pdo->exec("ALTER TABLE hero_slides ADD COLUMN image_mobile VARCHAR(500) DEFAULT NULL AFTER image");
-        }
-    } catch (Throwable $e) {
-        error_log('Failed to add image_mobile column: ' . $e->getMessage());
-    }
 }
 
 /* ── POST handlers ───────────────────────────────────── */
@@ -104,21 +61,17 @@ if ($tableReady && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action
         $isActive    = isset($_POST['is_active']) ? 1 : 0;
 
         if (empty($_FILES['image']['name']) || $_FILES['image']['error'] === UPLOAD_ERR_NO_FILE) {
-            $error = 'Please choose a desktop image file.';
+            $error = 'Please choose an image file.';
         } else {
             try {
-                $uploadedPath = uploadHeroImage($_FILES['image'], $uploadDir, $uploadBasePath);
-                $uploadedPathMobile = null;
-                if (!empty($_FILES['image_mobile']['name']) && $_FILES['image_mobile']['error'] === UPLOAD_ERR_OK) {
-                    $uploadedPathMobile = uploadHeroImage($_FILES['image_mobile'], $uploadDir, $uploadBasePath);
-                }
+                $uploadedPath = storeUploadedImage($_FILES['image'], $uploadDir, $uploadBasePath, 'hero_', HERO_MAX_WIDTH);
 
                 if ($uploadedPath === null) {
                     $error = 'Image upload failed.';
                 } else {
                     $stmt = $pdo->prepare(
-                        'INSERT INTO hero_slides (title, subtitle, button_text, button_link, image, image_mobile, sort_order, is_active)
-                         VALUES (:title, :subtitle, :button_text, :button_link, :image, :image_mobile, :sort_order, :is_active)'
+                        'INSERT INTO hero_slides (title, subtitle, button_text, button_link, image, sort_order, is_active)
+                         VALUES (:title, :subtitle, :button_text, :button_link, :image, :sort_order, :is_active)'
                     );
                     $stmt->execute([
                         'title'       => $title !== '' ? $title : null,
@@ -126,7 +79,6 @@ if ($tableReady && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action
                         'button_text' => $buttonText !== '' ? $buttonText : null,
                         'button_link' => $buttonLink !== '' ? $buttonLink : null,
                         'image'       => $uploadedPath,
-                        'image_mobile' => $uploadedPathMobile,
                         'sort_order'  => $sortOrder,
                         'is_active'   => $isActive,
                     ]);
@@ -151,7 +103,7 @@ if ($tableReady && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action
         } else {
             try {
                 $pdo->beginTransaction();
-                $find = $pdo->prepare('SELECT image, image_mobile FROM hero_slides WHERE id = :id FOR UPDATE');
+                $find = $pdo->prepare('SELECT image FROM hero_slides WHERE id = :id FOR UPDATE');
                 $find->execute(['id' => $slideId]);
                 $row = $find->fetch(PDO::FETCH_ASSOC);
 
@@ -160,18 +112,9 @@ if ($tableReady && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action
                     $error = 'Slide not found.';
                 } else {
                     $newImagePath = $row['image'];
-                    $newImagePathMobile = $row['image_mobile'];
-                    if (!empty($_FILES['image']['name']) && $_FILES['image']['error'] !== UPLOAD_ERR_NO_FILE) {
-                        $uploadedPath = uploadHeroImage($_FILES['image'], $uploadDir, $uploadBasePath);
-                        if ($uploadedPath !== null) {
-                            $newImagePath = $uploadedPath;
-                        }
-                    }
-                    if (!empty($_FILES['image_mobile']['name']) && $_FILES['image_mobile']['error'] !== UPLOAD_ERR_NO_FILE) {
-                        $uploadedPathMobile = uploadHeroImage($_FILES['image_mobile'], $uploadDir, $uploadBasePath);
-                        if ($uploadedPathMobile !== null) {
-                            $newImagePathMobile = $uploadedPathMobile;
-                        }
+                    $uploadedPath = storeUploadedImage($_FILES['image'] ?? [], $uploadDir, $uploadBasePath, 'hero_', HERO_MAX_WIDTH);
+                    if ($uploadedPath !== null) {
+                        $newImagePath = $uploadedPath;
                     }
                     $upd = $pdo->prepare(
                         'UPDATE hero_slides
@@ -180,7 +123,6 @@ if ($tableReady && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action
                                 button_text = :button_text,
                                 button_link = :button_link,
                                 image = :image,
-                                image_mobile = :image_mobile,
                                 sort_order = :sort_order,
                                 is_active = :is_active
                            WHERE id = :id'
@@ -191,7 +133,6 @@ if ($tableReady && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action
                         'button_text' => $buttonText !== '' ? $buttonText : null,
                         'button_link' => $buttonLink !== '' ? $buttonLink : null,
                         'image'       => $newImagePath,
-                        'image_mobile' => $newImagePathMobile,
                         'sort_order'  => $sortOrder,
                         'is_active'   => $isActive,
                         'id'          => $slideId,
@@ -199,10 +140,7 @@ if ($tableReady && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action
                     $pdo->commit();
 
                     if ($newImagePath !== $row['image']) {
-                        deleteImageFile($row['image']);
-                    }
-                    if ($newImagePathMobile !== $row['image_mobile']) {
-                        deleteImageFile($row['image_mobile']);
+                        deleteMediaFile($row['image']);
                     }
                     $message = 'Hero slide updated successfully.';
                 }
@@ -226,7 +164,7 @@ if ($tableReady && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action
                 if ($row) {
                     $pdo->prepare('DELETE FROM hero_slides WHERE id = :id')->execute(['id' => $slideId]);
                     $pdo->commit();
-                    deleteImageFile($row['image']);
+                    deleteMediaFile($row['image']);
                     $message = 'Hero slide deleted.';
                 } else {
                     $pdo->rollBack();
@@ -272,7 +210,7 @@ if ($tableReady && $editId > 0) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hero Slides Manager — Cantum Studio Admin</title>
+  <title>Hero Banner — Cantum Studio Admin</title>
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
@@ -417,7 +355,7 @@ if ($tableReady && $editId > 0) {
         <div class="eyebrow">Cantum Studio Admin</div>
         <h1 class="headline">Hero Slides Manager</h1>
         <p class="subcopy">
-          Add, edit, and remove the photos that appear in the homepage hero carousel.
+          Add, edit, and remove the landscape photos in the homepage hero banner (one photo per slide, used on desktop and mobile).
           Each slide can have its own title, subtitle, button text, and button link.
           Slides are ordered by <strong>sort order</strong> and only active slides are shown on the storefront.
         </p>
@@ -467,23 +405,13 @@ if ($tableReady && $editId > 0) {
 
             <div class="form-grid">
                 <div class="form-group full">
-                  <label for="image">Desktop Image <?= $editing ? '(leave empty to keep current)' : '' ?></label>
+                  <label for="image">Banner Image <?= $editing ? '(leave empty to keep current)' : '' ?></label>
                   <input type="file" name="image" id="image" class="form-file" accept="image/*" <?= $editing ? '' : 'required' ?>>
                   <?php if ($editing && !empty($editing['image'])): ?>
                     <img class="preview-img" src="../<?= htmlspecialchars($editing['image']) ?>" alt="Current image">
                   <?php endif; ?>
-                  <p class="form-help">Landscape orientation. JPG, PNG, WEBP, GIF.</p>
+                  <p class="form-help">One landscape photo for all devices (on mobile it pans sideways automatically). Compressed to WEBP on upload.</p>
                 </div>
-                <div class="form-group full">
-                  <label for="image_mobile">Mobile Image (Optional) <?= $editing ? '(leave empty to keep current)' : '' ?></label>
-                  <input type="file" name="image_mobile" id="image_mobile" class="form-file" accept="image/*" <?= $editing ? '' : '' ?>>
-                  <?php if ($editing && !empty($editing['image_mobile'])): ?>
-                    <img class="preview-img" src="../<?= htmlspecialchars($editing['image_mobile']) ?>" alt="Current mobile image">
-                  <?php endif; ?>
-                  <p class="form-help">Portrait orientation. If empty, desktop image will be used.</p>
-                </div>
-
-
               <div class="form-group">
                 <label for="title">Title</label>
                 <input type="text" name="title" id="title" class="form-input" value="<?= htmlspecialchars((string)($editing['title'] ?? '')) ?>" placeholder="Optional title">
