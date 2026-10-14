@@ -1,6 +1,7 @@
 <?php
 // Rahasia produksi — TIDAK di-commit (lihat .gitignore). Contoh format: secrets.example.php
 return [
+    'SITE_LOCK'            => '1', // kunci beranda dengan password (kosongkan untuk membuka ke publik)
     'DB_HOST'              => 'localhost',
     'DB_NAME'              => 'u584945443_newsimple',
     'DB_USER'              => 'u584945443_azril',

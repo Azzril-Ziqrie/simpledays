@@ -5,8 +5,9 @@
 Ringkas:
   - Repo GitHub : https://github.com/Azzril-Ziqrie/simpledays  (PRIVATE)
   - Branch      : simple-days-rebrand
-  - Di Hostinger beranda langsung terbuka (tanpa password gate).
-    Password "simpledays" hanya aktif di komputer lokal (XAMPP).
+  - Beranda dikunci password "simpledays" (lokal DAN Hostinger).
+    Setelah login muncul pilihan: Storefront / Admin dashboard.
+    Mau dibuka untuk publik saat launching: lihat bagian I.
 
 ---------------------------------------------------------------------
  A. SEBELUM DEPLOY (di komputer)
@@ -86,8 +87,8 @@ Ringkas:
 ---------------------------------------------------------------------
  H. TES SETELAH LIVE
 ---------------------------------------------------------------------
- [ ] Buka https://domainmu.com -> beranda langsung tampil (tanpa
-     password / pilihan Storefront-Admin).
+ [ ] Buka https://domainmu.com -> muncul kolom password. Masukkan
+     "simpledays" -> pilihan Storefront / Admin dashboard.
  [ ] Produk, kategori, dan gambar muncul.
  [ ] Tambah ke keranjang -> checkout -> tombol PayPal muncul.
  [ ] Transaksi kecil PayPal berhasil, email invoice terkirim.
@@ -97,13 +98,17 @@ Ringkas:
 ---------------------------------------------------------------------
  I. PENGATURAN KUNCI BERANDA (PASSWORD GATE)
 ---------------------------------------------------------------------
- - Aktif atau tidak ditentukan kunci SITE_LOCK:
-        SITE_LOCK = '1'  -> beranda minta password "simpledays", lalu
-                            muncul pilihan Storefront / Admin dashboard
-        kosong           -> beranda langsung terbuka (default hosting)
- - Lokal : diset di config/secrets.local.php (file ini TIDAK di-commit).
- - Hosting: tidak perlu apa-apa. Kalau suatu saat mau mengunci situs
-   live, tambahkan 'SITE_LOCK' => '1' di config/secrets.php server.
+ - Aktif atau tidak ditentukan kunci SITE_LOCK di config/secrets.php:
+        'SITE_LOCK' => '1'  -> beranda minta password "simpledays",
+                               lalu pilihan Storefront / Admin dashboard
+        'SITE_LOCK' => ''   -> beranda langsung terbuka (untuk publik)
+ - Saat ini: '1' (terkunci) di lokal dan di Hostinger.
+ - Saat resmi launching: ubah jadi '' di config/secrets.php,
+   commit, push, lalu Deploy ulang di hPanel.
+ - Ganti password gate: ubah SITE_LOCK_PASSWORD di
+   includes/site_gate.php.
+ - CATATAN: yang dikunci hanya beranda (index). Halaman lain
+   (shop, checkout, dst.) tetap bisa dibuka lewat URL langsung.
 
 ---------------------------------------------------------------------
  J. SETELAH LAUNCHING (KEAMANAN)
