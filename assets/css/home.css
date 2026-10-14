@@ -1,19 +1,59 @@
 /* Halaman depan: hero, intro, galeri foto/GIF, pop-up mata uang. Dimuat setelah site.css. */
 
 /* ── pop-up mata uang ────────────────────────────────────── */
-#currencyGate{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.25);-webkit-backdrop-filter:blur(12px) saturate(120%);backdrop-filter:blur(12px) saturate(120%)}
+#currencyGate{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px}
+/* latar: halaman di belakang diburamkan; dialog di atasnya kaca transparan */
+#currencyGate::before{
+  content:"";position:absolute;inset:0;
+  background:rgba(0,0,0,.18);
+  -webkit-backdrop-filter:blur(22px) saturate(140%);backdrop-filter:blur(22px) saturate(140%);
+  animation:cg-veil .35s ease both;
+}
 html.cg-skip #currencyGate{display:none}
 body.cg-lock{overflow:hidden}
-#currencyGate .cg-dialog{outline:none;width:100%;max-width:380px;background:#fff;padding:40px 32px 32px;border-radius:var(--r-lg);box-shadow:var(--shadow-float);text-align:center}
-#currencyGate .cg-flag{display:inline-block;width:40px;height:30px;margin-bottom:12px;border:1px solid var(--line);object-fit:cover}
+
+#currencyGate .cg-dialog{
+  position:relative;outline:none;width:100%;max-width:380px;padding:40px 32px 32px;text-align:center;
+  color:var(--ink);
+  background:rgba(255,255,255,.52);
+  -webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);
+  border:1px solid rgba(255,255,255,.6);border-radius:var(--r-lg);
+  box-shadow:0 30px 80px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.7);
+  animation:cg-pop .5s cubic-bezier(.2,.9,.25,1.05) both;
+}
+#currencyGate .cg-dialog .modal-text{color:var(--ink)}
+#currencyGate .cg-flag{display:inline-block;width:40px;height:30px;margin-bottom:12px;border:1px solid rgba(0,0,0,.15);border-radius:3px;object-fit:cover}
 #currencyGate .cg-list{display:grid;gap:8px}
-#currencyGate a.cg-opt{position:relative;padding:14px 12px;border:1px solid var(--ink);border-radius:var(--r-md);display:flex;flex-direction:column;gap:2px;transition:background .15s,color .15s}
-#currencyGate a.cg-opt:hover,#currencyGate a.cg-opt:focus-visible,#currencyGate a.cg-opt.cg-rec{background:var(--ink);color:#fff;outline:none}
+#currencyGate a.cg-opt{
+  position:relative;padding:14px 12px;display:flex;flex-direction:column;gap:2px;
+  border:1px solid rgba(0,0,0,.28);border-radius:var(--r-md);
+  background:rgba(255,255,255,.34);
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,transform .12s ease-out;
+}
+#currencyGate a.cg-opt:hover,#currencyGate a.cg-opt:focus-visible,#currencyGate a.cg-opt.cg-rec{background:var(--ink);border-color:var(--ink);color:#fff;outline:none}
+#currencyGate a.cg-opt:active{transform:scale(.98)}
 #currencyGate .cg-code{font-size:12px;font-weight:600}
-#currencyGate .cg-name{font-size:10px;opacity:.7}
+#currencyGate .cg-name{font-size:10px;opacity:.75}
 #currencyGate .cg-badge{position:absolute;top:6px;right:8px;font-size:9px;font-weight:600;letter-spacing:.08em}
-#currencyGate select{margin-top:12px;width:100%;padding:10px;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:#fff;font-size:12px}
-#currencyGate .cg-note{margin-top:16px;font-size:10px;color:var(--mute)}
+#currencyGate select{
+  margin-top:12px;width:100%;padding:10px;font-size:12px;color:var(--ink);
+  border:1px solid rgba(0,0,0,.28);border-radius:var(--r-sm);background:rgba(255,255,255,.4);
+}
+#currencyGate .cg-note{margin-top:16px;font-size:10px;color:rgba(0,0,0,.72)}
+
+@keyframes cg-veil{from{opacity:0}to{opacity:1}}
+@keyframes cg-pop{
+  from{opacity:0;transform:translateY(14px) scale(.96);filter:blur(10px)}
+  to{opacity:1;transform:none;filter:blur(0)}
+}
+@media(prefers-reduced-motion:reduce){
+  #currencyGate::before,#currencyGate .cg-dialog{animation:none}
+  #currencyGate a.cg-opt{transition:none}
+}
+@media(prefers-reduced-transparency:reduce){
+  #currencyGate::before{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(0,0,0,.45)}
+  #currencyGate .cg-dialog{background:#fff;-webkit-backdrop-filter:none;backdrop-filter:none}
+}
 
 /* ── hero ────────────────────────────────────────────── */
 .hero{position:relative;background:#111;color:#fff}

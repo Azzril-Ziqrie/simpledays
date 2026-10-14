@@ -155,12 +155,9 @@ siteBodyOpen([
     <?php if (!$isFiltered): ?>
     <section class="intro" aria-label="About">
       <div class="intro-copy">
-        <p>S/DAYS (Simple Days) - Inspired by Breakin’ - Tools for the Creative Mind</p>
-        <p>S/DAYS draws inspiration from breakin’, where originality and style stand alone; ideals stamped and expressed in the craft.</p>
-        <p>With breakin’ as the foundation of our approach, we embrace curiosity, play and fun in our creative process and product testing, making sure all our tools are “breakin’ tested”.</p>
-        <p>Balancing comfort, style and function, we design with the lifestyle of the active creative in mind to equip you for your adventures.</p>
-        <p>We’ll worry about the gears so you can focus on your craft.</p>
-        <p>Create. Just Because.</p>
+        <?php foreach (brandAboutCopy() as $line): ?>
+        <p><?= esc($line) ?></p>
+        <?php endforeach; ?>
       </div>
     </section>
     <?php endif; ?>

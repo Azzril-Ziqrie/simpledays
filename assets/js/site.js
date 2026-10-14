@@ -4,7 +4,7 @@
  *
  *   Site.cart            keranjang mini (DDMiniCart): items, save(), render()
  *   Site.showToast(msg)  toast kecil
- *   Site.open(id) / Site.close(id) / Site.closeAll()   panel & modal (menuPanel, cartPanel, accountPopup, termsPopup, faqPopup)
+ *   Site.open(id) / Site.close(id) / Site.closeAll()   panel & modal (menuPanel, cartPanel, accountPopup, faqPopup)
  *   Site.openCart()
  *   Site.syncCart()      sinkronkan keranjang ke sesi server (otomatis saat tombol Checkout)
  *   Site.reducedMotion   true bila pengguna minta reduced-motion
@@ -30,7 +30,7 @@
   var cart = window.DDMiniCart ? DDMiniCart.create({ showToast: showToast }) : null;
 
   /* ── layer: menu, cart, akun, terms, faq ────────────── */
-  var layers = ['menuPanel', 'cartPanel', 'accountPopup', 'termsPopup', 'faqPopup'].map($).filter(Boolean);
+  var layers = ['menuPanel', 'cartPanel', 'accountPopup', 'faqPopup'].map($).filter(Boolean);
 
   function syncOverlay() {
     var anyOpen = layers.some(function (l) { return l.classList.contains('active'); });
@@ -62,9 +62,20 @@
   document.querySelectorAll('[data-close]').forEach(function (el) {
     el.addEventListener('click', function () { close(el.dataset.close); });
   });
-  [['footerTermsLink', 'termsPopup']].forEach(function (pair) {
-    on(pair[0], 'click', function (e) { e.preventDefault(); open(pair[1]); });
+  /* ── tema terang / gelap ─────────────────────────────── */
+  var themeBtns = document.querySelectorAll('[data-theme-set]');
+  function syncTheme() {
+    var cur = document.documentElement.getAttribute('data-theme') || 'light';
+    themeBtns.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.themeSet === cur)); });
+  }
+  themeBtns.forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.documentElement.setAttribute('data-theme', b.dataset.themeSet);
+      try { localStorage.setItem('sdTheme', b.dataset.themeSet); } catch (e) {}
+      syncTheme();
+    });
   });
+  syncTheme();
   document.querySelectorAll('.dropdown-toggle').forEach(function (toggle) {
     toggle.addEventListener('click', function () {
       var isOpen = toggle.parentElement.classList.toggle('open');

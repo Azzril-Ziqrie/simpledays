@@ -1,153 +1,136 @@
-/* Shop — grid dengan kartu abu muda, toolbar View A/B + Sort.
-   Mobile: 2 produk per baris (B, default) atau 1 per baris (A). */
+/* Shop — grid rapat tanpa tepi (2 kolom di mobile), tile abu muda, caption di bawah.
+   Filter = dropdown Category + Sort di toolbar. */
 
 .page-shop{
-  --shop-tile:#f6f6f6;
-  --shop-gap-x:10px;
-  --shop-gap-y:28px;
+  --shop-tile:#f7f7f7;
+  --shop-gap:4px;
+  --shop-pad:16px;
   --shop-spring:cubic-bezier(.2,.9,.25,1.05);
   --shop-ease:cubic-bezier(.22,1,.36,1);
 }
 
-.shop{padding:clamp(20px,3vw,40px) var(--gutter,16px) 80px}
+.shop{padding:0 0 clamp(56px,8vw,96px)}
 
-/* toolbar: View A/B di kiri; Category + Sort (dropdown kaca) di kanan. Semua huruf kapital. */
+/* ── toolbar ──────────────────────────────────────────── */
 .shop-bar{
-  display:flex;align-items:center;gap:6px;
-  padding:0 0 14px;
-  font-size:11px;font-weight:500;
+  display:flex;align-items:center;gap:8px;
+  padding:14px var(--shop-pad);
+  font-size:12px;font-weight:500;
   text-transform:uppercase;letter-spacing:.06em;
+  background:#fff;
 }
-.shop-view{display:flex;align-items:center;gap:2px;margin-right:auto}
-.shop-view__label{margin-right:8px}
-.shop-view__btn{
-  min-width:28px;height:30px;padding:0 6px;border:0;background:transparent;
-  font:inherit;color:var(--mute);cursor:pointer;border-radius:8px;
-  transition:color .2s ease,transform .12s ease-out;
-  -webkit-tap-highlight-color:transparent;
-}
-.shop-view__btn:hover{color:var(--ink)}
-.shop-view__btn:active{transform:scale(.92)}
-.shop-view__btn[aria-pressed="true"]{color:var(--ink);font-weight:700}
-.shop-count{margin-right:10px;color:var(--mute);font-variant-numeric:tabular-nums}
+.shop-count{margin-right:auto;color:var(--mute);font-variant-numeric:tabular-nums}
 
-/* dropdown */
+/* ── dropdown (Category, Sort): teks polos, tanpa garis bulat ─────────── */
 .shop-menu{position:relative}
 .shop-menu summary{
-  list-style:none;display:flex;align-items:center;gap:7px;
-  height:34px;padding:0 12px;cursor:pointer;user-select:none;
-  border-radius:999px;border:1px solid rgba(0,0,0,.12);background:#fff;
-  transition:border-color .2s ease,background-color .2s ease,transform .12s ease-out,box-shadow .3s var(--shop-ease);
+  list-style:none;display:flex;align-items:center;gap:6px;
+  height:36px;padding:0 4px;margin:0 2px;cursor:pointer;user-select:none;
+  border:0;background:none;color:var(--ink);
+  transition:opacity .2s ease,transform .12s ease-out;
   -webkit-tap-highlight-color:transparent;
 }
 .shop-menu summary::-webkit-details-marker{display:none}
-.shop-menu summary:hover{border-color:rgba(0,0,0,.4)}
+.shop-menu summary:hover{opacity:.6}
 .shop-menu summary:active{transform:scale(.96)}
-.shop-menu summary:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
-.shop-menu[open] summary{border-color:var(--ink);box-shadow:0 6px 18px rgba(0,0,0,.08)}
+.shop-menu summary:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:4px}
 
-.shop-menu__value{
-  max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  padding:2px 7px;border-radius:999px;background:var(--ink);color:#fff;
-  font-size:10px;letter-spacing:.05em;
-}
+.shop-menu__value{max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mute)}
+.shop-menu__value::before{content:'/';margin-right:6px;color:var(--mute)}
 .shop-menu__chev,.shop-menu__plus{
-  width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:1.6;
+  width:9px;height:9px;fill:none;stroke:currentColor;stroke-width:1.6;
   stroke-linecap:round;stroke-linejoin:round;
   transition:transform .35s var(--shop-spring);
 }
 .shop-menu[open] .shop-menu__chev{transform:rotate(180deg)}
 .shop-menu[open] .shop-menu__plus{transform:rotate(45deg)}
 
+/* panel: putih bersih, garis rambut, satu bayangan lembut */
 .shop-menu__panel{
-  position:absolute;right:0;top:calc(100% + 10px);z-index:30;
-  min-width:210px;max-height:min(70vh,420px);overflow:auto;overscroll-behavior:contain;
-  padding:6px;border-radius:18px;
-  background:rgba(255,255,255,.76);
-  -webkit-backdrop-filter:blur(26px) saturate(190%);backdrop-filter:blur(26px) saturate(190%);
-  border:1px solid rgba(0,0,0,.07);
-  box-shadow:0 24px 60px rgba(0,0,0,.16),0 2px 8px rgba(0,0,0,.05),inset 0 1px 0 rgba(255,255,255,.8);
+  position:absolute;right:0;top:calc(100% + 6px);z-index:30;
+  min-width:200px;max-height:min(70vh,440px);overflow:auto;overscroll-behavior:contain;
+  padding:4px;border-radius:12px;
+  background:rgba(255,255,255,.94);
+  -webkit-backdrop-filter:blur(20px) saturate(160%);backdrop-filter:blur(20px) saturate(160%);
+  border:1px solid rgba(0,0,0,.08);
+  box-shadow:0 12px 32px rgba(0,0,0,.10);
   transform-origin:top right;
-  animation:shop-pop .34s var(--shop-spring) both;
+  animation:shop-pop .22s var(--shop-spring) both;
 }
 .shop-menu__panel a{
-  position:relative;display:flex;align-items:center;justify-content:space-between;gap:14px;
-  padding:11px 12px;border-radius:12px;
-  font-size:13px;font-weight:500;letter-spacing:.005em;text-transform:none;color:var(--ink);
-  transition:background-color .15s ease,transform .25s var(--shop-spring),color .15s ease;
-  animation:shop-item .38s var(--shop-ease) both;
+  display:flex;align-items:center;gap:12px;
+  padding:7px 10px;border-radius:8px;
+  font-size:13px;font-weight:400;letter-spacing:.005em;text-transform:none;color:var(--ink);
+  transition:background-color .15s ease;
 }
-.shop-menu__panel a:nth-child(1){animation-delay:.02s}
-.shop-menu__panel a:nth-child(2){animation-delay:.04s}
-.shop-menu__panel a:nth-child(3){animation-delay:.06s}
-.shop-menu__panel a:nth-child(4){animation-delay:.08s}
-.shop-menu__panel a:nth-child(5){animation-delay:.10s}
-.shop-menu__panel a:nth-child(6){animation-delay:.12s}
-.shop-menu__panel a:nth-child(n+7){animation-delay:.14s}
-.shop-menu__panel a:hover,.shop-menu__panel a:focus-visible{background:rgba(0,0,0,.06);transform:translateX(3px);outline:0}
-.shop-menu__panel a:active{transform:scale(.97)}
-.shop-menu__panel a.is-active{background:var(--ink);color:#fff}
-.shop-menu__panel a.is-active::after{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.shop-menu__panel a:hover,.shop-menu__panel a:focus-visible{background:rgba(0,0,0,.05);outline:0}
+.shop-menu__panel a:active{background:rgba(0,0,0,.08)}
+.shop-menu__panel a.is-active{font-weight:600}
+.shop-menu__panel a.is-active::after{content:"";margin-left:auto;width:5px;height:5px;border-radius:50%;background:var(--ink)}
+
+/* item kategori: thumbnail kecil + nama + jumlah */
+.shop-menu--category .shop-menu__panel{min-width:248px}
+.shop-menu__thumb{
+  flex:none;width:28px;height:35px;border-radius:3px;overflow:hidden;background:var(--shop-tile);
+}
+.shop-menu__thumb img{width:100%;height:100%;object-fit:cover;mix-blend-mode:multiply;display:block}
+.shop-menu__text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shop-menu__n{
+  flex:none;min-width:20px;text-align:right;
+  font-size:11px;font-weight:400;color:var(--mute);font-variant-numeric:tabular-nums;letter-spacing:0;
+}
+.shop-menu__panel a.shop-menu__cat.is-active::after{content:none}
+.shop-menu__panel a.shop-menu__cat.is-active .shop-menu__n{color:var(--ink)}
 
 @keyframes shop-pop{
-  from{opacity:0;transform:scale(.9) translateY(-6px);filter:blur(8px)}
-  to{opacity:1;transform:none;filter:blur(0)}
-}
-@keyframes shop-item{
-  from{opacity:0;transform:translateY(6px)}
+  from{opacity:0;transform:scale(.96) translateY(-4px)}
   to{opacity:1;transform:none}
 }
 
-.shop-filter{margin:0 0 14px;color:var(--mute)}
+.shop-filter{margin:0;padding:0 var(--shop-pad) 12px;color:var(--mute)}
 .shop-filter strong{color:var(--ink);font-weight:500}
 .shop-filter a{margin-left:10px;color:var(--ink)}
+.page-shop .empty-text{padding:40px var(--shop-pad)}
 
-/* ── grid ─────────────────────────────────────────────── */
+/* ── grid: rapat, tanpa tepi ──────────────────────────── */
 .shop-grid{
-  --cols:4;
-  grid-template-columns:repeat(var(--cols),minmax(0,1fr));
-  gap:var(--shop-gap-y) var(--shop-gap-x);
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:var(--shop-gap);
 }
-.shop-grid[data-view="a"]{--cols:3}
+@media (max-width:1100px){.shop-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:700px){.shop-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}   /* mobile: 2 per baris */
 
-@media (max-width:1100px){
-  .shop-grid{--cols:3}
-  .shop-grid[data-view="a"]{--cols:2}
-}
-/* mobile: B = 2 per baris (default), A = 1 per baris */
-@media (max-width:700px){
-  .shop{padding-bottom:56px}
-  .shop-count{display:none}
-  .shop-view__label{display:none}
-  .shop-menu summary{padding:0 10px}
-  .shop-menu__value{max-width:64px}
-  .shop-grid{--cols:2;--shop-gap-y:22px;--shop-gap-x:8px}
-  .shop-grid[data-view="a"]{--cols:1}
-}
-
-/* kartu */
-.page-shop .product-tile{
-  aspect-ratio:4/5;background:var(--shop-tile);border-radius:0;
-}
-.page-shop .product-tile img{mix-blend-mode:multiply}
-.page-shop .product-info{padding-top:10px;gap:1px}
-.page-shop .product-name{font-size:12px;font-weight:400;line-height:1.35;-webkit-line-clamp:2}
-.page-shop .product-price{font-size:12px}
-.page-shop .product-badges{top:8px;left:8px}
+/* kartu: tile abu 3:4, caption di bawah dengan padding sejajar toolbar */
+.page-shop .product-card{display:block;background:#fff}
+.page-shop .product-tile{aspect-ratio:3/4;background:var(--shop-tile);border-radius:0}
+.page-shop .product-tile img{object-fit:cover;mix-blend-mode:multiply}
+.page-shop .product-info{padding:14px var(--shop-pad) 26px;gap:2px}
+.page-shop .product-name{font-size:13px;font-weight:400;letter-spacing:.02em;line-height:1.35;-webkit-line-clamp:2}
+.page-shop .product-price{font-size:13px;letter-spacing:.02em}
+.page-shop .product-badges{top:10px;left:10px}
 .page-shop .product-badge{font-size:9.5px;padding:3px 7px}
 
 @media (max-width:700px){
-  .page-shop .product-name,.page-shop .product-price{font-size:11px}
+  .shop-bar{padding-top:12px;padding-bottom:12px}
+  .shop-menu__value{max-width:72px}
+  .page-shop .product-info{padding:12px 12px 22px}
+  .page-shop .product-name,.page-shop .product-price{font-size:12px}
+
+  /* panel kategori selebar toolbar, tidak melewati tepi layar */
+  .shop-bar{position:relative}
+  .shop-menu--category{position:static}
+  .shop-menu--category .shop-menu__panel{left:8px;right:8px;width:auto;min-width:0;top:calc(100% - 2px);transform-origin:top center}
 }
 
-/* ganti view: kartu bergeser halus (View Transitions) */
-::view-transition-group(*){animation-duration:.45s;animation-timing-function:var(--shop-spring)}
-
 @media (prefers-reduced-motion:reduce){
-  .shop-menu__panel,.shop-menu__panel a{animation:none}
-  .shop-menu__chev,.shop-menu__plus,.shop-view__btn,.shop-menu summary,.shop-menu__panel a{transition:none}
-  ::view-transition-group(*){animation-duration:.01s}
+  .shop-menu__panel{animation:none}
+  .shop-menu__chev,.shop-menu__plus,.shop-menu summary,.shop-menu__panel a{transition:none}
 }
 @media (prefers-reduced-transparency:reduce){
   .shop-menu__panel{background:#fff;-webkit-backdrop-filter:none;backdrop-filter:none}
 }
+
+html[data-theme="dark"] .shop-bar,html[data-theme="dark"] .page-shop .product-card{background:var(--bg)}
+html[data-theme="dark"] .shop-menu__panel{background:rgba(28,28,28,.94);border-color:rgba(255,255,255,.1);box-shadow:0 12px 32px rgba(0,0,0,.5)}
+html[data-theme="dark"] .shop-menu__panel a:hover,html[data-theme="dark"] .shop-menu__panel a:focus-visible{background:rgba(255,255,255,.08)}
+html[data-theme="dark"] .shop-menu__panel a:active{background:rgba(255,255,255,.12)}

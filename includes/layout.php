@@ -89,6 +89,15 @@ function siteHeadOpen(array $o = []): void
   <?php endforeach; ?>
   <?php if (function_exists('ddDisplayJs')): ?><script><?= ddDisplayJs() ?></script><?php endif; ?>
   <script>
+    // Tema: pilihan tersimpan, jika belum ada ikuti sistem. Dipasang sebelum render agar tidak berkedip.
+    (function () {
+      var t = null;
+      try { t = localStorage.getItem('sdTheme'); } catch (e) {}
+      if (t !== 'dark' && t !== 'light') t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+  <script>
     // Animasi masuk hanya bila pengguna tidak minta reduced-motion; dicabut lagi bila Motion gagal dimuat.
     if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) document.documentElement.classList.add('js');
     <?php if (!empty($o['currencyGate'])): ?>
@@ -145,11 +154,10 @@ function siteBodyOpen(array $o = []): void
     include dirname(__DIR__) . '/navbar.php';
 }
 
-/** Footer + modal legal + script bersama. <body> dibiarkan terbuka untuk script halaman. */
+/** Footer + script bersama. <body> dibiarkan terbuka untuk script halaman. */
 function siteBodyClose(array $o = []): void
 {
     include dirname(__DIR__) . '/footer.php';
-    include __DIR__ . '/partials/legal.php';
     ?>
   <script src="<?= esc(siteAsset('assets/js/mini-cart.js')) ?>"></script>
   <script src="<?= esc(siteAsset('assets/js/vendor/motion.js')) ?>"></script>

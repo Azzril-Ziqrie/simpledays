@@ -30,6 +30,32 @@
 }
 @media(max-width:600px){:root{--gutter:20px}}
 
+/* ── dark mode: html[data-theme="dark"] diatur oleh site.js (pilihan disimpan, default mengikuti sistem) ── */
+html[data-theme="dark"]{
+  color-scheme:dark;
+  --ink:#f2f2f2;--ink-2:#b4b4b4;--mute:#8c8c8c;
+  --tile:#1c1c1c;--line:#2a2a2a;--line-strong:#3a3a3a;--bg:#0c0c0c;
+  --ok:#66bb6a;--err:#ef5350;
+  --shadow-float:0 18px 48px rgba(0,0,0,.6),0 2px 10px rgba(0,0,0,.4);
+  --focus-ring:0 0 0 4px rgba(255,255,255,.14);
+}
+html[data-theme="dark"] .navbar{background:rgba(12,12,12,.8);box-shadow:0 1px 0 rgba(255,255,255,.08)}
+html[data-theme="dark"] .navbar--overlay:not(.is-solid){background:transparent;box-shadow:none}
+html[data-theme="dark"] .brand-mark img{filter:invert(1)}
+html[data-theme="dark"] .panel{background:rgba(18,18,18,.92)}
+html[data-theme="dark"] .modal-dialog,html[data-theme="dark"] #currencyGate .cg-dialog{background:rgba(28,28,28,.7);border-color:rgba(255,255,255,.1);box-shadow:0 30px 80px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.08)}
+html[data-theme="dark"] .modal-close:hover{background:rgba(255,255,255,.1)}
+html[data-theme="dark"] #currencyGate .cg-note{color:rgba(255,255,255,.7)}
+html[data-theme="dark"] .input,html[data-theme="dark"] .select,html[data-theme="dark"] .textarea,html[data-theme="dark"] .account-form input,html[data-theme="dark"] .field input,html[data-theme="dark"] .field select,html[data-theme="dark"] .field textarea{background-color:#161616}
+html[data-theme="dark"] .select,html[data-theme="dark"] .field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23f2f2f2' stroke-width='1.3'/%3E%3C/svg%3E")}
+html[data-theme="dark"] .product-badge{background:rgba(30,30,30,.72)}
+html[data-theme="dark"] .cart-checkout-btn:hover{background:#fff}
+html[data-theme="dark"] .cart-checkout-btn:disabled{background:#333}
+html[data-theme="dark"] .toast{background:rgba(242,242,242,.92);color:#111}
+html[data-theme="dark"] .footer-news__msg.is-error{color:#ef9a9a}
+/* Foto produk memakai multiply: tile dibuat terang agar foto tidak ikut gelap. */
+html[data-theme="dark"] .product-tile,html[data-theme="dark"] .shop-menu__thumb{background:#ececec}
+
 /* ── base ────────────────────────────────────────────────── */
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;overflow-x:clip}
@@ -92,7 +118,7 @@ button{cursor:pointer;background:none;border:none}
 }
 
 /* ── overlay + panels (menu, cart) ───────────────────────── */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.32);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);opacity:0;visibility:hidden;transition:opacity .25s,visibility .25s;z-index:70}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.2);-webkit-backdrop-filter:blur(18px) saturate(140%);backdrop-filter:blur(18px) saturate(140%);opacity:0;visibility:hidden;transition:opacity .25s,visibility .25s;z-index:70}
 .overlay.active{opacity:1;visibility:visible}
 .panel{position:fixed;top:0;height:100vh;height:100dvh;background:rgba(255,255,255,.92);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);z-index:80;display:flex;flex-direction:column;transition:transform .4s var(--ease)}
 .panel-head{height:var(--nav-h);display:flex;align-items:center;justify-content:space-between;padding:0 var(--gutter);flex-shrink:0}
@@ -153,21 +179,30 @@ button{cursor:pointer;background:none;border:none}
 /* ── modals: account / info / payment / currency ─────────── */
 .modal{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;pointer-events:none}
 .modal.active,.modal.modal--open{pointer-events:auto}
-.modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.35);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:0;transition:opacity .25s}
+.modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.18);-webkit-backdrop-filter:blur(22px) saturate(140%);backdrop-filter:blur(22px) saturate(140%);opacity:0;transition:opacity .3s ease}
 .modal.active .modal-backdrop,.modal.modal--open .modal-backdrop{opacity:1}
-.modal-dialog{position:relative;width:100%;max-width:420px;max-height:85vh;background:#fff;padding:44px 36px 36px;border-radius:var(--r-lg);box-shadow:var(--shadow-float);opacity:0;transform:translateY(14px) scale(.96);transition:opacity .25s,transform .45s var(--ease);overflow:hidden}
-.modal.active .modal-dialog,.modal.modal--open .modal-dialog{opacity:1;transform:none}
+.modal-dialog{
+  position:relative;width:100%;max-width:420px;max-height:85vh;padding:44px 36px 36px;overflow:hidden;
+  color:var(--ink);
+  background:rgba(255,255,255,.52);
+  -webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);
+  border:1px solid rgba(255,255,255,.6);border-radius:var(--r-lg);
+  box-shadow:0 30px 80px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.7);
+  opacity:0;transform:translateY(14px) scale(.96);filter:blur(10px);
+  transition:opacity .3s ease,transform .5s var(--ease),filter .35s ease;
+}
+.modal.active .modal-dialog,.modal.modal--open .modal-dialog{opacity:1;transform:none;filter:blur(0)}
 .modal.modal--closing .modal-backdrop,.modal.modal--closing .modal-dialog{opacity:0}
 .modal-close{position:absolute;top:10px;right:10px;width:36px;height:36px;border-radius:var(--r-pill);font-size:24px;font-weight:300;line-height:1;transition:background-color .15s,transform .12s ease-out}
-.modal-close:hover{background:var(--tile)}
+.modal-close:hover{background:rgba(0,0,0,.07)}
 .modal-close:active{transform:var(--press)}
 .modal-eyebrow{display:flex;justify-content:center;margin-bottom:20px}
 .modal-eyebrow img{width:auto;height:14px}
 .modal-title{font-size:16px;font-weight:500;letter-spacing:-.01em;text-align:center;margin-bottom:24px}
-.modal-text{max-width:340px;margin:0 auto 24px;text-align:center;color:var(--ink-2);line-height:1.7}
-.modal-meta{display:grid;gap:6px;padding:14px;margin-bottom:24px;border-radius:var(--r-sm);background:var(--tile);text-align:center}
+.modal-text{max-width:340px;margin:0 auto 24px;text-align:center;color:var(--ink);line-height:1.7}
+.modal-meta{display:grid;gap:6px;padding:14px;margin-bottom:24px;border-radius:var(--r-sm);background:rgba(255,255,255,.45);border:1px solid rgba(0,0,0,.08);text-align:center}
 .modal-actions{display:flex;justify-content:center}
-.info-content{overflow-y:auto;max-height:calc(85vh - 140px);padding-right:10px;color:var(--ink-2)}
+.info-content{overflow-y:auto;max-height:calc(85vh - 140px);padding-right:10px;color:var(--ink)}
 .info-content section{margin-bottom:22px}
 .info-content h3{font-size:11px;font-weight:600;color:var(--ink);margin-bottom:6px}
 .info-content p{line-height:1.75}
@@ -257,18 +292,72 @@ button{cursor:pointer;background:none;border:none}
 @media(max-width:1100px){.product-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:700px){.product-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:30px 8px}.product-info{padding-top:10px}}
 
-/* ── footer (markup di footer.php) ───────────────────────── */
-.site-footer{border-top:1px solid var(--line);padding-top:28px}
-.footer-social,.footer-links-row,.footer{padding-left:var(--gutter);padding-right:var(--gutter)}
-.footer-social{display:flex;gap:16px;padding-bottom:20px}
-.footer-social a{display:flex;transition:opacity .15s}
-.footer-social a:hover{opacity:.5}
-.footer-social img{width:16px;height:16px;filter:grayscale(1)}
-.footer-links-row{display:flex;gap:24px;flex-wrap:wrap;padding-bottom:40px}
-.footer-links-row a{color:var(--mute);transition:color .15s}
-.footer-links-row a:hover{color:var(--ink)}
-.footer{padding-top:0;padding-bottom:32px}
-.footer-copy{color:var(--mute)}
+/* ── footer (markup di footer.php): tautan polos berkelompok + newsletter ─────────── */
+.site-footer{
+  --ft-gap:clamp(48px,9vw,88px);
+  margin-top:clamp(48px,7vw,112px);
+  padding:clamp(32px,5vw,56px) 0 0;
+  border-top:1px solid var(--line);
+  background:var(--bg);color:var(--ink);
+}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 var(--gutter)}
+
+/* dua kelompok tautan dengan jeda lega di antaranya */
+.footer-links-row{display:grid;gap:var(--ft-gap)}
+.footer-group{display:grid;justify-items:start;align-content:start}
+.footer-group a{
+  display:inline-block;padding:7px 0;
+  font-size:13px;letter-spacing:.01em;color:var(--ink);
+  transition:opacity .2s ease,transform .12s ease-out;
+  -webkit-tap-highlight-color:transparent;
+}
+.footer-group a:hover{opacity:.55}
+.footer-group a:active{transform:scale(.97);opacity:.55}
+.footer-group a:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radius:2px}
+
+/* newsletter */
+.footer-news{margin-top:var(--ft-gap);display:grid;gap:12px;max-width:520px}
+.footer-news__title{font-size:12px;font-weight:600;letter-spacing:.01em}
+.footer-news__row{display:flex;gap:8px}
+.footer-news__input{
+  flex:1;min-width:0;height:46px;padding:0 16px;
+  border:1px solid var(--ink);border-radius:10px;background:#fff;color:var(--ink);
+  font-size:12px;letter-spacing:.01em;
+  transition:box-shadow .2s ease;
+}
+.footer-news__input::placeholder{color:var(--ink)}
+.footer-news__input:focus{outline:0;box-shadow:0 0 0 3px rgba(0,0,0,.12)}
+.footer-news__btn{
+  flex:none;height:46px;padding:0 20px;
+  border:1px solid var(--ink);border-radius:10px;background:#fff;color:var(--ink);
+  font-size:12px;letter-spacing:.01em;cursor:pointer;
+  transition:background-color .2s ease,color .2s ease,transform .12s ease-out;
+  -webkit-tap-highlight-color:transparent;
+}
+.footer-news__btn:hover{background:var(--ink);color:#fff}
+.footer-news__btn:active{transform:scale(.97)}
+.footer-news__btn:disabled{opacity:.5;cursor:default}
+.footer-news__btn:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.footer-news__hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+.footer-news__msg{min-height:18px;margin:0;font-size:12px;color:var(--mute)}
+.footer-news__msg.is-ok{color:var(--ink)}
+.footer-news__msg.is-error{color:#b3261e}
+
+.footer{padding:var(--ft-gap) 0 36px}
+.footer-copy{display:block;font-size:11px;line-height:1.7;letter-spacing:.02em;color:var(--mute)}
+
+@media(min-width:900px){
+  .footer-inner{
+    display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:clamp(32px,6vw,96px);
+    align-items:start;
+  }
+  .footer-links-row{display:contents}
+  .footer-news{margin-top:0}
+  .footer{grid-column:1 / -1;padding-top:clamp(56px,7vw,96px)}
+}
+@media(prefers-reduced-motion:reduce){
+  .footer-group a,.footer-news__input,.footer-news__btn{transition:none}
+}
 
 /* ── toast ───────────────────────────────────────────────── */
 .toast-container{position:fixed;bottom:24px;right:24px;z-index:200;display:flex;flex-direction:column;gap:8px;pointer-events:none}
@@ -285,9 +374,20 @@ button{cursor:pointer;background:none;border:none}
 @media (prefers-reduced-transparency:reduce){
   .navbar,.panel,.toast{background:#fff;-webkit-backdrop-filter:none;backdrop-filter:none}
   .toast{background:var(--ink)}
-  .overlay,.modal-backdrop{-webkit-backdrop-filter:none;backdrop-filter:none}
+  .overlay,.modal-backdrop{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(0,0,0,.45)}
+  .modal-dialog{background:#fff;-webkit-backdrop-filter:none;backdrop-filter:none}
 }
 @media (prefers-contrast:more){
   :root{--line:#b5b5b5;--line-strong:#767676;--mute:#595959;--ink-2:#333}
   .navbar{background:#fff;-webkit-backdrop-filter:none;backdrop-filter:none}
 }
+
+/* ── pilihan tema di dasar panel menu ────────────────────── */
+.menu-foot{flex-shrink:0;padding:16px var(--gutter) calc(20px + env(safe-area-inset-bottom));display:flex;justify-content:flex-start}
+.theme-switch{position:relative;display:inline-grid;grid-template-columns:1fr 1fr;padding:3px;border-radius:var(--r-pill);background:var(--tile);box-shadow:inset 0 0 0 1px var(--line)}
+.theme-switch::before{content:'';position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);border-radius:var(--r-pill);background:var(--ink);transition:transform .4s var(--ease)}
+html[data-theme="dark"] .theme-switch::before{transform:translateX(100%)}
+.theme-opt{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;width:40px;height:30px;color:var(--ink-2);border-radius:var(--r-pill);transition:color .25s ease,transform .12s ease-out}
+.theme-opt:active{transform:var(--press)}
+.theme-opt[aria-pressed="true"]{color:var(--bg)}
+@media(prefers-reduced-motion:reduce){.theme-switch::before{transition:none}}

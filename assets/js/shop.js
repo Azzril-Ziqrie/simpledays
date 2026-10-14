@@ -1,44 +1,7 @@
-/* Shop: toggle tampilan grid (A/B) dan dropdown Category / Sort. */
+/* Shop: dropdown Category / Sort — satu terbuka pada satu waktu; tutup via klik luar atau Escape. */
 (function () {
   'use strict';
 
-  var STORAGE_KEY = 'sd-shop-view';
-  var grid = document.getElementById('shopGrid');
-  var buttons = document.querySelectorAll('.shop-view__btn');
-
-  function readView() {
-    try { return localStorage.getItem(STORAGE_KEY); } catch (e) { return null; }
-  }
-  function saveView(view) {
-    try { localStorage.setItem(STORAGE_KEY, view); } catch (e) { /* mode privat: abaikan */ }
-  }
-
-  function paint(view) {
-    if (grid) { grid.dataset.view = view; }
-    buttons.forEach(function (btn) {
-      btn.setAttribute('aria-pressed', btn.dataset.view === view ? 'true' : 'false');
-    });
-  }
-
-  function setView(view) {
-    if (!grid || grid.dataset.view === view) { return; }
-    saveView(view);
-    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (document.startViewTransition && !reduce) {
-      document.startViewTransition(function () { paint(view); });
-    } else {
-      paint(view);
-    }
-  }
-
-  var saved = readView();
-  if (saved === 'a' || saved === 'b') { paint(saved); }
-
-  buttons.forEach(function (btn) {
-    btn.addEventListener('click', function () { setView(btn.dataset.view); });
-  });
-
-  /* Dropdown (Category, Sort): satu terbuka pada satu waktu; tutup via klik luar / Escape */
   var menus = Array.prototype.slice.call(document.querySelectorAll('.shop-menu'));
 
   menus.forEach(function (menu) {

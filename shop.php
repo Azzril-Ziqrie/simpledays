@@ -60,6 +60,23 @@ $categories = fetchCategories($pdo, $schema);
 // Shop menampilkan juga produk habis (diberi label "Sold out")
 $products   = sortProducts(fetchInStockProducts($pdo, $schema, $search, $category, false), $sort);
 
+// Gambar & jumlah per kategori untuk dropdown, dihitung dari seluruh katalog (bukan hasil filter).
+$catalog = $isFiltered ? fetchInStockProducts($pdo, $schema, '', '', false) : $products;
+$catalog = sortProducts($catalog, 'featured');
+$categoryThumb = [];
+$categoryCount = [];
+foreach ($catalog as $item) {
+    $slugs = [(string)($item['category_slug'] ?? '')];
+    if (!empty($item['is_new'])) {
+        $slugs[] = 'new';   // kategori "new" memuat semua produk bertanda baru
+    }
+    foreach (array_unique(array_filter($slugs, 'strlen')) as $slug) {
+        $categoryCount[$slug] = ($categoryCount[$slug] ?? 0) + 1;
+        $categoryThumb[$slug] ??= (string)$item['thumbnail'];
+    }
+}
+$allThumb = $catalog ? (string)$catalog[0]['thumbnail'] : '';
+
 $categoryLabel = '';
 foreach ($categories as $cat) {
     if ($category !== '' && $category === (string)$cat['slug']) {
@@ -86,12 +103,6 @@ siteBodyOpen([
     <h1 class="sr-only">Shop</h1>
 
     <div class="shop-bar">
-      <div class="shop-view" role="group" aria-label="Grid view">
-        <span class="shop-view__label">View:</span>
-        <button type="button" class="shop-view__btn" data-view="a" aria-pressed="false" aria-label="Large grid">A</button>
-        <button type="button" class="shop-view__btn" data-view="b" aria-pressed="true" aria-label="Compact grid">B</button>
-      </div>
-
       <span class="shop-count" aria-live="polite"><?= count($products) ?> <?= count($products) === 1 ? 'product' : 'products' ?></span>
 
       <details class="shop-menu shop-menu--category">
@@ -102,12 +113,25 @@ siteBodyOpen([
         </summary>
         <div class="shop-menu__panel" role="menu">
           <a role="menuitemradio" aria-checked="<?= $category === '' ? 'true' : 'false' ?>"
-             class="<?= $category === '' ? 'is-active' : '' ?>"
-             href="<?= esc(shopUrl($current, ['category' => null])) ?>">All</a>
-          <?php foreach ($categories as $cat): $isActive = $category === (string)$cat['slug']; ?>
+             class="shop-menu__cat<?= $category === '' ? ' is-active' : '' ?>"
+             href="<?= esc(shopUrl($current, ['category' => null])) ?>">
+            <span class="shop-menu__thumb"><?php if ($allThumb !== ''): ?><img src="<?= esc($allThumb) ?>" alt="" loading="lazy" decoding="async"><?php endif; ?></span>
+            <span class="shop-menu__text">All</span>
+            <span class="shop-menu__n"><?= count($catalog) ?></span>
+          </a>
+          <?php foreach ($categories as $cat):
+              $slug     = (string)$cat['slug'];
+              $isActive = $category === $slug;
+              $thumb    = $categoryThumb[$slug] ?? '';
+              if (!$isActive && empty($categoryCount[$slug])) { continue; }   // sembunyikan kategori kosong
+          ?>
             <a role="menuitemradio" aria-checked="<?= $isActive ? 'true' : 'false' ?>"
-               class="<?= $isActive ? 'is-active' : '' ?>"
-               href="<?= esc(shopUrl($current, ['category' => (string)$cat['slug']])) ?>"><?= esc(sentenceCase((string)$cat['name'])) ?></a>
+               class="shop-menu__cat<?= $isActive ? ' is-active' : '' ?>"
+               href="<?= esc(shopUrl($current, ['category' => $slug])) ?>">
+              <span class="shop-menu__thumb"><?php if ($thumb !== ''): ?><img src="<?= esc($thumb) ?>" alt="" loading="lazy" decoding="async"><?php endif; ?></span>
+              <span class="shop-menu__text"><?= esc(sentenceCase((string)$cat['name'])) ?></span>
+              <span class="shop-menu__n"><?= (int)($categoryCount[$slug] ?? 0) ?></span>
+            </a>
           <?php endforeach; ?>
         </div>
       </details>
@@ -137,7 +161,7 @@ siteBodyOpen([
     <?php if (!$products): ?>
       <p class="empty-text"><?= $isFiltered ? 'No products match your filters.' : 'No active products yet.' ?></p>
     <?php else: ?>
-      <div class="product-grid shop-grid" id="shopGrid" data-view="b">
+      <div class="product-grid shop-grid" id="shopGrid">
         <?php foreach ($products as $product): ?>
           <?= renderProductCard($product) ?>
         <?php endforeach; ?>

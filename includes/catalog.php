@@ -150,3 +150,37 @@ function fetchInStockProducts(PDO $pdo, array $schema, string $search, string $c
     }
     return array_values(array_filter($rows, fn(array $p) => (int)($p['is_in_stock'] ?? 1) === 1));
 }
+
+/**
+ * Saran produk untuk halaman detail: kategori yang sama dulu, sisanya diisi produk lain.
+ * Hanya produk yang masih ada stok; produk yang sedang dilihat tidak ikut.
+ * Urutan diacak tapi stabil per produk (seed = id) supaya tidak berganti tiap refresh.
+ */
+function fetchRelatedProducts(PDO $pdo, array $schema, int $productId, string $categorySlug, int $limit = 4): array
+{
+    $notCurrent = static fn(array $p): bool => (int)$p['id'] !== $productId;
+
+    $related = [];
+    if ($categorySlug !== '') {
+        $related = array_values(array_filter(
+            fetchInStockProducts($pdo, $schema, '', $categorySlug),
+            $notCurrent
+        ));
+        mt_srand($productId);
+        shuffle($related);
+        $related = array_slice($related, 0, $limit);
+    }
+
+    if (count($related) < $limit) {
+        $picked = array_map(static fn(array $p): int => (int)$p['id'], $related);
+        $others = array_values(array_filter(
+            fetchInStockProducts($pdo, $schema, '', ''),
+            static fn(array $p): bool => (int)$p['id'] !== $productId && !in_array((int)$p['id'], $picked, true)
+        ));
+        mt_srand($productId + 1);
+        shuffle($others);
+        $related = array_merge($related, array_slice($others, 0, $limit - count($related)));
+    }
+
+    return $related;
+}

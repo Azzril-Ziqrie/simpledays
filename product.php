@@ -89,17 +89,19 @@ $sizeStmt = $pdo->prepare(
 $sizeStmt->execute(['pid' => $product['id']]);
 $productSizes = $sizeStmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Sort natural (1, 2, 10) di level PHP, supaya konsisten sebelum dikirim ke frontend.
+// Urut menurut sort_order dulu (S/M sebelum L/XL), lalu natural (1, 2, 10) untuk yang sama.
 usort($productSizes, function ($a, $b) {
-    $nameCmp = strnatcasecmp((string)$a['name'], (string)$b['name']);
-    if ($nameCmp !== 0) return $nameCmp;
-    return ((int)($a['sort_order'] ?? 0)) <=> ((int)($b['sort_order'] ?? 0));
+    $orderCmp = ((int)($a['sort_order'] ?? 0)) <=> ((int)($b['sort_order'] ?? 0));
+    if ($orderCmp !== 0) return $orderCmp;
+    return strnatcasecmp((string)$a['name'], (string)$b['name']);
 });
 
 $availableSizes = array_values(array_filter($productSizes, fn($s) => (int)$s['is_active']===1 && (int)$s['stock']>0));
 $isSoldOut = count($availableSizes) === 0;
 $selectedSize = $isSoldOut ? '' : $availableSizes[0]['name'];
 $selectedProductSizeId = $isSoldOut ? null : (int)$availableSizes[0]['product_size_id'];
+
+$relatedProducts = fetchRelatedProducts($pdo, catalogSchema($pdo), (int)$product['id'], (string)($product['category_slug'] ?? ''), 4);
 
 $originalPrice = ddProductBasePrice($product);
 $basePrice     = productFinalPrice($product);
@@ -128,72 +130,114 @@ siteHeadOpen([
 ?>
 <style>
 /* ── halaman produk ──────────────────────────────────── */
-.pdp{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,4fr);gap:clamp(32px,5vw,80px);max-width:1440px;margin:0 auto;padding:24px var(--gutter) clamp(56px,8vw,112px);align-items:start}
+.pdp{
+  --pdp-tile:#f7f7f7;
+  --pdp-pad:16px;
+  --pdp-spring:cubic-bezier(.2,.9,.25,1.05);
+  display:grid;grid-template-columns:minmax(0,7fr) minmax(0,4fr);gap:clamp(32px,5vw,80px);
+  max-width:1440px;margin:0 auto;padding:0 var(--gutter) clamp(56px,8vw,112px);align-items:start;
+}
 
-/* galeri: foto bertumpuk di desktop */
+/* galeri: tile abu penuh, foto bertumpuk di desktop */
 .pdp-gallery{display:grid;gap:4px;position:relative}
-.pdp-slide{background:var(--tile);margin:0}
-.pdp-slide img{width:100%;height:auto;mix-blend-mode:multiply;cursor:zoom-in}
-.pdp-counter{display:none}
+.pdp-slide{background:var(--pdp-tile);margin:0}
+.pdp-slide img{width:100%;height:auto;display:block;mix-blend-mode:multiply;cursor:zoom-in}
+.pdp-progress{display:none}
 
-/* info: menempel di bawah navbar */
-.pdp-info{position:sticky;top:calc(var(--nav-h) + 24px);padding-top:8px;max-width:440px}
-.pdp-crumb{font-size:11px;color:var(--mute);margin-bottom:14px}
-.pdp-crumb a:hover{color:var(--ink)}
-.pdp-title{font-size:clamp(18px,1.8vw,22px);font-weight:500;letter-spacing:-.02em;line-height:1.25;margin-bottom:10px}
-.pdp-price{display:flex;align-items:baseline;gap:10px;font-size:14px;font-weight:500}
-.pdp-price .was{color:var(--mute);font-weight:400;text-decoration:line-through}
-.pdp-note{margin-top:6px;font-size:11px;color:var(--mute)}
-.pdp-note a{text-decoration:underline;text-underline-offset:3px}
+/* info: teks tenang, huruf kapital kecil, tanpa kotak */
+.pdp-info{position:sticky;top:calc(var(--nav-h) + 24px);max-width:440px;padding:8px 0 0}
+.pdp-title{margin:0 0 6px;font-size:13px;font-weight:400;text-transform:uppercase;letter-spacing:.05em;line-height:1.4}
+.pdp-price{display:flex;align-items:baseline;gap:10px;font-size:13px;letter-spacing:.03em;font-variant-numeric:tabular-nums}
+.pdp-price .was{color:var(--mute);text-decoration:line-through}
 
-.pdp-field{margin-top:28px}
-.pdp-label{display:block;margin-bottom:10px;font-size:11px;font-weight:500;color:var(--ink-2)}
-.pdp-label b{color:var(--ink);font-weight:500}
-.pdp-sizes{display:flex;flex-wrap:wrap;gap:6px}
-.size-btn{min-width:48px;height:44px;padding:0 14px;border:1px solid #ddd;background:#fff;color:var(--ink);font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center;transition:border-color .15s,background-color .15s,color .15s}
-.size-btn:hover{border-color:var(--ink)}
-.size-btn.active{background:var(--ink);border-color:var(--ink);color:#fff}
-.pdp-soldout{display:inline-block;padding:4px 10px;border:1px solid var(--line);color:var(--mute);font-size:11px;font-weight:500}
-.pdp-buy{margin-top:28px}
-.pdp-buy .btn:disabled{opacity:1;background:var(--tile);border-color:var(--tile);color:var(--mute)}
+.pdp-field{margin-top:36px}
+.pdp-label{display:block;margin-bottom:12px;font-size:12px;letter-spacing:.03em;color:var(--ink-2)}
+.pdp-label b{color:var(--ink);font-weight:400}
 
-/* detail: <details> polos */
-.pdp-details{margin-top:36px;border-top:1px solid var(--line)}
-.pdp-details details{border-bottom:1px solid var(--line)}
-.pdp-details summary{list-style:none;display:flex;justify-content:space-between;align-items:center;padding:16px 0;font-size:12px;font-weight:500;cursor:pointer}
-.pdp-details summary::-webkit-details-marker{display:none}
-.pdp-details summary::after{content:'+';font-size:16px;font-weight:400;line-height:1}
-.pdp-details details[open] summary::after{content:'−'}
-.pdp-body{padding-bottom:18px;font-size:12px;line-height:1.75;color:var(--ink-2)}
-.pdp-body p+p{margin-top:10px}
+/* ukuran: teks polos, yang dipilih bergaris bawah */
+.pdp-sizes{display:flex;flex-wrap:wrap;gap:6px 22px}
+.size-btn{
+  padding:6px 0;border:0;border-bottom:1px solid transparent;background:none;color:var(--mute);
+  font-size:13px;letter-spacing:.05em;cursor:pointer;
+  transition:color .18s ease,border-color .18s ease,transform .12s ease-out;
+  -webkit-tap-highlight-color:transparent;
+}
+.size-btn:hover{color:var(--ink)}
+.size-btn:active{transform:scale(.94)}
+.size-btn.active{color:var(--ink);border-bottom-color:var(--ink)}
+.size-btn:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.pdp-soldout{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--mute)}
+
+.pdp-desc{margin-top:36px;font-size:12.5px;line-height:1.75;letter-spacing:.01em;color:var(--ink)}
+
+/* tombol beli: hitam penuh, sudut tegas */
+.pdp-buy{margin-top:32px}
+.pdp-buy .btn{
+  width:100%;height:46px;border-radius:0;border:1px solid var(--ink);background:var(--ink);color:#fff;
+  font-size:12px;font-weight:400;letter-spacing:.1em;text-transform:uppercase;
+  transition:transform .12s ease-out,opacity .2s;
+}
+.pdp-buy .btn:hover:not(:disabled){opacity:.88}
+.pdp-buy .btn:active:not(:disabled){transform:scale(.99)}
+.pdp-buy .btn:disabled{background:var(--pdp-tile);border-color:var(--pdp-tile);color:var(--mute)}
+
+/* informasi: satu disclosure */
+.pdp-more{margin-top:28px}
+.pdp-more summary{
+  list-style:none;display:inline-flex;align-items:center;gap:8px;min-height:44px;
+  font-size:12px;letter-spacing:.05em;cursor:pointer;-webkit-tap-highlight-color:transparent;
+}
+.pdp-more summary::-webkit-details-marker{display:none}
+.pdp-more summary::before{content:'';width:0;height:0;border-left:6px solid currentColor;border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .3s var(--pdp-spring)}
+.pdp-more[open] summary::before{transform:rotate(90deg)}
+.pdp-more summary:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.pdp-body{padding:8px 0 4px;font-size:12px;line-height:1.75;color:var(--ink-2)}
+.pdp-body p+p{margin-top:14px}
 .pdp-body strong{color:var(--ink);font-weight:500}
 .pdp-body a,.pdp-linkbtn{text-decoration:underline;text-underline-offset:3px;color:var(--ink)}
 .pdp-linkbtn{font-size:12px}
 
 /* modal size chart & galeri layar penuh */
-.pdp-modal{position:fixed;inset:0;z-index:150;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.5);opacity:0;visibility:hidden;transition:opacity .2s,visibility .2s}
+.pdp-modal{position:fixed;inset:0;z-index:150;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.18);-webkit-backdrop-filter:blur(22px) saturate(140%);backdrop-filter:blur(22px) saturate(140%);opacity:0;visibility:hidden;transition:opacity .3s ease,visibility .3s}
 .pdp-modal.active{opacity:1;visibility:visible}
-.pdp-chart{position:relative;max-width:min(92vw,720px);max-height:90vh;background:#fff;padding:20px}
+.pdp-chart{position:relative;max-width:min(92vw,720px);max-height:90vh;padding:20px;background:rgba(255,255,255,.55);-webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);border:1px solid rgba(255,255,255,.6);border-radius:var(--r-lg);box-shadow:0 30px 80px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.7)}
 .pdp-chart img{max-width:100%;max-height:78vh;margin:0 auto;object-fit:contain}
 .pdp-close{position:absolute;top:6px;right:6px;width:44px;height:44px;font-size:24px;font-weight:300;line-height:1;color:var(--ink);z-index:2}
-.pdp-fs{background:#fff;padding:0}
+.pdp-fs{padding:0;background:rgba(255,255,255,.5)}
 .pdp-fs img{max-width:92%;max-height:86vh;object-fit:contain;mix-blend-mode:multiply}
 .pdp-fs-ctrl{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);display:flex;align-items:center;gap:6px;font-size:11px;font-weight:500}
 .pdp-fs-ctrl button{width:44px;height:44px;font-size:16px}
 .pdp-fs-ctrl span{min-width:44px;text-align:center;color:var(--ink-2)}
 
-/* mobile: galeri geser (scroll-snap) */
+/* produk terkait: baris geser dengan kartu berikutnya mengintip (mobile), grid 4 kolom (desktop) */
+.pdp-related{max-width:1440px;margin:0 auto;padding:clamp(40px,6vw,72px) 0 clamp(56px,8vw,112px)}
+.pdp-related__title{margin:0 0 14px;padding:0 var(--gutter);font-size:12px;font-weight:400;letter-spacing:.05em}
+.pdp-related .product-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding:0 var(--gutter)}
+.pdp-related .product-card{background:#fff}
+.pdp-related .product-tile{aspect-ratio:3/4;background:var(--pdp-tile);border-radius:0}
+.pdp-related .product-tile img{object-fit:cover;mix-blend-mode:multiply}
+.pdp-related .product-info{padding:12px 4px 4px;gap:2px}
+.pdp-related .product-name,.pdp-related .product-price{font-size:12px;font-weight:400;letter-spacing:.02em}
+
+/* mobile: galeri geser, penunjuk berupa garis tipis */
 @media(max-width:900px){
   .pdp{grid-template-columns:1fr;gap:0;padding:0 0 64px}
+  .pdp-wrap{position:relative}
   .pdp-gallery{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;gap:0;-webkit-overflow-scrolling:touch}
   .pdp-gallery::-webkit-scrollbar{display:none}
   .pdp-slide{flex:0 0 100%;scroll-snap-align:start}
-  .pdp-wrap{position:relative}
-  .pdp-counter{display:block;position:absolute;right:var(--gutter);bottom:12px;padding:3px 9px;border-radius:999px;font-size:10px;font-weight:500;background:rgba(255,255,255,.72);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);pointer-events:none}
-  .pdp-info{position:static;max-width:none;padding:24px var(--gutter) 0}
+  .pdp-progress{display:block;position:relative;height:1px;margin:14px var(--pdp-pad) 0;background:rgba(0,0,0,.14)}
+  .pdp-progress span{position:absolute;left:0;top:-1px;height:3px;background:var(--ink);transition:left .25s var(--pdp-spring)}
+  .pdp-info{position:static;max-width:none;padding:44px var(--pdp-pad) 0}
+  .pdp-related__title{padding:0 16px}
+  .pdp-related .product-grid{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding:0}
+  .pdp-related .product-grid::-webkit-scrollbar{display:none}
+  .pdp-related .product-card{flex:0 0 46%;scroll-snap-align:start}
+  .pdp-related .product-info{padding:12px 14px 6px}
 }
 @media(min-width:901px){.pdp-wrap{display:contents}}
-@media(prefers-reduced-motion:reduce){.pdp-modal{transition:none}}
+@media(prefers-reduced-motion:reduce){.pdp-modal,.size-btn,.pdp-buy .btn,.pdp-more summary::before,.pdp-progress span{transition:none}}
+@media(prefers-reduced-transparency:reduce){.pdp-modal{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(0,0,0,.45)}.pdp-chart{background:#fff;-webkit-backdrop-filter:none;backdrop-filter:none}.pdp-fs{background:#fff}}
 </style>
 <?php
 siteBodyOpen(['bodyClass' => 'page-product', 'searchAction' => 'shop.php']);
@@ -209,21 +253,17 @@ siteBodyOpen(['bodyClass' => 'page-product', 'searchAction' => 'shop.php']);
         <?php endforeach; ?>
       </div>
       <?php if ($galleryCount > 1): ?>
-        <div class="pdp-counter" id="imageIndicator">1 / <?= $galleryCount ?></div>
+        <div class="pdp-progress" aria-hidden="true"><span id="imageIndicator" style="width:<?= round(100 / $galleryCount, 3) ?>%"></span></div>
       <?php endif; ?>
     </div>
 
     <div class="pdp-info">
-      <nav class="pdp-crumb" aria-label="Breadcrumb">
-        <a href="shop.php">Shop</a><?php if ($categorySlug !== ''): ?> / <a href="shop.php?category=<?= urlencode((string)$product['category_slug']) ?>"><?= esc(sentenceCase((string)$categoryName)) ?></a><?php endif; ?>
-      </nav>
       <h1 class="pdp-title"><?= esc($product['name']) ?></h1>
 
       <div class="pdp-price">
         <?php if ($hasDiscount): ?><span class="was"><?= esc($displayComparePrice) ?></span><?php endif; ?>
         <span><?= esc($displayPrice) ?></span>
       </div>
-      <p class="pdp-note"><a href="shipping.php">Shipping</a> calculated at checkout.</p>
 
       <?php if ($hasColor): ?>
         <div class="pdp-field"><span class="pdp-label">Color: <b><?= esc($product['color']) ?></b></span></div>
@@ -231,7 +271,7 @@ siteBodyOpen(['bodyClass' => 'page-product', 'searchAction' => 'shop.php']);
 
       <?php if ($hasSizeSelector && !$isSoldOut): ?>
         <div class="pdp-field">
-          <span class="pdp-label">Size</span>
+          <span class="sr-only">Size</span>
           <div class="pdp-sizes" id="sizeBtnGroup" role="group" aria-label="Select size">
             <?php foreach ($availableSizes as $size): ?>
               <?php $isSelectedOpt = $selectedProductSizeId === (int)$size['product_size_id']; ?>
@@ -247,43 +287,40 @@ siteBodyOpen(['bodyClass' => 'page-product', 'searchAction' => 'shop.php']);
         <div class="pdp-field"><span class="pdp-soldout">Sold out</span></div>
       <?php endif; ?>
 
+      <?php if (trim((string)$product['description']) !== ''): ?>
+        <p class="pdp-desc"><?= nl2br(esc($product['description'])) ?></p>
+      <?php endif; ?>
+
       <div class="pdp-buy">
         <button type="button" class="btn btn--solid btn--block" id="addToCartBtn" <?= $isSoldOut ? 'disabled' : '' ?>>
           <span class="cart-btn__label"><?= $isSoldOut ? 'Sold out' : 'Add to cart' ?></span>
         </button>
       </div>
 
-      <div class="pdp-details">
-        <details open>
-          <summary>Details</summary>
-          <div class="pdp-body">
-            <p><?= nl2br(esc($product['description'])) ?></p>
-            <?php if (!empty($product['composition']) || !empty($product['care'])): ?>
-              <p><strong>Materials</strong><br><?= esc($product['composition']) ?></p>
-              <p><strong>Care</strong><br><?= esc($product['care']) ?></p>
-            <?php endif; ?>
-          </div>
-        </details>
-
-        <?php if (!empty($product['size_chart_image'])): ?>
-        <details>
-          <summary>Size guide</summary>
-          <div class="pdp-body">
-            <button type="button" class="pdp-linkbtn" id="btn-size-chart">View size chart</button>
-          </div>
-        </details>
-        <?php endif; ?>
-
-        <details>
-          <summary>Shipping &amp; returns</summary>
-          <div class="pdp-body">
-            <p>Orders will be prepared for shipment within 1–2 working days after payment confirmation, unless otherwise stated. All sales are final, unless the item received is defective or incorrect.</p>
-            <p><a href="shipping.php">Read full policy</a></p>
-          </div>
-        </details>
-      </div>
+      <details class="pdp-more">
+        <summary>Information</summary>
+        <div class="pdp-body">
+          <?php if (!empty($product['composition'])): ?><p><strong>Materials</strong><br><?= esc($product['composition']) ?></p><?php endif; ?>
+          <?php if (!empty($product['care'])): ?><p><strong>Care</strong><br><?= esc($product['care']) ?></p><?php endif; ?>
+          <?php if (!empty($product['size_chart_image'])): ?>
+            <p><button type="button" class="pdp-linkbtn" id="btn-size-chart">Size guide</button></p>
+          <?php endif; ?>
+          <p><strong>Shipping &amp; returns</strong><br>Shipping is calculated at checkout. Orders are prepared within 1–2 working days after payment confirmation. All sales are final, unless the item received is defective or incorrect. <a href="shipping.php">Read full policy</a></p>
+        </div>
+      </details>
     </div>
   </div>
+
+  <?php if ($relatedProducts): ?>
+  <section class="pdp-related" aria-labelledby="relatedTitle">
+    <h2 class="pdp-related__title" id="relatedTitle">Related products</h2>
+    <div class="product-grid">
+      <?php foreach ($relatedProducts as $related): ?>
+        <?= renderProductCard($related) ?>
+      <?php endforeach; ?>
+    </div>
+  </section>
+  <?php endif; ?>
 </main>
 
 <?php if (!empty($product['size_chart_image'])): ?>
@@ -418,7 +455,7 @@ siteBodyClose();
   if (imageContainer && imageIndicator) {
     imageContainer.addEventListener('scroll', () => {
       const current = Math.min(totalImages, Math.max(1, Math.round(imageContainer.scrollLeft / imageContainer.clientWidth) + 1));
-      imageIndicator.textContent = current + ' / ' + totalImages;
+      imageIndicator.style.left = ((current - 1) / totalImages * 100) + '%';
     }, { passive: true });
   }
 
