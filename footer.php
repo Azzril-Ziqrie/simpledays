@@ -1,6 +1,4 @@
 <footer class="site-footer" aria-label="Site footer">
-  <div class="footer-shopall"><a href="shop.php">Shop all &#8594;</a></div>
-
   <div class="footer-social">
     <?php if (BRAND_INSTAGRAM !== ''): ?>
     <a href="<?= esc(BRAND_INSTAGRAM) ?>" target="_blank" rel="noopener" aria-label="Instagram">
