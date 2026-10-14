@@ -25,10 +25,11 @@ function shopUrl(array $current, array $override = []): string
     return 'shop.php' . ($params ? '?' . http_build_query($params) : '');
 }
 
-/** Huruf pertama kapital, sisanya apa adanya ("new" → "New"). */
-function capitalizeFirst(string $text): string
+/** Sentence case: huruf pertama kapital, sisanya kecil ("NEW" / "new" → "New", "SHORT SLEEVE" → "Short sleeve"). */
+function sentenceCase(string $text): string
 {
-    return mb_strtoupper(mb_substr($text, 0, 1)) . mb_substr($text, 1);
+    $text = trim($text);
+    return mb_strtoupper(mb_substr($text, 0, 1)) . mb_strtolower(mb_substr($text, 1));
 }
 
 /** Urutkan produk menurut pilihan sort; "featured" mempertahankan urutan dari katalog. */
@@ -113,7 +114,7 @@ siteBodyOpen([
           <?php foreach ($categories as $cat): $isActive = $category === (string)$cat['slug']; ?>
             <a role="menuitemradio" aria-checked="<?= $isActive ? 'true' : 'false' ?>"
                class="<?= $isActive ? 'is-active' : '' ?>"
-               href="<?= esc(shopUrl($current, ['category' => (string)$cat['slug']])) ?>"><?= esc(capitalizeFirst((string)$cat['name'])) ?></a>
+               href="<?= esc(shopUrl($current, ['category' => (string)$cat['slug']])) ?>"><?= esc(sentenceCase((string)$cat['name'])) ?></a>
           <?php endforeach; ?>
         </div>
       </details>
