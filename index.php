@@ -1,6 +1,8 @@
 <?php
 session_start();
 
+require __DIR__ . '/includes/site_gate.php';
+
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/config/kasera_client.php';
 require_once __DIR__ . '/includes/db_schema.php';
