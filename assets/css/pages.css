@@ -16,15 +16,16 @@
 
 /* About */
 .about-photo{margin:clamp(28px,5vw,56px) calc(var(--gutter) * -1);background:var(--tile)}
+@media(min-width:760px){.about-photo{border-radius:var(--r-md);overflow:hidden}}
 .about-photo img{width:100%;height:auto;aspect-ratio:4/3;object-fit:cover}
 @media(min-width:760px){.about-photo{margin-left:0;margin-right:0}}
 .about-values{display:grid;gap:0;margin:8px 0 24px}
 .about-values .info-sec{display:grid;grid-template-columns:minmax(120px,1fr) 2fr;gap:8px 24px}
 .about-values .info-sec h2{margin:0}
 @media(max-width:600px){.about-values .info-sec{grid-template-columns:1fr}}
-.info-cta{display:inline-flex;align-items:center;min-height:48px;padding:0 24px;margin-top:24px;background:var(--ink);color:#fff;font-weight:500;
+.info-cta{display:inline-flex;align-items:center;min-height:48px;padding:0 26px;margin-top:24px;border-radius:var(--r-pill);background:var(--ink);color:#fff;font-weight:500;
   transition:transform .12s ease-out,opacity .2s}
-.info-cta:active{transform:scale(.97);opacity:.85}
+.info-cta:active{transform:var(--press);opacity:.85}
 
 /* FAQ: <details> asli (bisa di-tap, keyboard, dan dibaca screen reader), konten masuk pelan. */
 .faq-group{margin-top:clamp(28px,4vw,48px)}
@@ -46,10 +47,10 @@
 /* Contact: dua kartu besar yang mudah di-tap. */
 .contact-cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:clamp(28px,4vw,44px) 0 8px}
 @media(max-width:600px){.contact-cards{grid-template-columns:1fr}}
-.contact-card{display:flex;flex-direction:column;gap:6px;min-height:112px;padding:20px;border:1px solid var(--line);background:var(--bg);
+.contact-card{display:flex;flex-direction:column;gap:6px;min-height:112px;padding:20px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--bg);
   transition:transform .12s ease-out,background-color .2s,border-color .2s;-webkit-tap-highlight-color:transparent}
-.contact-card:hover{background:var(--tile);border-color:var(--ink)}
-.contact-card:active{transform:scale(.98)}
+@media(hover:hover){.contact-card:hover{background:var(--tile);border-color:var(--ink)}}
+.contact-card:active{transform:var(--press)}
 .contact-card small{color:var(--mute)}
 .contact-card strong{font-size:15px;font-weight:500;letter-spacing:-.01em;word-break:break-word}
 .contact-card span{color:var(--ink-2);line-height:1.6;margin-top:auto}

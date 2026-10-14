@@ -1042,6 +1042,7 @@ siteBodyOpen(['bodyClass' => 'page-checkout', 'searchAction' => 'shop.php']);
             </div>
           </div>
 
+          <?php if (false): /* Manual bank transfer disembunyikan sementara; ubah ke true untuk mengaktifkan lagi */ ?>
           <!-- Manual bank transfer + upload proof -->
           <div class="pay-opt">
             <input type="radio" class="pm-radio" name="paymethod" id="pm_manual">
@@ -1061,6 +1062,7 @@ siteBodyOpen(['bodyClass' => 'page-checkout', 'searchAction' => 'shop.php']);
               <p class="field-hint" style="margin-top:10px">After submission, your payment status will change to "Waiting Verification".</p>
             </div>
           </div>
+          <?php endif; ?>
         </div>
         <?php endif; /* showKasera */ ?>
         <?php endif; /* payIsPaid */ ?>

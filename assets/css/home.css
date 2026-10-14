@@ -4,15 +4,15 @@
 #currencyGate{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.25);-webkit-backdrop-filter:blur(12px) saturate(120%);backdrop-filter:blur(12px) saturate(120%)}
 html.cg-skip #currencyGate{display:none}
 body.cg-lock{overflow:hidden}
-#currencyGate .cg-dialog{outline:none;width:100%;max-width:380px;background:#fff;padding:40px 32px 32px;text-align:center}
+#currencyGate .cg-dialog{outline:none;width:100%;max-width:380px;background:#fff;padding:40px 32px 32px;border-radius:var(--r-lg);box-shadow:var(--shadow-float);text-align:center}
 #currencyGate .cg-flag{display:inline-block;width:40px;height:30px;margin-bottom:12px;border:1px solid var(--line);object-fit:cover}
 #currencyGate .cg-list{display:grid;gap:8px}
-#currencyGate a.cg-opt{position:relative;padding:14px 12px;border:1px solid var(--ink);display:flex;flex-direction:column;gap:2px;transition:background .15s,color .15s}
+#currencyGate a.cg-opt{position:relative;padding:14px 12px;border:1px solid var(--ink);border-radius:var(--r-md);display:flex;flex-direction:column;gap:2px;transition:background .15s,color .15s}
 #currencyGate a.cg-opt:hover,#currencyGate a.cg-opt:focus-visible,#currencyGate a.cg-opt.cg-rec{background:var(--ink);color:#fff;outline:none}
 #currencyGate .cg-code{font-size:12px;font-weight:600}
 #currencyGate .cg-name{font-size:10px;opacity:.7}
 #currencyGate .cg-badge{position:absolute;top:6px;right:8px;font-size:9px;font-weight:600;letter-spacing:.08em}
-#currencyGate select{margin-top:12px;width:100%;padding:10px;border:1px solid #ccc;background:#fff;font-size:12px}
+#currencyGate select{margin-top:12px;width:100%;padding:10px;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:#fff;font-size:12px}
 #currencyGate .cg-note{margin-top:16px;font-size:10px;color:var(--mute)}
 
 /* ── hero ────────────────────────────────────────────── */
@@ -54,6 +54,7 @@ body.cg-lock{overflow:hidden}
 .media-item{margin:0}
 .media-link{display:block}
 .media-item img{display:block;width:100%;height:auto;background:var(--tile)}
+.media-strip .media-item,.media-strip .media-item img{border-radius:var(--r-md);overflow:hidden}
 .media-strip{display:flex;gap:12px;overflow-x:auto;padding:0 var(--gutter);scroll-snap-type:x proximity;scroll-padding-inline:var(--gutter);scrollbar-width:none;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
 .media-strip::-webkit-scrollbar{display:none}
 .media-strip > *{flex:0 0 auto;scroll-snap-align:start}
