@@ -6,19 +6,19 @@ require_once __DIR__ . '/brand.php';
 
 // Konstanta Konfigurasi SMTP & URL
 if (!defined('DD_SMTP_HOST')) {
-    define('DD_SMTP_HOST', 'mail.deepdimes.com');
+    define('DD_SMTP_HOST', ddSecret('SMTP_HOST', 'smtp.hostinger.com'));
 }
 if (!defined('DD_SMTP_PORT')) {
-    define('DD_SMTP_PORT', 587);
+    define('DD_SMTP_PORT', (int)ddSecret('SMTP_PORT', '465')); // 465 = SSL, 587 = STARTTLS
 }
 if (!defined('DD_SMTP_USERNAME')) {
-    define('DD_SMTP_USERNAME', 'studio@deepdimes.com');
+    define('DD_SMTP_USERNAME', ddSecret('SMTP_USERNAME', 'info@thesimpledays.co'));
 }
 if (!defined('DD_SMTP_PASSWORD')) {
     define('DD_SMTP_PASSWORD', ddSecret('SMTP_PASSWORD'));
 }
 if (!defined('DD_SMTP_FROM_EMAIL')) {
-    define('DD_SMTP_FROM_EMAIL', 'studio@deepdimes.com');
+    define('DD_SMTP_FROM_EMAIL', ddSecret('SMTP_FROM_EMAIL', 'info@thesimpledays.co'));
 }
 if (!defined('DD_SMTP_FROM_NAME')) {
     define('DD_SMTP_FROM_NAME', BRAND_NAME);
@@ -28,7 +28,7 @@ if (!defined('DD_ADMIN_EMAIL')) {
 }
 if (!defined('DD_SITE_URL')) {
     // Sesuaikan URL ini dengan domain asli Anda
-    define('DD_SITE_URL', 'https://deepdimes.com'); 
+    define('DD_SITE_URL', 'https://thesimpledays.co');
 }
 
 function getDDOrderItemsForEmail(PDO $pdo, int $orderId): array
@@ -124,7 +124,9 @@ function sendDDInvoiceEmail(PDO $pdo, array $order): bool
         $mail->SMTPAuth = true;
         $mail->Username = DD_SMTP_USERNAME;
         $mail->Password = DD_SMTP_PASSWORD;
-        $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->SMTPSecure = DD_SMTP_PORT === 465
+            ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS
+            : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port = DD_SMTP_PORT;
         $mail->CharSet = 'UTF-8';
 

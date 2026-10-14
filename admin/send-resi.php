@@ -8,15 +8,15 @@ require_once __DIR__ . '/../vendor/autoload.php';
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
-const SMTP_HOST       = 'mail.deepdimes.com';
-const SMTP_PORT       = 587;
-const SMTP_USERNAME   = 'studio@deepdimes.com';
-define('SMTP_PASSWORD', ddSecret('ADMIN_SMTP_PASSWORD'));
-const SMTP_ENCRYPTION = 'tls';
+define('SMTP_HOST', ddSecret('SMTP_HOST', 'smtp.hostinger.com'));
+define('SMTP_PORT', (int)ddSecret('SMTP_PORT', '465'));
+define('SMTP_USERNAME', ddSecret('SMTP_USERNAME', 'info@thesimpledays.co'));
+define('SMTP_PASSWORD', ddSecret('ADMIN_SMTP_PASSWORD', ddSecret('SMTP_PASSWORD')));
+define('SMTP_ENCRYPTION', SMTP_PORT === 465 ? 'ssl' : 'tls');
 
 const STORE_NAME  = 'Simple Days';
-const STORE_EMAIL = 'studio@deepdimes.com';
-const STORE_URL   = 'https://deepdimes.com';
+const STORE_EMAIL = 'info@thesimpledays.co';
+const STORE_URL   = 'https://thesimpledays.co';
 
 $message = '';
 $error   = '';

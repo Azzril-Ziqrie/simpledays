@@ -32,9 +32,9 @@ if (!defined('KASERA_WEBHOOK_SECRET')) {
 
 /**
  * Base URL situs Anda sendiri, dipakai untuk membentuk return_url ke Kasera Pay
- * (misal: https://deepdimes.com). Set via env SITE_BASE_URL kalau berbeda,
+ * (misal: https://thesimpledays.co). Set via env SITE_BASE_URL kalau berbeda,
  * kalau tidak akan ditebak otomatis dari request saat ini.
  */
 if (!defined('SITE_BASE_URL')) {
-    define('SITE_BASE_URL', 'https://deepdimes.com');
+    define('SITE_BASE_URL', 'https://thesimpledays.co');
 }

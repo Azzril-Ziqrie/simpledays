@@ -12,4 +12,4 @@ const BRAND_INSTAGRAM = '';
 const BRAND_WHATSAPP  = 'https://wa.me/6282197404484';
 
 // Alamat email kontak (halaman Contact Us). Kosong = kartu email disembunyikan.
-const BRAND_EMAIL = 'studio@deepdimes.com';
+const BRAND_EMAIL = 'info@thesimpledays.co';
