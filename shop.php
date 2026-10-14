@@ -25,13 +25,6 @@ function shopUrl(array $current, array $override = []): string
     return 'shop.php' . ($params ? '?' . http_build_query($params) : '');
 }
 
-/** Sentence case: huruf pertama kapital, sisanya kecil ("NEW" / "new" → "New", "SHORT SLEEVE" → "Short sleeve"). */
-function sentenceCase(string $text): string
-{
-    $text = trim($text);
-    return mb_strtoupper(mb_substr($text, 0, 1)) . mb_strtolower(mb_substr($text, 1));
-}
-
 /** Urutkan produk menurut pilihan sort; "featured" mempertahankan urutan dari katalog. */
 function sortProducts(array $products, string $sort): array
 {

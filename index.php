@@ -184,7 +184,7 @@ siteBodyOpen([
         <nav class="category-nav" aria-label="Categories">
           <a href="index.php#products" class="<?= !$isFiltered ? 'active' : '' ?>">All</a>
           <?php foreach ($categories as $cat): ?>
-            <a href="index.php?category=<?= urlencode((string)$cat['slug']) ?>#products" class="<?= $category === (string)$cat['slug'] ? 'active' : '' ?>"><?= esc($cat['name']) ?></a>
+            <a href="index.php?category=<?= urlencode((string)$cat['slug']) ?>#products" class="<?= $category === (string)$cat['slug'] ? 'active' : '' ?>"><?= esc(sentenceCase((string)$cat['name'])) ?></a>
           <?php endforeach; ?>
         </nav>
       </div>

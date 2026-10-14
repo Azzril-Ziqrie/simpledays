@@ -29,6 +29,15 @@ if (!function_exists('esc')) {
     }
 }
 
+/** Sentence case: huruf pertama kapital, sisanya kecil ("new" / "NEW" → "New", "SHORT SLEEVE" → "Short sleeve"). */
+if (!function_exists('sentenceCase')) {
+    function sentenceCase(string $text): string
+    {
+        $text = trim($text);
+        return mb_strtoupper(mb_substr($text, 0, 1)) . mb_strtolower(mb_substr($text, 1));
+    }
+}
+
 /** Path aset + ?v=mtime supaya cache browser ikut berganti saat file berubah. */
 function siteAsset(string $path): string
 {

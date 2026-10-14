@@ -215,7 +215,7 @@ siteBodyOpen(['bodyClass' => 'page-product', 'searchAction' => 'shop.php']);
 
     <div class="pdp-info">
       <nav class="pdp-crumb" aria-label="Breadcrumb">
-        <a href="shop.php">Shop</a><?php if ($categorySlug !== ''): ?> / <a href="shop.php?category=<?= urlencode((string)$product['category_slug']) ?>"><?= esc($categoryName) ?></a><?php endif; ?>
+        <a href="shop.php">Shop</a><?php if ($categorySlug !== ''): ?> / <a href="shop.php?category=<?= urlencode((string)$product['category_slug']) ?>"><?= esc(sentenceCase((string)$categoryName)) ?></a><?php endif; ?>
       </nav>
       <h1 class="pdp-title"><?= esc($product['name']) ?></h1>
 

@@ -15,7 +15,7 @@
         <div class="dropdown-menu">
           <a href="shop.php">All</a>
           <?php foreach ($ctx['categories'] as $cat): ?>
-            <a href="<?= esc($ctx['categoryBase']) ?>?category=<?= urlencode((string)$cat['slug']) ?>"><?= esc($cat['name']) ?></a>
+            <a href="<?= esc($ctx['categoryBase']) ?>?category=<?= urlencode((string)$cat['slug']) ?>"><?= esc(sentenceCase((string)$cat['name'])) ?></a>
           <?php endforeach; ?>
         </div>
       </div>
