@@ -1,14 +1,11 @@
 <footer class="site-footer" aria-label="Site footer">
+  <?php if (BRAND_INSTAGRAM !== ''): ?>
   <div class="footer-social">
-    <?php if (BRAND_INSTAGRAM !== ''): ?>
     <a href="<?= esc(BRAND_INSTAGRAM) ?>" target="_blank" rel="noopener" aria-label="Instagram">
       <img src="https://cdn-icons-png.flaticon.com/512/174/174855.png" alt="" width="16" height="16">
     </a>
-    <?php endif; ?>
-    <a href="<?= esc(BRAND_WHATSAPP) ?>" target="_blank" rel="noopener" aria-label="WhatsApp">
-      <img src="https://cdn-icons-png.flaticon.com/512/733/733585.png" alt="" width="16" height="16">
-    </a>
   </div>
+  <?php endif; ?>
 
   <nav class="footer-links-row" aria-label="Information">
     <a href="about.php">About</a>

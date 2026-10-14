@@ -258,9 +258,9 @@ button{cursor:pointer;background:none;border:none}
 @media(max-width:700px){.product-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:30px 8px}.product-info{padding-top:10px}}
 
 /* ── footer (markup di footer.php) ───────────────────────── */
-.site-footer{border-top:1px solid var(--line)}
+.site-footer{border-top:1px solid var(--line);padding-top:28px}
 .footer-social,.footer-links-row,.footer{padding-left:var(--gutter);padding-right:var(--gutter)}
-.footer-social{display:flex;gap:16px;padding-top:28px;padding-bottom:20px}
+.footer-social{display:flex;gap:16px;padding-bottom:20px}
 .footer-social a{display:flex;transition:opacity .15s}
 .footer-social a:hover{opacity:.5}
 .footer-social img{width:16px;height:16px;filter:grayscale(1)}
