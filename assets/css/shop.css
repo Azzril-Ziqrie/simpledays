@@ -73,7 +73,7 @@
 .shop-menu__panel a{
   position:relative;display:flex;align-items:center;justify-content:space-between;gap:14px;
   padding:11px 12px;border-radius:12px;
-  font-size:12px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--ink);
+  font-size:13px;font-weight:500;letter-spacing:.005em;text-transform:none;color:var(--ink);
   transition:background-color .15s ease,transform .25s var(--shop-spring),color .15s ease;
   animation:shop-item .38s var(--shop-ease) both;
 }

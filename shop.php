@@ -25,6 +25,12 @@ function shopUrl(array $current, array $override = []): string
     return 'shop.php' . ($params ? '?' . http_build_query($params) : '');
 }
 
+/** Huruf pertama kapital, sisanya apa adanya ("new" → "New"). */
+function ucFirst(string $text): string
+{
+    return mb_strtoupper(mb_substr($text, 0, 1)) . mb_substr($text, 1);
+}
+
 /** Urutkan produk menurut pilihan sort; "featured" mempertahankan urutan dari katalog. */
 function sortProducts(array $products, string $sort): array
 {
@@ -107,7 +113,7 @@ siteBodyOpen([
           <?php foreach ($categories as $cat): $isActive = $category === (string)$cat['slug']; ?>
             <a role="menuitemradio" aria-checked="<?= $isActive ? 'true' : 'false' ?>"
                class="<?= $isActive ? 'is-active' : '' ?>"
-               href="<?= esc(shopUrl($current, ['category' => (string)$cat['slug']])) ?>"><?= esc($cat['name']) ?></a>
+               href="<?= esc(shopUrl($current, ['category' => (string)$cat['slug']])) ?>"><?= esc(ucFirst((string)$cat['name'])) ?></a>
           <?php endforeach; ?>
         </div>
       </details>
