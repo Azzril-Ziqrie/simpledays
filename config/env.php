@@ -18,7 +18,7 @@ function ddSecret(string $key, string $default = ''): string
         foreach (['secrets.php', 'secrets.local.php'] as $name) { // yang belakangan menimpa
             $path = __DIR__ . '/' . $name;
             $loaded = is_file($path) ? require $path : [];
-            if (is_array($loaded)) $fileValues = array_replace($fileValues, array_filter($loaded, fn($v) => $v !== ''));
+            if (is_array($loaded)) $fileValues = array_replace($fileValues, $loaded); // nilai kosong lokal (mis. DB_PASS) tetap menimpa
         }
     }
     $value = $fileValues[$key] ?? '';
