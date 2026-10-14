@@ -12,3 +12,6 @@ new assets/
 
 # Izin Claude Code khusus komputer ini
 .claude/settings.local.json
+
+# Gambar placeholder produk dummy (lokal)
+assets/images/products/dummy-*

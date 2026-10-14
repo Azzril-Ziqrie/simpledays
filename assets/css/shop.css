@@ -1,0 +1,137 @@
+/* Shop — grid dengan kartu abu muda, toolbar View A/B + Sort.
+   Mobile: 2 produk per baris (B, default) atau 1 per baris (A). */
+
+.page-shop{
+  --shop-tile:#f6f6f6;
+  --shop-gap-x:10px;
+  --shop-gap-y:28px;
+  --shop-spring:cubic-bezier(.2,.9,.25,1.05);
+  --shop-ease:cubic-bezier(.22,1,.36,1);
+}
+
+.shop{padding:clamp(20px,3vw,40px) var(--gutter,16px) 80px}
+
+.shop-title{
+  margin:0 0 14px;
+  font-size:clamp(20px,2.4vw,28px);font-weight:500;
+  letter-spacing:-.02em;line-height:1.1;
+}
+
+/* kategori: baris teks tenang, garis bawah untuk yang aktif */
+.shop-cats{display:flex;flex-wrap:wrap;gap:4px 18px;margin-bottom:clamp(18px,3vw,28px)}
+.shop-cats a{
+  position:relative;padding:4px 0;font-size:12px;color:var(--mute);
+  transition:color .2s ease;
+}
+.shop-cats a:hover,.shop-cats a.active{color:var(--ink)}
+.shop-cats a.active::after{
+  content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:currentColor;
+}
+
+/* toolbar */
+.shop-bar{
+  display:flex;align-items:center;gap:16px;
+  padding:0 0 12px;
+  font-size:12px;
+}
+.shop-view{display:flex;align-items:center;gap:2px}
+.shop-view__label{margin-right:8px}
+.shop-view__btn{
+  min-width:28px;height:28px;padding:0 6px;border:0;background:transparent;
+  font:inherit;color:var(--mute);cursor:pointer;border-radius:8px;
+  transition:color .2s ease,background-color .2s ease,transform .12s ease-out;
+  -webkit-tap-highlight-color:transparent;
+}
+.shop-view__btn:hover{color:var(--ink)}
+.shop-view__btn:active{transform:scale(.92)}
+.shop-view__btn[aria-pressed="true"]{color:var(--ink);font-weight:700}
+.shop-count{margin-left:auto;color:var(--mute);font-variant-numeric:tabular-nums}
+
+/* sort: popover kaca, berasal dari tombolnya */
+.shop-sort{position:relative}
+.shop-sort summary{
+  list-style:none;display:flex;align-items:center;gap:6px;
+  height:28px;padding:0 4px;cursor:pointer;user-select:none;
+  -webkit-tap-highlight-color:transparent;
+  transition:transform .12s ease-out;
+}
+.shop-sort summary::-webkit-details-marker{display:none}
+.shop-sort summary:active{transform:scale(.95)}
+.shop-sort__plus{
+  width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;
+  transition:transform .35s var(--shop-spring);
+}
+.shop-sort[open] .shop-sort__plus{transform:rotate(45deg)}
+
+.shop-sort__panel{
+  position:absolute;right:0;top:calc(100% + 8px);z-index:20;
+  min-width:196px;padding:6px;border-radius:14px;
+  background:rgba(255,255,255,.78);
+  -webkit-backdrop-filter:blur(22px) saturate(180%);backdrop-filter:blur(22px) saturate(180%);
+  border:1px solid rgba(0,0,0,.06);
+  box-shadow:0 18px 50px rgba(0,0,0,.14),inset 0 1px 0 rgba(255,255,255,.7);
+  transform-origin:top right;
+  animation:shop-pop .32s var(--shop-spring) both;
+}
+.shop-sort__panel a{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:10px 12px;border-radius:9px;font-size:13px;color:var(--ink);
+  transition:background-color .15s ease,transform .1s ease-out;
+}
+.shop-sort__panel a:hover{background:rgba(0,0,0,.05)}
+.shop-sort__panel a:active{transform:scale(.97)}
+.shop-sort__panel a.is-active::after{content:"•";font-size:16px;line-height:1}
+@keyframes shop-pop{
+  from{opacity:0;transform:scale(.92) translateY(-4px);filter:blur(6px)}
+  to{opacity:1;transform:none;filter:blur(0)}
+}
+
+.shop-filter{margin:0 0 14px;color:var(--mute)}
+.shop-filter strong{color:var(--ink);font-weight:500}
+.shop-filter a{margin-left:10px;color:var(--ink)}
+
+/* ── grid ─────────────────────────────────────────────── */
+.shop-grid{
+  --cols:4;
+  grid-template-columns:repeat(var(--cols),minmax(0,1fr));
+  gap:var(--shop-gap-y) var(--shop-gap-x);
+}
+.shop-grid[data-view="a"]{--cols:3}
+
+@media (max-width:1100px){
+  .shop-grid{--cols:3}
+  .shop-grid[data-view="a"]{--cols:2}
+}
+/* mobile: B = 2 per baris (default), A = 1 per baris */
+@media (max-width:700px){
+  .shop{padding-bottom:56px}
+  .shop-grid{--cols:2;--shop-gap-y:22px;--shop-gap-x:8px}
+  .shop-grid[data-view="a"]{--cols:1}
+}
+
+/* kartu */
+.page-shop .product-tile{
+  aspect-ratio:4/5;background:var(--shop-tile);border-radius:0;
+}
+.page-shop .product-tile img{mix-blend-mode:multiply}
+.page-shop .product-info{padding-top:10px;gap:1px}
+.page-shop .product-name{font-size:12px;font-weight:400;line-height:1.35;-webkit-line-clamp:2}
+.page-shop .product-price{font-size:12px}
+.page-shop .product-badges{top:8px;left:8px}
+.page-shop .product-badge{font-size:9.5px;padding:3px 7px}
+
+@media (max-width:700px){
+  .page-shop .product-name,.page-shop .product-price{font-size:11px}
+}
+
+/* ganti view: kartu bergeser halus (View Transitions) */
+::view-transition-group(*){animation-duration:.45s;animation-timing-function:var(--shop-spring)}
+
+@media (prefers-reduced-motion:reduce){
+  .shop-sort__panel{animation:none}
+  .shop-sort__plus,.shop-view__btn,.shop-sort summary,.shop-sort__panel a{transition:none}
+  ::view-transition-group(*){animation-duration:.01s}
+}
+@media (prefers-reduced-transparency:reduce){
+  .shop-sort__panel{background:#fff;-webkit-backdrop-filter:none;backdrop-filter:none}
+}
