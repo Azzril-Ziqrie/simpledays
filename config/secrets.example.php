@@ -5,6 +5,10 @@
  * Nilai yang sama juga bisa diset lewat environment variable server dengan nama kunci yang sama.
  */
 return [
+    'DB_HOST'              => 'localhost',
+    'DB_NAME'              => '',
+    'DB_USER'              => '',
+    'DB_PASS'              => '',
     // PayPal (developer.paypal.com → Apps & Credentials)
     'PAYPAL_CLIENT_ID'     => '',
     'PAYPAL_CLIENT_SECRET' => '',

@@ -2,8 +2,8 @@
 /**
  * Pembaca rahasia (API key, password, token) untuk seluruh aplikasi.
  *
- * Urutan: environment variable server → config/secrets.php (tidak di-commit) → $default.
- * Salin config/secrets.example.php menjadi config/secrets.php lalu isi nilainya.
+ * Urutan: environment variable server → config/secrets.local.php (override lokal, tidak di-commit)
+ *         → config/secrets.php (nilai produksi, repo private) → $default.
  */
 
 function ddSecret(string $key, string $default = ''): string
@@ -14,9 +14,12 @@ function ddSecret(string $key, string $default = ''): string
     if ($fromEnv !== false && $fromEnv !== '') return (string)$fromEnv;
 
     if ($fileValues === null) {
-        $path = __DIR__ . '/secrets.php';
-        $loaded = is_file($path) ? require $path : [];
-        $fileValues = is_array($loaded) ? $loaded : [];
+        $fileValues = [];
+        foreach (['secrets.php', 'secrets.local.php'] as $name) { // yang belakangan menimpa
+            $path = __DIR__ . '/' . $name;
+            $loaded = is_file($path) ? require $path : [];
+            if (is_array($loaded)) $fileValues = array_replace($fileValues, array_filter($loaded, fn($v) => $v !== ''));
+        }
     }
     $value = $fileValues[$key] ?? '';
     return $value !== '' ? (string)$value : $default;

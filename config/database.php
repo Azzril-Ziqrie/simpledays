@@ -3,10 +3,11 @@
 
 require_once __DIR__ . '/env.php';
 
-$host    = 'localhost';
-$db      = 'simple';
-$user    = 'root';
-$pass    = '';
+// Lokal (XAMPP) pakai nilai default; di hosting isi DB_* di config/secrets.php.
+$host    = ddSecret('DB_HOST', 'localhost');
+$db      = ddSecret('DB_NAME', 'simple');
+$user    = ddSecret('DB_USER', 'root');
+$pass    = ddSecret('DB_PASS', '');
 $charset = 'utf8mb4';
 
 $dsn = "mysql:host={$host};dbname={$db};charset={$charset}";

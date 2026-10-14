@@ -3,6 +3,14 @@
  * Gate untuk index.php: password → pilih tujuan (Storefront / Admin).
  * Dipanggil sebelum apa pun dirender; mengakhiri request sendiri jika belum selesai.
  */
+require_once __DIR__ . '/../config/env.php';
+
+// Gate hanya aktif kalau SITE_LOCK=1 (di config/secrets.local.php komputer lokal).
+// Di hosting nilainya kosong → beranda langsung terbuka untuk publik.
+if (ddSecret('SITE_LOCK') !== '1') {
+    return;
+}
+
 const SITE_LOCK_PASSWORD = 'simpledays';
 const SITE_GATE_BG       = 'assets/images/hero/sd-hero-1.webp';
 

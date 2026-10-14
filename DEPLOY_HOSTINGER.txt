@@ -1,0 +1,119 @@
+=====================================================================
+ TUTORIAL DEPLOY SIMPLE DAYS KE HOSTINGER
+=====================================================================
+
+Ringkas:
+  - Repo GitHub : https://github.com/Azzril-Ziqrie/simpledays  (PRIVATE)
+  - Branch      : simple-days-rebrand
+  - Di Hostinger beranda langsung terbuka (tanpa password gate).
+    Password "simpledays" hanya aktif di komputer lokal (XAMPP).
+
+---------------------------------------------------------------------
+ A. SEBELUM DEPLOY (di komputer)
+---------------------------------------------------------------------
+ 1. Pastikan semua perubahan sudah di-push:
+        git status
+        git push origin simple-days-rebrand
+ 2. Pastikan repo "simpledays" di GitHub berstatus PRIVATE, karena
+    config/secrets.php ikut ter-commit (isi: password DB, PayPal, SMTP).
+
+---------------------------------------------------------------------
+ B. BUAT DATABASE DI HOSTINGER (hPanel)
+---------------------------------------------------------------------
+ 1. hPanel -> Databases -> Management (MySQL Databases).
+ 2. Buat database + user baru. Hostinger menambah prefix otomatis:
+        Database : u584945443_newsimple
+        User     : u584945443_azril
+        Password : (yang kamu isi di form)
+ 3. Klik "Buat" dan pastikan user terhubung ke database itu.
+ 4. Nilai ini sudah ada di config/secrets.php (DB_HOST, DB_NAME,
+    DB_USER, DB_PASS). Kalau kamu mengganti password di Hostinger,
+    ubah juga DB_PASS di config/secrets.php lalu push lagi.
+
+---------------------------------------------------------------------
+ C. IMPOR DATABASE
+---------------------------------------------------------------------
+ 1. hPanel -> Databases -> phpMyAdmin -> Enter.
+ 2. Pilih database u584945443_newsimple di sisi kiri.
+ 3. Tab "Import" -> pilih file simple.sql dari folder project
+    -> klik "Import" / "Go".
+ 4. Pastikan tabel muncul (products, orders, settings, dst).
+
+---------------------------------------------------------------------
+ D. PASANG KODE DARI GITHUB
+---------------------------------------------------------------------
+ 1. hPanel -> Websites -> Manage -> Git.
+ 2. Repository  : https://github.com/Azzril-Ziqrie/simpledays.git
+    Branch      : simple-days-rebrand
+    Install path: kosongkan (= public_html)
+    Repo private -> pakai deploy key: salin SSH key yang ditampilkan
+    Hostinger, lalu GitHub -> Settings repo -> Deploy keys -> Add
+    (read-only cukup).
+ 3. Klik "Create" lalu "Deploy".
+ 4. (Opsional) Aktifkan Auto Deployment lewat webhook supaya setiap
+    push otomatis ter-deploy.
+
+ ALTERNATIF tanpa Git: Files -> File Manager -> upload ZIP isi project
+ ke public_html, lalu Extract.
+
+---------------------------------------------------------------------
+ E. CEK PENGATURAN PHP / FOLDER
+---------------------------------------------------------------------
+ 1. hPanel -> Advanced -> PHP Configuration: pilih PHP 8.1 atau lebih.
+    Aktifkan ekstensi: pdo_mysql, curl, mbstring, gd, openssl.
+ 2. Folder vendor/ (Composer):
+      - Kalau tidak ikut ter-deploy dan ada di .gitignore, jalankan
+        lewat SSH:  composer install --no-dev
+      - Atau upload folder vendor/ dari komputer lewat File Manager.
+ 3. Folder upload (assets/images/..., dll) harus bisa ditulis
+    (permission 755 / 775).
+
+---------------------------------------------------------------------
+ F. PAYPAL
+---------------------------------------------------------------------
+ 1. config/database.php: PAYPAL_MODE = 'live' (sudah live).
+ 2. Client ID & Secret ada di config/secrets.php
+    (PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET) -> harus kredensial LIVE.
+ 3. Di developer.paypal.com pastikan domain sudah benar dan Apple Pay /
+    Google Pay diaktifkan untuk akun live.
+
+---------------------------------------------------------------------
+ G. SSL & DOMAIN
+---------------------------------------------------------------------
+ 1. hPanel -> Security -> SSL: aktifkan (Let's Encrypt / gratis).
+ 2. Paksa HTTPS (Force HTTPS) supaya PayPal & Apple Pay jalan.
+
+---------------------------------------------------------------------
+ H. TES SETELAH LIVE
+---------------------------------------------------------------------
+ [ ] Buka https://domainmu.com -> beranda langsung tampil (tanpa
+     password / pilihan Storefront-Admin).
+ [ ] Produk, kategori, dan gambar muncul.
+ [ ] Tambah ke keranjang -> checkout -> tombol PayPal muncul.
+ [ ] Transaksi kecil PayPal berhasil, email invoice terkirim.
+ [ ] https://domainmu.com/admin/login.php bisa login admin.
+ [ ] Ganti password admin dari dashboard (minimal 10 karakter).
+
+---------------------------------------------------------------------
+ I. PENGATURAN KUNCI BERANDA (PASSWORD GATE)
+---------------------------------------------------------------------
+ - Aktif atau tidak ditentukan kunci SITE_LOCK:
+        SITE_LOCK = '1'  -> beranda minta password "simpledays", lalu
+                            muncul pilihan Storefront / Admin dashboard
+        kosong           -> beranda langsung terbuka (default hosting)
+ - Lokal : diset di config/secrets.local.php (file ini TIDAK di-commit).
+ - Hosting: tidak perlu apa-apa. Kalau suatu saat mau mengunci situs
+   live, tambahkan 'SITE_LOCK' => '1' di config/secrets.php server.
+
+---------------------------------------------------------------------
+ J. SETELAH LAUNCHING (KEAMANAN)
+---------------------------------------------------------------------
+ - Ganti password database Hostinger dengan yang panjang & acak, lalu
+   update DB_PASS di config/secrets.php.
+ - Rotate Client Secret PayPal kalau pernah ditempel di chat/tempat
+   lain.
+ - Jangan jadikan repo public selama secrets.php ada di dalamnya.
+ - Kalau error "Koneksi database gagal": cek DB_HOST/NAME/USER/PASS
+   di config/secrets.php dan pastikan user DB terhubung ke database.
+
+=====================================================================
