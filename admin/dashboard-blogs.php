@@ -254,7 +254,7 @@ if ($blogsTableReady) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Research / Blog Manager — Cantum Studio Admin</title>
+  <title>Research / Blog Manager — <?= htmlspecialchars(BRAND_NAME) ?> Admin</title>
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
@@ -379,8 +379,8 @@ if ($blogsTableReady) {
     <div class="topbar__left">
       <a href="dashboard.php" class="nav-link">Back to Dashboard</a>
     </div>
-    <a href="dashboard.php" class="logo" aria-label="Cantum Studio Admin">
-      <span class="brand"><span class="brand__name">Cantum Studio</span></span>
+    <a href="dashboard.php" class="logo" aria-label="<?= htmlspecialchars(BRAND_NAME) ?> Admin">
+      <span class="brand"><span class="brand__name"><?= htmlspecialchars(BRAND_NAME) ?></span></span>
     </a>
     <div class="topbar__right">
       <a href="../research" class="nav-link">View Research Page</a>
@@ -388,7 +388,7 @@ if ($blogsTableReady) {
   </header>
   <main class="wrap">
     <section class="hero">
-      <div class="eyebrow">Cantum Studio Admin</div>
+      <div class="eyebrow"><?= htmlspecialchars(BRAND_NAME) ?> Admin</div>
       <h1 class="headline">Research / Blog Articles</h1>
       <p class="subcopy">
         Create and manage articles shown on the public research page. Upload a main image, write the article content, and add gallery images to enrich each post.

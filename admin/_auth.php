@@ -4,6 +4,8 @@
  * File ini hanya mendefinisikan fungsi dan tidak menampilkan apa pun.
  */
 
+require_once __DIR__ . '/../includes/brand.php';
+
 function ddAdminConfig(): array
 {
     static $cfg = null;

@@ -42,5 +42,7 @@ try {
     header('Location: order-detail.php?id=' . $orderId . '&success=rejected');
     exit;
 } catch (Throwable $e) {
-    die('Failed to reject payment: ' . $e->getMessage());
+    error_log('[admin] reject payment failed: ' . $e->getMessage());
+    http_response_code(500);
+    die('Could not reject this payment. Please try again; details are in the server log.');
 }

@@ -30,9 +30,14 @@ if (isset($data['order']) && is_array($data['order'])) {
         echo json_encode(['success' => true]);
 
     } catch (Throwable $e) {
-        $pdo->rollBack();
-        echo json_encode(['success' => false, 'message' => 'Gagal menyimpan urutan: ' . $e->getMessage()]);
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        error_log('[admin] save product order failed: ' . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Could not save the new order.']);
     }
 } else {
-    echo json_encode(['success' => false, 'message' => 'Data tidak valid.']);
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Invalid data.']);
 }

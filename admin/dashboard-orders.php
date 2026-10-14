@@ -55,7 +55,7 @@ function badgeClass(string $status): string
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Order Manager — Cantum Studio Admin</title>
+  <title>Order Manager — <?= htmlspecialchars(BRAND_NAME) ?> Admin</title>
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
@@ -271,8 +271,8 @@ function badgeClass(string $status): string
     <div class="topbar__left">
       <a href="dashboard.php" class="nav-link">Dashboard</a>
     </div>
-    <a href="../index.php" class="logo" aria-label="Cantum Studio Admin">
-      <span class="brand"><span class="brand__name">Cantum Studio</span></span>
+    <a href="../index.php" class="logo" aria-label="<?= htmlspecialchars(BRAND_NAME) ?> Admin">
+      <span class="brand"><span class="brand__name"><?= htmlspecialchars(BRAND_NAME) ?></span></span>
     </a>
     <div class="topbar__right">
       <a href="../index.php" class="nav-link">Storefront</a>
@@ -285,7 +285,7 @@ function badgeClass(string $status): string
     <!-- HERO -->
     <section class="hero">
       <div>
-        <div class="eyebrow">Cantum Studio Admin / Orders</div>
+        <div class="eyebrow"><?= htmlspecialchars(BRAND_NAME) ?> Admin / Orders</div>
         <h1 class="headline">Order Manager</h1>
         <p class="subcopy">Review payment proof uploads, approve payments, reject invalid proofs, and monitor approved orders.</p>
       </div>

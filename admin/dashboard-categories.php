@@ -78,7 +78,7 @@ $categories = $pdo->query("SELECT {$selectCols} FROM categories ORDER BY id DESC
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Manage Categories — Cantum Studio Admin</title>
+  <title>Manage Categories — <?= htmlspecialchars(BRAND_NAME) ?> Admin</title>
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
@@ -368,8 +368,8 @@ $categories = $pdo->query("SELECT {$selectCols} FROM categories ORDER BY id DESC
     <div class="topbar__left">
       <a href="../index.php" class="nav-link">Storefront</a>
     </div>
-    <a href="dashboard.php" class="logo" aria-label="Cantum Studio Admin">
-      <span class="brand"><span class="brand__name">Cantum Studio</span></span>
+    <a href="dashboard.php" class="logo" aria-label="<?= htmlspecialchars(BRAND_NAME) ?> Admin">
+      <span class="brand"><span class="brand__name"><?= htmlspecialchars(BRAND_NAME) ?></span></span>
     </a>
     <div class="topbar__right">
       <span class="nav-link">Admin</span>
@@ -381,7 +381,7 @@ $categories = $pdo->query("SELECT {$selectCols} FROM categories ORDER BY id DESC
 
     <!-- HERO -->
     <section class="hero">
-      <div class="eyebrow">Cantum Studio Admin / Categories</div>
+      <div class="eyebrow"><?= htmlspecialchars(BRAND_NAME) ?> Admin / Categories</div>
       <h1 class="headline">Manage Store Categories</h1>
       <p class="subcopy">
         Add new product categories to organize your store. The "Slug" will be used in the URL link of the storefront.

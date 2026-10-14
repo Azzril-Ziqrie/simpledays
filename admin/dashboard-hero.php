@@ -210,7 +210,7 @@ if ($tableReady && $editId > 0) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hero Banner — Cantum Studio Admin</title>
+  <title>Hero Banner — <?= htmlspecialchars(BRAND_NAME) ?> Admin</title>
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
@@ -342,8 +342,8 @@ if ($tableReady && $editId > 0) {
       <a href="dashboard.php" class="nav-link">Dashboard</a>
       <a href="../index.php" class="nav-link">Storefront</a>
     </div>
-    <a href="dashboard.php" class="logo" aria-label="Cantum Studio Admin">
-      <span class="brand"><span class="brand__name">Cantum Studio</span></span>
+    <a href="dashboard.php" class="logo" aria-label="<?= htmlspecialchars(BRAND_NAME) ?> Admin">
+      <span class="brand"><span class="brand__name"><?= htmlspecialchars(BRAND_NAME) ?></span></span>
     </a>
     <div class="topbar__right">
       <span class="nav-link">Hero Slides Manager</span>
@@ -352,7 +352,7 @@ if ($tableReady && $editId > 0) {
   <main class="wrap">
     <section class="hero">
       <div class="hero-left">
-        <div class="eyebrow">Cantum Studio Admin</div>
+        <div class="eyebrow"><?= htmlspecialchars(BRAND_NAME) ?> Admin</div>
         <h1 class="headline">Hero Slides Manager</h1>
         <p class="subcopy">
           Add, edit, and remove the landscape photos in the homepage hero banner (one photo per slide, used on desktop and mobile).

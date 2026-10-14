@@ -210,7 +210,7 @@ $currentYear = (int) date('Y');
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lookbook Manager — Cantum Studio Admin</title>
+  <title>Lookbook Manager — <?= htmlspecialchars(BRAND_NAME) ?> Admin</title>
   <style>
     * { box-sizing: border-box; }
     body { font-family: Arial, sans-serif; background: #fff; color: #111; margin: 0; padding: 0; }
@@ -239,7 +239,7 @@ $currentYear = (int) date('Y');
 </head>
 <body>
   <header class="topbar">
-    <a href="dashboard.php" class="logo"><span class="brand"><span class="brand__name">Cantum Studio</span></span></a>
+    <a href="dashboard.php" class="logo"><span class="brand"><span class="brand__name"><?= htmlspecialchars(BRAND_NAME) ?></span></span></a>
     <span>Lookbook Manager</span>
   </header>
   <main class="wrap">

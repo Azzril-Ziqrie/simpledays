@@ -42,7 +42,7 @@ $warnHttps = !ddAdminIsHttps() && !$isLocal;
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex,nofollow">
-  <title>Sign in — Cantum Studio Admin</title>
+  <title>Sign in — <?= htmlspecialchars(BRAND_NAME) ?> Admin</title>
   <style>
     *{box-sizing:border-box}
     body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif;padding:20px}
@@ -61,7 +61,7 @@ $warnHttps = !ddAdminIsHttps() && !$isLocal;
 </head>
 <body>
   <form class="box" method="POST" action="login.php" autocomplete="off">
-    <div class="brand"><span class="brand__name">Cantum Studio</span></div>
+    <div class="brand"><span class="brand__name"><?= htmlspecialchars(BRAND_NAME) ?></span></div>
     <?php if ($error !== ''): ?><div class="err" role="alert"><?= htmlspecialchars($error) ?></div><?php endif; ?>
     <input type="hidden" name="csrf" value="<?= htmlspecialchars((string)$_SESSION['login_csrf']) ?>">
     <input type="hidden" name="next" value="<?= htmlspecialchars($next) ?>">

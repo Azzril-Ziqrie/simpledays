@@ -135,7 +135,7 @@ $csrf = ddAdminCsrf();
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Homepage Media — Cantum Studio Admin</title>
+  <title>Homepage Media — <?= htmlspecialchars(BRAND_NAME) ?> Admin</title>
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
@@ -267,8 +267,8 @@ $csrf = ddAdminCsrf();
       <a href="dashboard.php" class="nav-link">Dashboard</a>
       <a href="../index.php" class="nav-link">Storefront</a>
     </div>
-    <a href="dashboard.php" class="logo" aria-label="Cantum Studio Admin">
-      <span class="brand"><span class="brand__name">Cantum Studio</span></span>
+    <a href="dashboard.php" class="logo" aria-label="<?= htmlspecialchars(BRAND_NAME) ?> Admin">
+      <span class="brand"><span class="brand__name"><?= htmlspecialchars(BRAND_NAME) ?></span></span>
     </a>
     <div class="topbar__right"><span class="nav-link">Homepage Media</span></div>
   </header>
@@ -276,7 +276,7 @@ $csrf = ddAdminCsrf();
   <main class="wrap">
     <section class="hero">
       <div class="hero-left">
-        <div class="eyebrow">Cantum Studio Admin</div>
+        <div class="eyebrow"><?= htmlspecialchars(BRAND_NAME) ?> Admin</div>
         <h1 class="headline">Homepage Media</h1>
         <p class="subcopy">
           One swipeable row of photos and GIFs right below the hero, and one below the products.

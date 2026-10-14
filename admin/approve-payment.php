@@ -114,5 +114,7 @@ try {
         $pdo->rollBack();
     }
 
-    die('Failed to approve payment: ' . $e->getMessage());
+    error_log('[admin] approve payment failed: ' . $e->getMessage());
+    http_response_code(500);
+    die('Could not approve this payment. Please try again; details are in the server log.');
 }

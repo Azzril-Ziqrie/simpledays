@@ -119,7 +119,7 @@ $csrf = ddAdminCsrf();
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Promo Codes — Cantum Studio Admin</title>
+  <title>Promo Codes — <?= htmlspecialchars(BRAND_NAME) ?> Admin</title>
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }

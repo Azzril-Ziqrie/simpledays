@@ -103,7 +103,7 @@ if (isset($_GET['success']) && $_GET['success'] === '1') {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Set Discount — Cantum Studio Admin</title>
+  <title>Set Discount — <?= htmlspecialchars(BRAND_NAME) ?> Admin</title>
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
@@ -270,7 +270,7 @@ if (isset($_GET['success']) && $_GET['success'] === '1') {
       <a href="index.php" class="nav-link">Dashboard</a>
     </div>
     <a href="../index.php" class="logo">
-      <span class="brand"><span class="brand__name">Cantum Studio</span></span>
+      <span class="brand"><span class="brand__name"><?= htmlspecialchars(BRAND_NAME) ?></span></span>
     </a>
     <div class="topbar__right">
       <a href="dashboard-product.php" class="nav-link">Products</a>

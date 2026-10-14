@@ -73,7 +73,7 @@ function statusBadgeClass(string $status): string
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Order Detail — Cantum Studio Admin</title>
+  <title>Order Detail — <?= htmlspecialchars(BRAND_NAME) ?> Admin</title>
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
@@ -390,7 +390,7 @@ function statusBadgeClass(string $status): string
       <a href="dashboard-orders.php" class="nav-link">Back to Orders</a>
     </div>
     <a href="../index.php" class="logo">
-      <span class="brand"><span class="brand__name">Cantum Studio</span></span>
+      <span class="brand"><span class="brand__name"><?= htmlspecialchars(BRAND_NAME) ?></span></span>
     </a>
     <div class="topbar__right">
       <a href="dashboard.php" class="nav-link">Dashboard</a>
