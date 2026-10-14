@@ -50,6 +50,9 @@ header('Cache-Control: no-store');
   <meta name="robots" content="noindex, nofollow">
   <title>Simple Days</title>
   <link rel="preload" as="image" href="<?= SITE_GATE_BG ?>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet">
   <style>
     :root {
       --spring: cubic-bezier(.2, .9, .25, 1.05);
@@ -64,7 +67,7 @@ header('Cache-Control: no-store');
       position: relative; overflow: hidden;
       display: flex; align-items: center; justify-content: center;
       padding: 24px;
-      font: 15px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+      font: 14px/1.5 'JetBrains Mono','Roboto Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
       color: #fff; background: #111;
       -webkit-font-smoothing: antialiased;
     }

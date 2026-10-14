@@ -33,7 +33,7 @@
 /* ── base ────────────────────────────────────────────────── */
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;overflow-x:clip}
-body{overflow-x:clip;background:var(--bg);color:var(--ink);font:400 11px/1.55 'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;letter-spacing:.01em;-webkit-font-smoothing:antialiased}
+body{overflow-x:clip;background:var(--bg);color:var(--ink);font:400 11px/1.55 'JetBrains Mono','Roboto Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:0;-webkit-font-smoothing:antialiased}
 body.lock-scroll{overflow:hidden}
 a{color:inherit;text-decoration:none}
 img{display:block;max-width:100%}
