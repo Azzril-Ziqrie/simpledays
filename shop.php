@@ -60,6 +60,13 @@ $categories = fetchCategories($pdo, $schema);
 // Shop menampilkan juga produk habis (diberi label "Sold out")
 $products   = sortProducts(fetchInStockProducts($pdo, $schema, $search, $category, false), $sort);
 
+$categoryLabel = '';
+foreach ($categories as $cat) {
+    if ($category !== '' && $category === (string)$cat['slug']) {
+        $categoryLabel = (string)$cat['name'];
+    }
+}
+
 /* ── render ──────────────────────────────────────────── */
 siteHeadOpen([
     'title'       => 'Shop',
@@ -76,14 +83,7 @@ siteBodyOpen([
 ?>
 <main class="page-main">
   <section class="shop" aria-label="Shop">
-    <h1 class="shop-title">Shop</h1>
-
-    <nav class="shop-cats" aria-label="Categories">
-      <a href="<?= esc(shopUrl($current, ['category' => null])) ?>" class="<?= $category === '' ? 'active' : '' ?>">All</a>
-      <?php foreach ($categories as $cat): ?>
-        <a href="<?= esc(shopUrl($current, ['category' => (string)$cat['slug']])) ?>" class="<?= $category === (string)$cat['slug'] ? 'active' : '' ?>"><?= esc($cat['name']) ?></a>
-      <?php endforeach; ?>
-    </nav>
+    <h1 class="sr-only">Shop</h1>
 
     <div class="shop-bar">
       <div class="shop-view" role="group" aria-label="Grid view">
@@ -94,12 +94,30 @@ siteBodyOpen([
 
       <span class="shop-count" aria-live="polite"><?= count($products) ?> <?= count($products) === 1 ? 'product' : 'products' ?></span>
 
-      <details class="shop-sort">
-        <summary>
-          <span>Sort</span>
-          <svg class="shop-sort__plus" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1v10M1 6h10"/></svg>
+      <details class="shop-menu shop-menu--category">
+        <summary aria-label="Filter by category">
+          <span class="shop-menu__label">Category</span>
+          <?php if ($categoryLabel !== ''): ?><span class="shop-menu__value"><?= esc($categoryLabel) ?></span><?php endif; ?>
+          <svg class="shop-menu__chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4.5l4 4 4-4"/></svg>
         </summary>
-        <div class="shop-sort__panel" role="menu">
+        <div class="shop-menu__panel" role="menu">
+          <a role="menuitemradio" aria-checked="<?= $category === '' ? 'true' : 'false' ?>"
+             class="<?= $category === '' ? 'is-active' : '' ?>"
+             href="<?= esc(shopUrl($current, ['category' => null])) ?>">All</a>
+          <?php foreach ($categories as $cat): $isActive = $category === (string)$cat['slug']; ?>
+            <a role="menuitemradio" aria-checked="<?= $isActive ? 'true' : 'false' ?>"
+               class="<?= $isActive ? 'is-active' : '' ?>"
+               href="<?= esc(shopUrl($current, ['category' => (string)$cat['slug']])) ?>"><?= esc($cat['name']) ?></a>
+          <?php endforeach; ?>
+        </div>
+      </details>
+
+      <details class="shop-menu shop-menu--sort">
+        <summary aria-label="Sort products">
+          <span class="shop-menu__label">Sort</span>
+          <svg class="shop-menu__plus" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1v10M1 6h10"/></svg>
+        </summary>
+        <div class="shop-menu__panel" role="menu">
           <?php foreach (SHOP_SORTS as $key => $label): ?>
             <a role="menuitemradio" aria-checked="<?= $key === $sort ? 'true' : 'false' ?>"
                class="<?= $key === $sort ? 'is-active' : '' ?>"

@@ -1,11 +1,10 @@
-/* Shop: toggle tampilan grid (A/B) dan popover Sort. */
+/* Shop: toggle tampilan grid (A/B) dan dropdown Category / Sort. */
 (function () {
   'use strict';
 
   var STORAGE_KEY = 'sd-shop-view';
   var grid = document.getElementById('shopGrid');
   var buttons = document.querySelectorAll('.shop-view__btn');
-  var sort = document.querySelector('.shop-sort');
 
   function readView() {
     try { return localStorage.getItem(STORAGE_KEY); } catch (e) { return null; }
@@ -39,17 +38,29 @@
     btn.addEventListener('click', function () { setView(btn.dataset.view); });
   });
 
-  /* Sort: tutup saat klik di luar atau tekan Escape */
-  if (sort) {
-    document.addEventListener('pointerdown', function (e) {
-      if (sort.open && !sort.contains(e.target)) { sort.open = false; }
+  /* Dropdown (Category, Sort): satu terbuka pada satu waktu; tutup via klik luar / Escape */
+  var menus = Array.prototype.slice.call(document.querySelectorAll('.shop-menu'));
+
+  menus.forEach(function (menu) {
+    menu.addEventListener('toggle', function () {
+      if (!menu.open) { return; }
+      menus.forEach(function (other) { if (other !== menu) { other.open = false; } });
     });
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && sort.open) {
-        sort.open = false;
-        var summary = sort.querySelector('summary');
-        if (summary) { summary.focus(); }
-      }
+  });
+
+  document.addEventListener('pointerdown', function (e) {
+    menus.forEach(function (menu) {
+      if (menu.open && !menu.contains(e.target)) { menu.open = false; }
     });
-  }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') { return; }
+    menus.forEach(function (menu) {
+      if (!menu.open) { return; }
+      menu.open = false;
+      var summary = menu.querySelector('summary');
+      if (summary) { summary.focus(); }
+    });
+  });
 })();
