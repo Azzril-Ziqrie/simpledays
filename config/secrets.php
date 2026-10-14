@@ -1,5 +1,6 @@
 <?php
-// Rahasia produksi — TIDAK di-commit (lihat .gitignore). Contoh format: secrets.example.php
+// Rahasia produksi. SENGAJA di-commit (repo private) supaya ikut ter-deploy ke Hostinger.
+// Override khusus komputer lokal ada di secrets.local.php (tidak di-commit).
 return [
     'SITE_LOCK'            => '1', // kunci beranda dengan password (kosongkan untuk membuka ke publik)
     'DB_HOST'              => 'localhost',
@@ -12,6 +13,10 @@ return [
     'KASERA_WEBHOOK_SECRET' => 'whsec_-Wz93onueE6BuRscCafKcFakTCGx3Wa991H1bhEQgBQ',
     'RAJAONGKIR_API_KEY'    => 'yauCjOlH5098102ba59beadf7VlDzBA3',
     'EXCHANGERATE_API_KEY'  => '3d5e70d4fbc11043ad7cbd51',
+    'SMTP_HOST'             => 'smtp.hostinger.com',
+    'SMTP_PORT'             => '465', // SSL
+    'SMTP_USERNAME'         => 'info@thesimpledays.co',
+    'SMTP_FROM_EMAIL'       => 'info@thesimpledays.co',
     'SMTP_PASSWORD'         => 'Agacil12345!',
     'ADMIN_SMTP_PASSWORD'   => 'Agacil12345!',
     'ADMIN_PASSWORD_HASH'   => '$2y$10$eY.IASFCF3zfKMaMMAi0DuHje4cuy/JUYhXQMvixQr6i72zqrfGM2',
