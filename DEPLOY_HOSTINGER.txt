@@ -111,6 +111,64 @@ Ringkas:
    (shop, checkout, dst.) tetap bisa dibuka lewat URL langsung.
 
 ---------------------------------------------------------------------
+ K. TUTORIAL: HUBUNGKAN HOSTINGER KE GITHUB (GIT DEPLOY)
+---------------------------------------------------------------------
+ Repo   : Azzril-Ziqrie/simpledays   (PRIVATE)
+ Branch : simple-days-rebrand
+ Menu   : hPanel -> Websites -> Manage -> Advanced -> Git
+
+ PERSIAPAN
+ 1. Kosongkan folder tujuan. File Manager -> public_html -> hapus file
+    bawaan Hostinger (default.php, index.html, dst). Aktifkan "Show
+    hidden files" supaya file berawalan titik ikut terlihat.
+    Git deploy GAGAL kalau folder tujuan tidak kosong.
+ 2. Pastikan semua perubahan terakhir sudah di-push ke GitHub.
+
+ CARA 1 - SSH + DEPLOY KEY (paling pasti jalan untuk repo private)
+ 1. hPanel -> Git -> Create a new repository.
+ 2. Repository : git@github.com:Azzril-Ziqrie/simpledays.git
+    Branch     : simple-days-rebrand
+    Install path: kosongkan (= public_html)
+ 3. Klik Create. Hostinger menampilkan sebuah SSH KEY (ssh-rsa/ed25519).
+    Salin seluruh key itu.
+ 4. GitHub -> repo simpledays -> Settings -> Deploy keys
+    -> Add deploy key. Title: Hostinger. Tempel key. Biarkan
+    "Allow write access" TIDAK dicentang. Klik Add key.
+ 5. Kembali ke hPanel -> klik Deploy. Tunggu sampai berstatus sukses.
+
+ CARA 2 - APLIKASI GITHUB "HOSTINGER"
+ 1. hPanel -> Git -> pilih "Connect with GitHub" dan izinkan.
+ 2. GitHub -> Settings -> Applications -> Installed GitHub Apps
+    -> Hostinger -> Configure.
+ 3. Repository access: pilih "Only select repositories", tambahkan
+    Azzril-Ziqrie/simpledays, lalu klik SAVE.
+ 4. Kembali ke hPanel, refresh / Reconnect, pilih repo dan branch
+    simple-days-rebrand, lalu Deploy.
+ Catatan: repo harus ada di akun yang sama dengan tempat aplikasi
+ diinstal, dan nama repo persis "simpledays".
+
+ AUTO DEPLOY (setiap push langsung naik ke hosting)
+ 1. Di hPanel -> Git, buka repo yang sudah dibuat -> salin "Webhook URL".
+ 2. GitHub -> repo -> Settings -> Webhooks -> Add webhook:
+        Payload URL  : (Webhook URL dari hPanel)
+        Content type : application/json
+        Events       : Just the push event
+ 3. Simpan. Mulai sekarang: git push -> hosting ter-update otomatis.
+
+ TROUBLESHOOTING
+ - "destination path is not empty"  -> kosongkan public_html (langkah 1).
+ - "Permission denied (publickey)"   -> deploy key belum ditambahkan
+                                        atau salah repo.
+ - "Repository not found"            -> aplikasi GitHub belum diberi
+                                        akses repo (Cara 2 langkah 3).
+ - Branch tidak ditemukan            -> tulis persis
+                                        simple-days-rebrand.
+ - Gagal / timeout di tengah         -> coba Deploy sekali lagi (repo
+                                        besar: vendor/ + gambar).
+ - Tetap gagal                       -> pakai ZIP: upload lewat File
+                                        Manager lalu Extract (bagian D).
+
+---------------------------------------------------------------------
  J. SETELAH LAUNCHING (KEAMANAN)
 ---------------------------------------------------------------------
  - Ganti password database Hostinger dengan yang panjang & acak, lalu
