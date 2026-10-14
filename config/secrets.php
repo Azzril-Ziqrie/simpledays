@@ -12,7 +12,7 @@ return [
     'KASERA_WEBHOOK_SECRET' => 'whsec_-Wz93onueE6BuRscCafKcFakTCGx3Wa991H1bhEQgBQ',
     'RAJAONGKIR_API_KEY'    => 'yauCjOlH5098102ba59beadf7VlDzBA3',
     'EXCHANGERATE_API_KEY'  => '3d5e70d4fbc11043ad7cbd51',
-    'SMTP_PASSWORD'         => 'Deepdimes!23',
-    'ADMIN_SMTP_PASSWORD'   => 'Agacil12345',
+    'SMTP_PASSWORD'         => 'Agacil12345!',
+    'ADMIN_SMTP_PASSWORD'   => 'Agacil12345!',
     'ADMIN_PASSWORD_HASH'   => '$2y$10$eY.IASFCF3zfKMaMMAi0DuHje4cuy/JUYhXQMvixQr6i72zqrfGM2',
 ];
