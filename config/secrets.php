@@ -5,7 +5,7 @@ return [
     'SITE_LOCK'            => '1', // kunci beranda dengan password (kosongkan untuk membuka ke publik)
     'DB_HOST'              => 'localhost',
     'DB_NAME'              => 'u584945443_newsimple',
-    'DB_USER'              => 'u584945443_azril',
+    'DB_USER'              => 'u584945443_azril1',
     'DB_PASS'              => 'Agacil12345',
     'PAYPAL_CLIENT_ID'     => 'AQH-nEddDRWnjcbKpcESDiCWakOnXWAM79ydOhvAvX_3SIaSQ8YTEK6LapTyI4gdtj-3HsAyCLeoTRAa',
     'PAYPAL_CLIENT_SECRET' => 'EL_ZM_PDNgyRatBwJ82ht1yy-Wq49414EwQukdTljB78sOObMI1CnYB8QX_mAvy-_5saLUZ8sUjmqz7y',
