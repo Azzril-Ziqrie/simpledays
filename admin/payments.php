@@ -18,7 +18,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo,
             (string)($_POST['title'] ?? ''),
             (float)str_replace(',', '', (string)($_POST['amount'] ?? '0')),
-            (string)($_POST['currency'] ?? 'USD')
+            (string)($_POST['currency'] ?? 'USD'),
+            $_POST
         );
         if ($created) {
             header('Location: payments.php?pay=' . urlencode($created['reference']));
@@ -144,6 +145,23 @@ $payable  = $current && $current['status'] !== 'paid';
               </select>
             </div>
           </div>
+          <div class="grid">
+            <div class="field">
+              <label for="payer_name">Name (optional)</label>
+              <input type="text" id="payer_name" name="payer_name" maxlength="150" autocomplete="name"
+                     value="<?= htmlspecialchars((string)($_POST['payer_name'] ?? '')) ?>">
+            </div>
+            <div class="field">
+              <label for="payer_phone">Phone (optional)</label>
+              <input type="tel" id="payer_phone" name="payer_phone" maxlength="50" autocomplete="tel"
+                     value="<?= htmlspecialchars((string)($_POST['payer_phone'] ?? '')) ?>">
+            </div>
+          </div>
+          <div class="field">
+            <label for="payer_email">Email (optional)</label>
+            <input type="email" id="payer_email" name="payer_email" maxlength="150" autocomplete="email"
+                   value="<?= htmlspecialchars((string)($_POST['payer_email'] ?? '')) ?>">
+          </div>
           <div class="preview" id="preview">You will pay <strong>$0.00</strong> USD</div>
           <button type="submit" class="btn">Continue to PayPal</button>
         </form>
@@ -155,12 +173,13 @@ $payable  = $current && $current['status'] !== 'paid';
           <p class="sub">No payments yet.</p>
         <?php else: ?>
           <table>
-            <thead><tr><th>Ref</th><th>For</th><th>Original</th><th>USD</th><th>Status</th><th>Date</th><th></th></tr></thead>
+            <thead><tr><th>Ref</th><th>For</th><th>Payer</th><th>Original</th><th>USD</th><th>Status</th><th>Date</th><th></th></tr></thead>
             <tbody>
               <?php foreach ($history as $h): ?>
                 <tr>
                   <td class="ref"><?= htmlspecialchars($h['reference']) ?></td>
                   <td><?= htmlspecialchars($h['title']) ?></td>
+                  <td><?= htmlspecialchars(implode(' · ', array_filter([$h['payer_name'], $h['payer_email'], $h['payer_phone']]))) ?: '—' ?></td>
                   <td><?= $h['source_currency'] === 'USD' ? '—' : htmlspecialchars($h['source_currency']) . ' ' . number_format((float)$h['source_amount'], 2) ?></td>
                   <td>$<?= number_format((float)$h['amount_usd'], 2) ?></td>
                   <td><span class="badge <?= htmlspecialchars($h['status']) ?>"><?= htmlspecialchars($h['status']) ?></span></td>

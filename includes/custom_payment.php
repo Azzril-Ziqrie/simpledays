@@ -14,6 +14,13 @@ require_once __DIR__ . '/currency_helper.php';
 
 const CP_MAX_USD = 100000.00;
 
+/** Detail pembayar (opsional): kolom → panjang maksimum. */
+const CP_PAYER_FIELDS = [
+    'payer_name'  => 150,
+    'payer_email' => 150,
+    'payer_phone' => 50,
+];
+
 function cpEnsureSchema(PDO $pdo): void
 {
     static $done = false;
@@ -33,10 +40,18 @@ function cpEnsureSchema(PDO $pdo): void
                 paypal_order_id VARCHAR(64) NULL,
                 paypal_capture_id VARCHAR(64) NULL,
                 paid_at DATETIME NULL,
+                payer_name VARCHAR(150) NULL,
+                payer_email VARCHAR(150) NULL,
+                payer_phone VARCHAR(50) NULL,
                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE KEY uniq_cp_reference (reference)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         );
+    }
+    foreach (CP_PAYER_FIELDS as $column => $length) {
+        if (!columnExists($pdo, 'custom_payments', $column)) {
+            $pdo->exec("ALTER TABLE custom_payments ADD COLUMN {$column} VARCHAR({$length}) NULL");
+        }
     }
     $done = true;
 }
@@ -68,9 +83,28 @@ function cpConvertToUsd(float $amount, string $currency): ?array
     return ['usd' => round($amount / $rate, 2), 'rate' => $rate];
 }
 
-/** Buat pembayaran pending. @return array{0: ?array, 1: ?string} [baris, error] */
-function cpCreate(PDO $pdo, string $title, float $amount, string $currency): array
+/**
+ * Bersihkan input pembayar: kosong → NULL. @return array{0: ?array, 1: ?string} [data, error]
+ */
+function cpCleanPayer(array $input): array
 {
+    $payer = [];
+    foreach (CP_PAYER_FIELDS as $column => $length) {
+        $value = mb_substr(trim((string)($input[$column] ?? '')), 0, $length);
+        $payer[$column] = $value === '' ? null : $value;
+    }
+    if ($payer['payer_email'] !== null && !filter_var($payer['payer_email'], FILTER_VALIDATE_EMAIL)) {
+        return [null, 'Please enter a valid email address.'];
+    }
+    return [$payer, null];
+}
+
+/** Buat pembayaran pending. @return array{0: ?array, 1: ?string} [baris, error] */
+function cpCreate(PDO $pdo, string $title, float $amount, string $currency, array $payerInput = []): array
+{
+    [$payer, $payerError] = cpCleanPayer($payerInput);
+    if ($payer === null) return [null, $payerError];
+
     $title = trim($title);
     if ($title === '') return [null, 'Please enter what this payment is for.'];
     if (!is_finite($amount) || $amount <= 0) return [null, 'Amount must be greater than 0.'];
@@ -82,9 +116,10 @@ function cpCreate(PDO $pdo, string $title, float $amount, string $currency): arr
 
     $reference = 'PAY-' . strtoupper(bin2hex(random_bytes(5)));
     $pdo->prepare(
-        'INSERT INTO custom_payments (reference, title, amount_usd, source_amount, source_currency, exchange_rate)
-         VALUES (:ref, :title, :usd, :src, :cur, :rate)'
-    )->execute([
+        'INSERT INTO custom_payments
+            (reference, title, amount_usd, source_amount, source_currency, exchange_rate, payer_name, payer_email, payer_phone)
+         VALUES (:ref, :title, :usd, :src, :cur, :rate, :payer_name, :payer_email, :payer_phone)'
+    )->execute($payer + [
         'ref'   => $reference,
         'title' => mb_substr($title, 0, 190),
         'usd'   => number_format($conv['usd'], 2, '.', ''),
