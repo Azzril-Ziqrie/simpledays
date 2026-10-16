@@ -30,7 +30,7 @@
 }
 @media(max-width:600px){:root{--gutter:20px}}
 
-/* ── dark mode: html[data-theme="dark"] diatur oleh site.js (pilihan disimpan, default mengikuti sistem) ── */
+/* ── dark mode: html[data-theme="dark"] diatur oleh site.js (pilihan disimpan, default terang) ── */
 html[data-theme="dark"]{
   color-scheme:dark;
   --ink:#f2f2f2;--ink-2:#b4b4b4;--mute:#8c8c8c;

@@ -89,11 +89,11 @@ function siteHeadOpen(array $o = []): void
   <?php endforeach; ?>
   <?php if (function_exists('ddDisplayJs')): ?><script><?= ddDisplayJs() ?></script><?php endif; ?>
   <script>
-    // Tema: pilihan tersimpan, jika belum ada ikuti sistem. Dipasang sebelum render agar tidak berkedip.
+    // Tema: pilihan tersimpan, jika belum ada default terang. Dipasang sebelum render agar tidak berkedip.
     (function () {
       var t = null;
       try { t = localStorage.getItem('sdTheme'); } catch (e) {}
-      if (t !== 'dark' && t !== 'light') t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      if (t !== 'dark' && t !== 'light') t = 'light';
       document.documentElement.setAttribute('data-theme', t);
     })();
   </script>
