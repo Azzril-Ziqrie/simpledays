@@ -5,6 +5,33 @@ require_once __DIR__ . '/../includes/db_schema.php';
 
 $message = '';
 
+function countProductsInCategory(PDO $pdo, int $categoryId): int
+{
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM products WHERE category_id = :id");
+    $stmt->execute(['id' => $categoryId]);
+    return (int) $stmt->fetchColumn();
+}
+
+function deleteCategory(PDO $pdo, int $categoryId): string
+{
+    if ($categoryId <= 0) {
+        return "Error: Invalid category.";
+    }
+
+    $productCount = countProductsInCategory($pdo, $categoryId);
+    if ($productCount > 0) {
+        return "Error: Cannot delete category, it still has {$productCount} product(s). Move or delete them first.";
+    }
+
+    try {
+        $stmt = $pdo->prepare("DELETE FROM categories WHERE id = :id");
+        $stmt->execute(['id' => $categoryId]);
+        return "Category deleted successfully.";
+    } catch (Throwable $e) {
+        return "Error: Could not delete category.";
+    }
+}
+
 $hasSizeCol = columnExists($pdo, 'categories', 'has_size');
 $alterError = '';
 
@@ -67,6 +94,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $message = "Error: Could not update category. The slug might already be used by another category.";
             }
         }
+
+    } elseif ($_POST['action'] === 'delete_category') {
+        $message = deleteCategory($pdo, (int) ($_POST['category_id'] ?? 0));
     }
 }
 
@@ -189,6 +219,9 @@ $categories = $pdo->query("SELECT {$selectCols} FROM categories ORDER BY id DESC
       border-color: #d8d5ce;
     }
     .btn-secondary:hover { background: #f4f2ec; }
+    .inline-form { display: inline; margin: 0; }
+    .btn-danger { color: #a00; border-color: #a00; }
+    .btn-danger:hover { background: #a00; color: #fff; }
     .btn-small {
       height: 34px;
       padding: 0 12px;
@@ -487,6 +520,12 @@ $categories = $pdo->query("SELECT {$selectCols} FROM categories ORDER BY id DESC
                           data-slug="<?= htmlspecialchars($cat['slug'], ENT_QUOTES) ?>"
                           data-has-size="<?= isset($cat['has_size']) && (int)$cat['has_size'] === 1 ? '1' : '0' ?>"
                         >Edit</button>
+                        <form action="" method="POST" class="inline-form js-delete-category"
+                              data-name="<?= htmlspecialchars($cat['name'], ENT_QUOTES) ?>">
+                          <input type="hidden" name="action" value="delete_category">
+                          <input type="hidden" name="category_id" value="<?= (int) $cat['id'] ?>">
+                          <button type="submit" class="btn-secondary btn-small btn-danger">Delete</button>
+                        </form>
                       </td>
                     </tr>
                   <?php endforeach; ?>
@@ -567,6 +606,14 @@ $categories = $pdo->query("SELECT {$selectCols} FROM categories ORDER BY id DESC
           editSlug.value = btn.dataset.slug;
           if (editHasSize) editHasSize.checked = btn.dataset.hasSize === '1';
           editModal.classList.add('open');
+        });
+      });
+
+      document.querySelectorAll('.js-delete-category').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+          if (!confirm('Delete category "' + form.dataset.name + '"? This cannot be undone.')) {
+            e.preventDefault();
+          }
         });
       });
 

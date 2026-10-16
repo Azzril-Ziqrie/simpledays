@@ -10,10 +10,51 @@ require_once __DIR__ . '/config/intl_shipping.php';
 require_once __DIR__ . '/includes/order_payment.php';
 require_once __DIR__ . '/includes/email_helpers.php';
 require_once __DIR__ . '/includes/layout.php';
+require_once __DIR__ . '/includes/db_schema.php';
 $composerAutoload = __DIR__ . '/vendor/autoload.php';
 if (is_file($composerAutoload)) require_once $composerAutoload;
 
 promoEnsureSchema($pdo);
+
+const PAYER_COLUMNS = [
+    'payer_name'  => 'VARCHAR(150) DEFAULT NULL',
+    'payer_email' => 'VARCHAR(150) DEFAULT NULL',
+    'payer_phone' => 'VARCHAR(50) DEFAULT NULL',
+];
+
+function ensurePayerColumns(PDO $pdo): void
+{
+    foreach (PAYER_COLUMNS as $column => $definition) {
+        if (!columnExists($pdo, 'orders', $column)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN {$column} {$definition}");
+        }
+    }
+}
+
+/** Detail pembayar bersifat opsional: string kosong disimpan sebagai NULL. */
+function nullIfBlank(string $value, int $maxLength): ?string
+{
+    $value = mb_substr(trim($value), 0, $maxLength);
+    return $value === '' ? null : $value;
+}
+
+function savePayerDetails(PDO $pdo, int $orderId, array $input): array
+{
+    $email = nullIfBlank((string)($input['payer_email'] ?? ''), 150);
+    if ($email !== null && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return ['ok' => false, 'error' => 'Please enter a valid email address.'];
+    }
+
+    $pdo->prepare(
+        'UPDATE orders SET payer_name = :name, payer_email = :email, payer_phone = :phone WHERE id = :id'
+    )->execute([
+        'name'  => nullIfBlank((string)($input['payer_name'] ?? ''), 150),
+        'email' => $email,
+        'phone' => nullIfBlank((string)($input['payer_phone'] ?? ''), 50),
+        'id'    => $orderId,
+    ]);
+    return ['ok' => true];
+}
 
 /* ── helpers ─────────────────────────────────────────── */
 function makeOrderNumber(): string
@@ -257,6 +298,17 @@ if ($payOrderNumber !== '') {
     $payStmt->execute(['n' => $payOrderNumber]);
     $payOrder = $payStmt->fetch(PDO::FETCH_ASSOC) ?: null;
     if (!$payOrder) { header('Location: checkout.php'); exit; }
+    ensurePayerColumns($pdo);
+    $payStmt->execute(['n' => $payOrderNumber]);
+    $payOrder = $payStmt->fetch(PDO::FETCH_ASSOC);
+    $payOrder = array_merge(array_fill_keys(array_keys(PAYER_COLUMNS), null), $payOrder);
+}
+
+/* ── pay mode: simpan detail pembayar (opsional, AJAX) ── */
+if ($payOrder && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_payer'])) {
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(savePayerDetails($pdo, (int)$payOrder['id'], $_POST));
+    exit;
 }
 
 /* ── pay mode: polling status (+ sinkron ke Kasera sebagai cadangan webhook) ── */
@@ -948,6 +1000,14 @@ siteBodyOpen(['bodyClass' => 'page-checkout', 'searchAction' => 'shop.php']);
 
         <?php else: ?>
         <p class="sec-sub">All transactions are secure and encrypted.</p>
+        <form id="payerForm" class="payer-form" autocomplete="on" novalidate>
+          <input type="hidden" name="save_payer" value="1">
+          <p class="field-hint" style="margin:0 0 10px">Payer details (optional)</p>
+          <?= ckField('payer_name', 'Name', (string)$payOrder['payer_name'], ['autocomplete' => 'name']) ?>
+          <?= ckField('payer_email', 'Email', (string)$payOrder['payer_email'], ['type' => 'email', 'autocomplete' => 'email']) ?>
+          <?= ckField('payer_phone', 'Phone', (string)$payOrder['payer_phone'], ['type' => 'tel', 'autocomplete' => 'tel']) ?>
+          <div class="copy-status" id="payerStatus"></div>
+        </form>
         <?php if (KASERA_ENABLED && $payCurrency !== 'IDR'): ?>
           <p class="field-hint" style="margin:-4px 0 14px">QRIS, Virtual Account and e-wallets settle in Indonesian Rupiah: <strong><?= htmlspecialchars(ddFormatMoney((float)kaseraAmountIdr($payOrder), 'IDR')) ?></strong> (1 USD = <?= htmlspecialchars(ddFormatMoney(ddRateFromIdr(), 'IDR')) ?>).</p>
         <?php endif; ?>
@@ -1286,6 +1346,24 @@ siteBodyClose();
   (function () {
     'use strict';
     const ORDER_NUMBER = <?= json_encode($payOrder['order_number']) ?>;
+
+    /* Detail pembayar (opsional): tersimpan otomatis saat field berubah */
+    const payerForm = document.getElementById('payerForm');
+    if (payerForm) {
+      const payerStatus = document.getElementById('payerStatus');
+      payerForm.addEventListener('submit', e => e.preventDefault());
+      payerForm.addEventListener('change', async () => {
+        try {
+          const res = await fetch('checkout.php?order=' + encodeURIComponent(ORDER_NUMBER), {
+            method: 'POST', body: new FormData(payerForm)
+          });
+          const data = await res.json();
+          payerStatus.textContent = data.ok ? 'Saved' : (data.error || 'Could not save.');
+        } catch (err) {
+          payerStatus.textContent = 'Could not save.';
+        }
+      });
+    }
 
     /* Tombol submit dinonaktifkan setelah klik (cegah order ganda) & di-reset saat kembali dari bfcache */
     document.querySelectorAll('form[data-pay]').forEach(f => {
