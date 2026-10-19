@@ -2,6 +2,7 @@
 // Halaman 404 mandiri: tanpa koneksi DB (menu kategori kosong).
 header('HTTP/1.0 404 Not Found');
 session_start();
+require __DIR__ . '/includes/site_gate.php';
 
 require_once __DIR__ . '/includes/currency_helper.php';
 require_once __DIR__ . '/includes/layout.php';

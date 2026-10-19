@@ -1,6 +1,6 @@
 <?php
 /**
- * Gate untuk index.php: password → pilih tujuan (Storefront / Admin).
+ * Gate untuk semua halaman storefront: password → pilih tujuan (Storefront / Admin).
  * Dipanggil sebelum apa pun dirender; mengakhiri request sendiri jika belum selesai.
  */
 require_once __DIR__ . '/../config/env.php';
@@ -21,7 +21,7 @@ if (($_POST['site_password'] ?? null) !== null) {
         session_regenerate_id(true);
         $_SESSION['site_unlocked'] = true;
         unset($_SESSION['site_entered']);
-        header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
+        header('Location: ' . $_SERVER['REQUEST_URI']);
         exit;
     }
     $lockError = true;
@@ -32,7 +32,9 @@ $unlocked = !empty($_SESSION['site_unlocked']);
 // Pilihan "Storefront": tandai sesi, lalu masuk ke beranda.
 if ($unlocked && ($_GET['enter'] ?? '') === 'store') {
     $_SESSION['site_entered'] = true;
-    header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
+    $query = $_GET;
+    unset($query['enter']);
+    header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . ($query ? '?' . http_build_query($query) : ''));
     exit;
 }
 

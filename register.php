@@ -1,5 +1,6 @@
 <?php
 session_start();
+require __DIR__ . '/includes/site_gate.php';
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/currency_helper.php';
 require_once __DIR__ . '/includes/layout.php';
