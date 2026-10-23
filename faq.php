@@ -11,6 +11,18 @@ siteHeadOpen([
     'title'       => 'FAQ',
     'description' => 'Answers about taxes, getting in touch and product care at ' . BRAND_NAME . '.',
     'css'         => ['assets/css/pages.css'],
+    'jsonLd'      => [[
+        '@context'   => 'https://schema.org',
+        '@type'      => 'FAQPage',
+        'mainEntity' => [
+            ['@type' => 'Question', 'name' => 'Are taxes included in the price?', 'acceptedAnswer' => ['@type' => 'Answer',
+                'text' => 'Prices do not include taxes. Taxes will be paid by the individual. Rates will vary according to the country the individual is in.']],
+            ['@type' => 'Question', 'name' => 'How do I contact ' . BRAND_NAME . '?', 'acceptedAnswer' => ['@type' => 'Answer',
+                'text' => 'Reach out via email at ' . BRAND_EMAIL . ' or on Instagram (' . BRAND_INSTAGRAM . ') to say what’s up, give feedback, or suggest a collaboration.']],
+            ['@type' => 'Question', 'name' => 'How should I wash my ' . BRAND_NAME . ' products?', 'acceptedAnswer' => ['@type' => 'Answer',
+                'text' => 'Unless otherwise specified: do not bleach, wash inside out, machine wash cold, tumble dry low or line dry.']],
+        ],
+    ]],
 ]);
 siteBodyOpen(['bodyClass' => 'page-faq', 'searchAction' => 'shop.php']);
 ?>

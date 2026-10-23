@@ -84,7 +84,7 @@ body.cg-lock{overflow:hidden}
 /* ── intro ───────────────────────────────────────────── */
 /* Mengikuti referensi (goldwin11.png): teks besar, rata kiri selebar layar dengan gutter, ~57 karakter per baris di mobile, leading 1.3
    (≈18px per baris di 390px), tracking sedikit negatif, jeda antar paragraf = satu baris kosong. */
-.intro{padding:clamp(72px,10vw,150px) var(--gutter) clamp(88px,12vw,180px)}
+.intro{padding:clamp(28px,4vw,56px) var(--gutter) clamp(88px,12vw,180px)}
 .intro-copy{max-width:min(100%,34em);text-align:justify;text-align-last:left;hyphens:auto;-webkit-hyphens:auto;font-size:clamp(14px,.9vw + 10.5px,26px);line-height:1.3;letter-spacing:-.01em;font-weight:400;color:var(--ink);text-wrap:pretty}
 .intro-copy p+p{margin-top:1.3em}
 
@@ -128,4 +128,26 @@ body.cg-lock{overflow:hidden}
 /* ── reduced motion ──────────────────────────────────────── */
 @media (prefers-reduced-motion:reduce){
   .hero-slide img{animation:none}
+}
+
+/* ── announcement bar (di bawah hero, atas teks intro; diatur dari admin) ── */
+.announce{position:relative;overflow:hidden;height:38px;border-block:1px solid var(--line-strong);color:var(--ink);font-size:12px;letter-spacing:.04em;text-transform:uppercase}
+.announce__msg{display:inline-block;padding:0 28px;white-space:nowrap;color:inherit}
+a.announce__msg:hover{text-decoration:underline;text-underline-offset:3px}
+.announce__sep{opacity:.4}
+.announce--marquee .announce__track{display:flex;width:max-content;height:100%;align-items:center}
+.announce--marquee .announce__group{display:flex;flex:0 0 auto;min-width:100vw;align-items:center;justify-content:space-around;animation:announce-scroll var(--announce-speed) linear infinite}
+.announce--marquee:hover .announce__group{animation-play-state:paused}
+@keyframes announce-scroll{to{transform:translateX(-100%)}}
+.announce__stage{position:relative;height:100%}
+.announce__slide{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;opacity:0;pointer-events:none;transition:opacity .5s ease,transform .5s var(--ease)}
+.announce__slide.is-active{opacity:1;pointer-events:auto}
+.announce__slide.no-t{transition:none}
+.announce--slide .announce__slide{transform:translateY(100%)}
+.announce--slide .announce__slide.is-active{transform:none}
+.announce--slide .announce__slide.is-out{transform:translateY(-100%)}
+.announce__slide .announce__msg{overflow:hidden;text-overflow:ellipsis;max-width:100%}
+@media(prefers-reduced-motion:reduce){
+  .announce--marquee .announce__group{animation:none}
+  .announce--marquee .announce__group[aria-hidden]{display:none}
 }

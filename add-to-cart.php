@@ -2,6 +2,7 @@
 session_start();
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/currency_helper.php';
+require_once __DIR__ . '/includes/analytics.php';
 
 header('Content-Type: application/json');
 
@@ -219,6 +220,7 @@ try {
     $cartCount = (int) $countStmt->fetchColumn();
 
     $pdo->commit();
+    analyticsTrack($pdo, 'add_to_cart', (string)$product['name'], $productId);
 
     echo json_encode([
         'success' => true,

@@ -2,6 +2,8 @@
 require_once __DIR__ . '/_guard.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/currency_helper.php';
+require_once __DIR__ . '/../includes/analytics.php';
+require_once __DIR__ . '/../includes/sales_report.php';
 
 /* ── ganti password admin ─────────────────────────────── */
 $pwMessage = '';
@@ -41,6 +43,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['change_passwo
     }
 }
 $pwOpen = $pwMessage !== '' || $pwError !== '';
+
+/* ── analytics (periode lewat ?days=) ─────────────────── */
+$anRanges = [7 => 'Last 7 days', 30 => 'Last 30 days', 90 => 'Last 90 days', 0 => 'All time'];
+$anDays   = (int) ($_GET['days'] ?? 30);
+if (!isset($anRanges[$anDays])) {
+    $anDays = 30;
+}
+$report = analyticsReport($pdo, $anDays);
+$sales  = salesReport($pdo, $anDays);
 
 $totalProducts = (int) $pdo->query('SELECT COUNT(*) FROM products')->fetchColumn();
 $totalActiveProducts = (int) $pdo->query('SELECT COUNT(*) FROM products WHERE is_active = 1')->fetchColumn();
@@ -168,6 +179,13 @@ function paymentBadgeClass(string $status): string
     .kpi--alert .kpi__label { color: var(--amber); font-weight: 600; }
     .kpi--alert .kpi__value { color: var(--amber); }
 
+    /* ── ANALYTICS ─────────────────────────────────────── */
+    .an-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0 4px 12px; }
+    .an-head .block-title { margin: 0; }
+    .an-range { display: flex; gap: 6px; flex-wrap: wrap; }
+    .an-range a { padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; font-size: 12px; color: var(--muted); }
+    .an-range a.active { background: #111; border-color: #111; color: #fff; }
+
     /* ── MANAGE GROUPS ─────────────────────────────────── */
     .groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; align-items: start; }
     .group { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 10px; }
@@ -222,6 +240,7 @@ function paymentBadgeClass(string $status): string
     }
   </style>
   <link rel="stylesheet" href="admin-theme.css?v=1">
+  <link rel="stylesheet" href="analytics-panels.css?v=<?= filemtime(__DIR__ . '/analytics-panels.css') ?>">
 </head>
 <body>
 
@@ -327,6 +346,32 @@ function paymentBadgeClass(string $status): string
       </div>
     </section>
 
+    <!-- SALES OVERVIEW -->
+    <section class="block" aria-label="Sales overview">
+      <div class="an-head">
+        <h2 class="block-title">Sales overview <small><?= htmlspecialchars($anRanges[$anDays]) ?></small></h2>
+        <nav class="an-range" aria-label="Date range">
+          <?php foreach ($anRanges as $value => $label): ?>
+            <a href="dashboard.php?days=<?= $value ?>" class="<?= $anDays === $value ? 'active' : '' ?>"><?= htmlspecialchars($label) ?></a>
+          <?php endforeach; ?>
+        </nav>
+      </div>
+      <?php $days = $anDays; include __DIR__ . '/_sales_panels.php'; ?>
+    </section>
+
+    <!-- ANALYTICS -->
+    <section class="block" aria-label="Analytics">
+      <div class="an-head">
+        <h2 class="block-title">Analytics <small><?= (int) $report['visitors'] ?> visitors · <?= (int) $report['pageviews'] ?> page views</small></h2>
+        <nav class="an-range" aria-label="Date range">
+          <?php foreach ($anRanges as $value => $label): ?>
+            <a href="dashboard.php?days=<?= $value ?>" class="<?= $anDays === $value ? 'active' : '' ?>"><?= htmlspecialchars($label) ?></a>
+          <?php endforeach; ?>
+        </nav>
+      </div>
+      <?php include __DIR__ . '/_analytics_panels.php'; ?>
+    </section>
+
     <!-- MANAGE -->
     <section class="block" aria-label="Manage">
       <h2 class="block-title">Manage</h2>
@@ -395,6 +440,11 @@ function paymentBadgeClass(string $status): string
           <a href="dashboard-hero.php" class="tile">
             <span class="tile__icon"><svg class="ic"><use href="#i-image"/></svg></span>
             <span class="tile__text"><div class="tile__title">Hero banner</div><div class="tile__desc">Landscape photos at the top of the homepage.</div></span>
+            <svg class="tile__go ic"><use href="#i-go"/></svg>
+          </a>
+          <a href="dashboard-announcement.php" class="tile">
+            <span class="tile__icon"><svg class="ic"><use href="#i-tag"/></svg></span>
+            <span class="tile__text"><div class="tile__title">Announcement bar</div><div class="tile__desc">Black bar below the hero banner, with animated text.</div></span>
             <svg class="tile__go ic"><use href="#i-go"/></svg>
           </a>
           <a href="dashboard-home-media.php" class="tile">

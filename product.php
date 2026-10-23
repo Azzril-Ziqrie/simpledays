@@ -123,10 +123,36 @@ if ($metaDescription !== '') {
 }
 $metaImage = !empty($product['thumbnail']) ? $product['thumbnail'] : $galleryImages[0];
 
+$origin     = BRAND_URL;
+$productUrl = $origin . '/product?slug=' . rawurlencode((string)$product['slug']);
+$absImage   = static fn(string $path): string => preg_match('#^https?://#', $path) ? $path : $origin . '/' . ltrim($path, '/');
+$productLd  = [
+    '@context'    => 'https://schema.org',
+    '@type'       => 'Product',
+    'name'        => $product['name'],
+    'description' => $metaDescription !== '' ? $metaDescription : (BRAND_NAME . ' — ' . $product['name']),
+    'image'       => array_map($absImage, $galleryImages),
+    'sku'         => (string)$product['slug'],
+    'brand'       => ['@type' => 'Brand', 'name' => BRAND_NAME],
+    'category'    => $categoryName,
+    'offers'      => [
+        '@type'         => 'Offer',
+        'url'           => $productUrl,
+        'priceCurrency' => 'USD',
+        'price'         => number_format($basePrice, 2, '.', ''),
+        'availability'  => $isSoldOut ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
+        'itemCondition' => 'https://schema.org/NewCondition',
+    ],
+];
+if ($hasColor) { $productLd['color'] = (string)$product['color']; }
+
 siteHeadOpen([
     'title'       => $product['name'],
     'description' => $metaDescription !== '' ? $metaDescription : (BRAND_NAME . ' — ' . $product['name']),
     'image'       => $metaImage,
+    'canonical'   => $productUrl,
+    'trackProductId' => (int)$product['id'],
+    'jsonLd'      => [$productLd],
 ]);
 ?>
 <style>

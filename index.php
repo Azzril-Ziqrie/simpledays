@@ -11,6 +11,7 @@ require_once __DIR__ . '/includes/pricing.php';
 require_once __DIR__ . '/includes/email_helpers.php';
 require_once __DIR__ . '/includes/catalog.php';
 require_once __DIR__ . '/includes/home_media.php';
+require_once __DIR__ . '/includes/announcement.php';
 require_once __DIR__ . '/includes/kasera_return.php';
 require_once __DIR__ . '/includes/layout.php';
 
@@ -69,13 +70,12 @@ $heroSlides = fetchHeroSlides($pdo, 'assets/images/hero/sd-hero-1.webp');
 $categories = fetchCategories($pdo, $schema);
 $products   = fetchInStockProducts($pdo, $schema, $search, $category);
 $gate       = currencyGateModel();
-$rowTop     = $isFiltered ? [] : fetchHomeMedia($pdo, 'top');
+$announce   = announcementForDisplay($pdo);
 $rowBottom  = $isFiltered ? [] : fetchHomeMedia($pdo, 'bottom');
-$captionId  = firstVideoId($rowTop, $rowBottom);
-$mediaTop    = renderHomeMedia($rowTop, BRAND_NAME, 'auto', $captionId);
+$captionId  = firstVideoId([], $rowBottom);
 $mediaBottom = renderHomeMedia($rowBottom, BRAND_NAME, 'low', $captionId);
 
-$origin  = 'https://' . ($_SERVER['HTTP_HOST'] ?? '');
+$origin  = BRAND_URL;
 $jsonLd  = [
     '@context'   => 'https://schema.org',
     '@type'      => 'Store',
@@ -152,6 +152,8 @@ siteBodyOpen([
       </div>
     </section>
 
+    <?php if ($announce) { echo renderAnnouncement($announce); } ?>
+
     <?php if (!$isFiltered): ?>
     <section class="intro" aria-label="About">
       <div class="intro-copy">
@@ -162,9 +164,14 @@ siteBodyOpen([
     </section>
     <?php endif; ?>
 
-    <?php if ($mediaTop): ?>
-    <section class="media" aria-label="Gallery"><?= $mediaTop ?></section>
-    <?php endif; ?>
+    <div class="category-bar">
+      <nav class="category-nav" aria-label="Categories">
+        <a href="index.php#products" class="<?= !$isFiltered ? 'active' : '' ?>">All</a>
+        <?php foreach ($categories as $cat): ?>
+          <a href="index.php?category=<?= urlencode((string)$cat['slug']) ?>#products" class="<?= $category === (string)$cat['slug'] ? 'active' : '' ?>"><?= esc(sentenceCase((string)$cat['name'])) ?></a>
+        <?php endforeach; ?>
+      </nav>
+    </div>
 
     <section class="shelf" id="products" aria-label="Products">
       <div class="shelf-head">
@@ -177,13 +184,6 @@ siteBodyOpen([
         <?php else: ?>
           <div class="shelf-title">Products (<?= count($products) ?>)</div>
         <?php endif; ?>
-
-        <nav class="category-nav" aria-label="Categories">
-          <a href="index.php#products" class="<?= !$isFiltered ? 'active' : '' ?>">All</a>
-          <?php foreach ($categories as $cat): ?>
-            <a href="index.php?category=<?= urlencode((string)$cat['slug']) ?>#products" class="<?= $category === (string)$cat['slug'] ? 'active' : '' ?>"><?= esc(sentenceCase((string)$cat['name'])) ?></a>
-          <?php endforeach; ?>
-        </nav>
       </div>
 
       <?php if (!$products): ?>
@@ -210,4 +210,11 @@ siteBodyOpen([
 
 <?php
 siteBodyClose(['scripts' => ['assets/js/home.js']]);
+if (isset($_GET['notfound'])): ?>
+  <script>
+    // Halaman yang diketik tidak ada: beri tahu sekali, lalu bersihkan ?notfound dari URL supaya refresh tidak mengulang.
+    Site.showToast('That page doesn’t exist, so we brought you home.');
+    history.replaceState(null, '', location.pathname + location.search.replace(/[?&]notfound=1/, '').replace(/^&/, '?') + location.hash);
+  </script>
+<?php endif;
 siteDocClose();

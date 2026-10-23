@@ -21,6 +21,7 @@ require_once __DIR__ . '/db_schema.php';
 require_once __DIR__ . '/catalog.php';
 require_once __DIR__ . '/currency_helper.php';   // partials/menu.php memanggil ddDisplayCurrency()
 require_once __DIR__ . '/pricing.php';
+require_once __DIR__ . '/analytics.php';
 
 if (!function_exists('esc')) {
     function esc($value): string
@@ -55,14 +56,61 @@ function siteContext(?array $override = null): array
     return $ctx ?? [];
 }
 
+/** URL kanonik halaman ini: path tanpa query ("/", "/shop"); halaman dengan query penting memberi 'canonical' sendiri. */
+function siteCanonicalUrl(string $origin): string
+{
+    $path = (string)parse_url((string)($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
+    $path = preg_replace('#/index(\.php)?$#', '/', $path);
+    $path = preg_replace('#\.php$#', '', $path);
+    return $origin . ($path === '' ? '/' : $path);
+}
+
+/** Data terstruktur (JSON-LD) untuk mesin pencari & AI: Organization + WebSite di semua halaman, plus $extra dari halaman. */
+function siteStructuredData(string $origin, array $extra = []): array
+{
+    $sameAs = array_values(array_filter([BRAND_INSTAGRAM]));
+    $org = [
+        '@context' => 'https://schema.org',
+        '@type'    => 'Organization',
+        '@id'      => $origin . '/#organization',
+        'name'     => BRAND_NAME,
+        'url'      => $origin . '/',
+        'logo'     => $origin . '/' . ltrim(BRAND_LOGO, '/'),
+        'slogan'   => BRAND_TAGLINE,
+        'foundingDate' => BRAND_EST,
+        'email'    => BRAND_EMAIL,
+        'sameAs'   => $sameAs,
+    ];
+    $site = [
+        '@context' => 'https://schema.org',
+        '@type'    => 'WebSite',
+        '@id'      => $origin . '/#website',
+        'url'      => $origin . '/',
+        'name'     => BRAND_NAME,
+        'publisher' => ['@id' => $origin . '/#organization'],
+        'potentialAction' => [
+            '@type'       => 'SearchAction',
+            'target'      => $origin . '/shop?search={search_term_string}',
+            'query-input' => 'required name=search_term_string',
+        ],
+    ];
+    return array_merge([$org, $site], $extra);
+}
+
 /** <!doctype> … <head>; head dibiarkan terbuka agar halaman bisa menambah <style>/<link>. */
 function siteHeadOpen(array $o = []): void
 {
+    // Analytics: satu catatan per halaman yang bisa diindeks. 'trackProductId' menandai halaman produk.
+    if (empty($o['noindex']) && isset($GLOBALS['pdo']) && $GLOBALS['pdo'] instanceof PDO) {
+        $productId = $o['trackProductId'] ?? null;
+        analyticsTrack($GLOBALS['pdo'], $productId ? 'product_view' : 'pageview', (string)($o['title'] ?? 'Home'), $productId ? (int)$productId : null);
+    }
     $title       = isset($o['title']) && $o['title'] !== '' ? $o['title'] . ' — ' . BRAND_NAME : BRAND_NAME;
     $description = $o['description'] ?? (BRAND_NAME . ' — ' . BRAND_TAGLINE);
-    $origin      = 'https://' . ($_SERVER['HTTP_HOST'] ?? '');
+    $origin      = BRAND_URL;
     $image       = $o['image'] ?? BRAND_ICON;
     $imageUrl    = preg_match('#^https?://#', $image) ? $image : $origin . '/' . ltrim($image, '/');
+    $canonical   = $o['canonical'] ?? siteCanonicalUrl($origin);
     ?>
 <!doctype html>
 <html lang="en">
@@ -74,18 +122,26 @@ function siteHeadOpen(array $o = []): void
   <?php if (!empty($o['noindex'])): ?><meta name="robots" content="noindex,nofollow"><?php endif; ?>
   <link rel="icon" type="image/png" href="<?= esc(BRAND_ICON) ?>">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="<?= esc($origin . ($_SERVER['REQUEST_URI'] ?? '/')) ?>">
+  <meta property="og:url" content="<?= esc($canonical) ?>">
   <meta property="og:title" content="<?= esc($title) ?>">
   <meta property="og:description" content="<?= esc($description) ?>">
   <meta property="og:image" content="<?= esc($imageUrl) ?>">
   <meta property="og:site_name" content="<?= esc(BRAND_NAME) ?>">
+  <meta property="og:locale" content="en_US">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="<?= esc($title) ?>">
+  <meta name="twitter:description" content="<?= esc($description) ?>">
+  <meta name="twitter:image" content="<?= esc($imageUrl) ?>">
+  <link rel="canonical" href="<?= esc($canonical) ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="<?= esc(siteAsset('assets/css/site.css')) ?>">
   <?php foreach (($o['css'] ?? []) as $css): ?>
   <link rel="stylesheet" href="<?= esc(siteAsset($css)) ?>">
+  <?php endforeach; ?>
+  <?php foreach (siteStructuredData($origin, $o['jsonLd'] ?? []) as $schema): ?>
+  <script type="application/ld+json"><?= json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?></script>
   <?php endforeach; ?>
   <?php if (function_exists('ddDisplayJs')): ?><script><?= ddDisplayJs() ?></script><?php endif; ?>
   <script>

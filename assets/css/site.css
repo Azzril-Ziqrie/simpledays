@@ -247,6 +247,7 @@ button{cursor:pointer;background:none;border:none}
 .shelf{padding:0 var(--gutter) 80px}
 .shelf-head{display:flex;justify-content:space-between;align-items:baseline;gap:24px;padding:20px 0 16px}
 .shelf-title{font-weight:500;white-space:nowrap}
+.category-bar{padding:14px var(--gutter)}
 .category-nav{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
 .category-nav::-webkit-scrollbar{display:none}
 .category-nav a{padding:6px 12px;border-radius:999px;color:var(--mute);white-space:nowrap;transition:color .2s,background-color .2s,transform .12s ease-out}

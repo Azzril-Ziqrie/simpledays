@@ -39,6 +39,11 @@
     RewriteRule ^login$        login.php        [L,QSA]
     RewriteRule ^register$     register.php     [L,QSA]
 
+    # SEO/GEO: file dinamis yang disajikan dengan nama statis
+    RewriteRule ^robots\.txt$  robots.php  [L]
+    RewriteRule ^sitemap\.xml$ sitemap.php [L]
+    RewriteRule ^llms\.txt$    llms.php    [L]
+
     # 4) Catch-all: any other extensionless URL -> corresponding .php
     #    (also nested paths, e.g. /admin/dashboard -> admin/dashboard.php)
     RewriteCond %{REQUEST_FILENAME} !-f
@@ -46,6 +51,12 @@
     RewriteCond %{REQUEST_FILENAME}.php -f
     RewriteCond %{REQUEST_URI} !\.[a-zA-Z0-9]+$
     RewriteRule ^([a-zA-Z0-9_/-]+)$ $1.php [L,QSA]
+
+    # 5) Alamat tanpa ekstensi yang tidak ada (mis. /asdasd) -> 404.php, yang mengarahkan ke beranda
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} !\.[a-zA-Z0-9]+$
+    RewriteRule ^ 404.php [L]
 </IfModule>
 
 # ── Security: hide sensitive files ────────────────────
