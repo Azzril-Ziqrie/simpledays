@@ -414,6 +414,8 @@ function statusBadgeClass(string $status): string
 
     <?php if ($success === 'approved'): ?>
       <div class="notice">Payment approved successfully. Stock has been deducted.</div>
+    <?php elseif ($success === 'approved_warning'): ?>
+      <div class="notice">Payment approved, but some stock could not be deducted. Check the status log and adjust stock manually.</div>
     <?php elseif ($success === 'rejected'): ?>
       <div class="notice">Payment has been rejected successfully.</div>
     <?php endif; ?>

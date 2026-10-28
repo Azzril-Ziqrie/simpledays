@@ -29,7 +29,7 @@
     </form>
     <?php endif; ?>
 
-    <div class="footer"><span class="footer-copy">© <?= date('Y') ?> <?= esc(BRAND_NAME) ?>. All rights reserved. Development by Cantum Studio.</span></div>
+    <div class="footer"><span class="footer-copy">© <?= date('Y') ?> <?= esc(BRAND_NAME) ?>. All rights reserved.</span></div>
   </div>
 </footer>
 <?php if (BRAND_NEWSLETTER): ?>

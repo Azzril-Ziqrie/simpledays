@@ -253,7 +253,7 @@ button{cursor:pointer;background:none;border:none}
 .category-nav a{padding:6px 12px;border-radius:999px;color:var(--mute);white-space:nowrap;transition:color .2s,background-color .2s,transform .12s ease-out}
 .category-nav a:hover{color:var(--ink);background:var(--tile)}
 .category-nav a:active{transform:scale(.96)}
-.category-nav a.active{color:#fff;background:var(--ink)}
+.category-nav a.active{color:var(--bg);background:var(--ink)}
 @media(max-width:600px){
   .shelf-head{flex-direction:column;align-items:stretch;gap:12px}
   /* Chip kategori: hanya barisnya yang bergeser (bukan seluruh halaman). Tepi ke tepi layar, magnet ke chip,
@@ -322,7 +322,7 @@ button{cursor:pointer;background:none;border:none}
 .footer-news__row{display:flex;gap:8px}
 .footer-news__input{
   flex:1;min-width:0;height:46px;padding:0 16px;
-  border:1px solid var(--ink);border-radius:10px;background:#fff;color:var(--ink);
+  border:1px solid var(--ink);border-radius:10px;background:var(--bg);color:var(--ink);
   font-size:12px;letter-spacing:.01em;
   transition:box-shadow .2s ease;
 }
@@ -330,12 +330,12 @@ button{cursor:pointer;background:none;border:none}
 .footer-news__input:focus{outline:0;box-shadow:0 0 0 3px rgba(0,0,0,.12)}
 .footer-news__btn{
   flex:none;height:46px;padding:0 20px;
-  border:1px solid var(--ink);border-radius:10px;background:#fff;color:var(--ink);
+  border:1px solid var(--ink);border-radius:10px;background:var(--bg);color:var(--ink);
   font-size:12px;letter-spacing:.01em;cursor:pointer;
   transition:background-color .2s ease,color .2s ease,transform .12s ease-out;
   -webkit-tap-highlight-color:transparent;
 }
-.footer-news__btn:hover{background:var(--ink);color:#fff}
+.footer-news__btn:hover{background:var(--ink);color:var(--bg)}
 .footer-news__btn:active{transform:scale(.97)}
 .footer-news__btn:disabled{opacity:.5;cursor:default}
 .footer-news__btn:focus-visible{outline:2px solid var(--ink);outline-offset:3px}

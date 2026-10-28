@@ -56,6 +56,8 @@ try {
         throw new Exception('Order items not found.');
     }
 
+    // Admin sudah memverifikasi uang masuk, jadi stok kurang tidak boleh menggagalkan approve:
+    // order tetap lunas dan kekurangan stok dicatat sebagai peringatan untuk ditangani manual.
     $stockStmt = $pdo->prepare("
         UPDATE product_sizes
         SET stock = stock - :qty_update,
@@ -65,18 +67,24 @@ try {
           AND stock >= :qty_check
     ");
 
+    $warnings = [];
     foreach ($items as $item) {
+        $label = $item['product_name'] . ' size ' . ($item['size_name'] ?? '-');
+        $sizeId = (int) ($item['product_size_id'] ?? 0);
+
+        if ($sizeId <= 0) {
+            $warnings[] = $label . ' has no size record (stock not deducted)';
+            continue;
+        }
+
         $stockStmt->execute([
             'qty_update' => (int) $item['quantity'],
             'qty_check' => (int) $item['quantity'],
-            'product_size_id' => (int) $item['product_size_id'],
+            'product_size_id' => $sizeId,
         ]);
 
         if ($stockStmt->rowCount() === 0) {
-            throw new Exception(
-                'Stock not enough for ' . $item['product_name'] .
-                ' size ' . ($item['size_name'] ?? '-')
-            );
+            $warnings[] = 'Stock not enough for ' . $label . ' (not deducted)';
         }
     }
 
@@ -102,12 +110,15 @@ try {
         'order_id' => $order['id'],
         'status_type' => 'payment',
         'status_value' => 'paid',
-        'notes' => 'Payment approved by admin. Stock deducted.',
+        'notes' => 'Payment approved by admin.' . ($warnings
+            ? ' WARNING: ' . implode('; ', $warnings)
+            : ' Stock deducted.'),
     ]);
 
     $pdo->commit();
 
-    header('Location: order-detail.php?id=' . $order['id'] . '&success=approved');
+    $result = $warnings ? 'approved_warning' : 'approved';
+    header('Location: order-detail.php?id=' . $order['id'] . '&success=' . $result);
     exit;
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
@@ -116,5 +127,5 @@ try {
 
     error_log('[admin] approve payment failed: ' . $e->getMessage());
     http_response_code(500);
-    die('Could not approve this payment. Please try again; details are in the server log.');
+    die('Could not approve this payment: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8'));
 }
