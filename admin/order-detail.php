@@ -51,6 +51,8 @@ if ($fulfillmentStatus === '') {
 }
 
 $success = trim((string) ($_GET['success'] ?? ''));
+$emailResult = trim((string) ($_GET['email'] ?? ''));
+$emailResult = trim((string) ($_GET['email'] ?? ''));
 
 function detailMoney(string $currency, float $amount): string
 {
@@ -418,6 +420,11 @@ function statusBadgeClass(string $status): string
       <div class="notice">Payment approved, but some stock could not be deducted. Check the status log and adjust stock manually.</div>
     <?php elseif ($success === 'rejected'): ?>
       <div class="notice">Payment has been rejected successfully.</div>
+    <?php endif; ?>
+    <?php if ($emailResult === 'sent'): ?>
+      <div class="notice">Confirmation email sent to the customer.</div>
+    <?php elseif ($emailResult === 'failed'): ?>
+      <div class="notice">The confirmation email could not be sent. Check the SMTP settings.</div>
     <?php endif; ?>
 
     <section class="grid">

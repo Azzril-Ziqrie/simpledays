@@ -20,6 +20,7 @@
         </div>
       </div>
       <a href="lookbook.php">Lookbook</a>
+      <a href="research.php">Research</a>
       <a href="about.php">About</a>
       <a href="index.php?choose_currency=1">Currency (<?= esc(ddDisplayCurrency()) ?>)</a>
       <button id="openAccountBtnMobile">Account</button>

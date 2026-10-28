@@ -63,6 +63,11 @@ body.cg-lock{overflow:hidden}
 .hero-slider::before{content:'';position:absolute;inset:0;z-index:3;pointer-events:none;background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.22) 90px,transparent 190px),linear-gradient(transparent 50%,rgba(0,0,0,.4))}
 /* Pergantian foto: foto baru memudar masuk di atas foto lama (foto lama tetap penuh di bawahnya, jadi tidak ada
    "dip" ke gelap), lalu foto lama dilepas setelah foto baru tampil penuh. Hanya opacity (compositor). */
+.hero-arrow{position:absolute;top:50%;z-index:5;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;border:0;background:rgba(0,0,0,.28);color:#fff;font-size:18px;line-height:1;cursor:pointer;transition:background-color .2s,transform .12s ease-out;-webkit-tap-highlight-color:transparent}
+.hero-arrow:hover{background:rgba(0,0,0,.5)}
+.hero-arrow:active{transform:translateY(-50%) scale(.94)}
+.hero-arrow--prev{left:var(--gutter)}
+.hero-arrow--next{right:var(--gutter)}
 .hero-slide{position:absolute;inset:0;z-index:1;opacity:0;visibility:hidden}
 .hero-slide.active{z-index:2;opacity:1;visibility:visible;transition:opacity 1.4s cubic-bezier(.4,0,.2,1)}
 .hero-slide.leaving{z-index:1;opacity:1;visibility:visible}

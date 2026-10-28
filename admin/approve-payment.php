@@ -2,6 +2,7 @@
 require_once __DIR__ . '/_guard.php';
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/email_helpers.php';
 
 $adminId = (int) ($_SESSION['admin']['id'] ?? 0);
 if ($adminId <= 0) {
@@ -117,8 +118,12 @@ try {
 
     $pdo->commit();
 
+    // Email konfirmasi ke pembeli; gagal kirim tidak membatalkan approve.
+    $order['payment_status'] = 'paid';
+    $emailSent = sendDDInvoiceEmail($pdo, $order);
+
     $result = $warnings ? 'approved_warning' : 'approved';
-    header('Location: order-detail.php?id=' . $order['id'] . '&success=' . $result);
+    header('Location: order-detail.php?id=' . $order['id'] . '&success=' . $result . '&email=' . ($emailSent ? 'sent' : 'failed'));
     exit;
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {

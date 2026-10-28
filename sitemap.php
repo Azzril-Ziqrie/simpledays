@@ -8,7 +8,7 @@ header('Content-Type: application/xml; charset=utf-8');
 $origin = BRAND_URL;
 
 $urls = [];
-foreach (['' => '1.0', 'shop' => '0.9', 'lookbook' => '0.7', 'about' => '0.6', 'contact' => '0.5', 'faq' => '0.4', 'shipping' => '0.4', 'privacy' => '0.2', 'terms' => '0.2'] as $path => $priority) {
+foreach (['' => '1.0', 'shop' => '0.9', 'lookbook' => '0.7', 'research' => '0.5', 'about' => '0.6', 'contact' => '0.5', 'faq' => '0.4', 'shipping' => '0.4', 'privacy' => '0.2', 'terms' => '0.2'] as $path => $priority) {
     $urls[] = [$origin . '/' . $path, null, $priority];
 }
 try {

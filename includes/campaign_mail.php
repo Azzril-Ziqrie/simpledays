@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/email_helpers.php';
+require_once __DIR__ . '/db_schema.php';
 
 const CAMPAIGN_BATCH_SIZE = 20;
 
@@ -18,12 +19,17 @@ function campaignEnsureSchema(PDO $pdo): void
 /** Pembeli unik dari tabel orders (email valid, belum berhenti berlangganan), urut stabil. */
 function campaignRecipients(PDO $pdo): array
 {
+    // Pelanggan yang pernah order + pendaftar newsletter di footer (jika tabelnya sudah ada).
+    $sources = ["SELECT email, full_name FROM orders"];
+    if (tableExists($pdo, 'newsletter_subscribers')) {
+        $sources[] = "SELECT email, '' AS full_name FROM newsletter_subscribers";
+    }
     $rows = $pdo->query(
-        "SELECT LOWER(TRIM(o.email)) AS email, MAX(o.full_name) AS full_name
-         FROM orders o
-         LEFT JOIN email_unsubscribes u ON u.email = LOWER(TRIM(o.email))
-         WHERE u.email IS NULL AND TRIM(o.email) <> ''
-         GROUP BY LOWER(TRIM(o.email))
+        "SELECT LOWER(TRIM(c.email)) COLLATE utf8mb4_unicode_ci AS email, MAX(c.full_name) AS full_name
+         FROM (" . implode(' UNION ALL ', $sources) . ") c
+         LEFT JOIN email_unsubscribes u ON u.email = LOWER(TRIM(c.email)) COLLATE utf8mb4_unicode_ci
+         WHERE u.email IS NULL AND TRIM(c.email) <> ''
+         GROUP BY LOWER(TRIM(c.email))
          ORDER BY email ASC"
     )->fetchAll(PDO::FETCH_ASSOC);
 

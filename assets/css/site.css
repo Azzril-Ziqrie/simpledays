@@ -392,3 +392,11 @@ html[data-theme="dark"] .theme-switch::before{transform:translateX(100%)}
 .theme-opt:active{transform:var(--press)}
 .theme-opt[aria-pressed="true"]{color:var(--bg)}
 @media(prefers-reduced-motion:reduce){.theme-switch::before{transition:none}}
+
+/* kursor tiga titik (site.js): sembunyikan panah bawaan kecuali di kolom isian */
+.has-dot-cursor,.has-dot-cursor a,.has-dot-cursor button,.has-dot-cursor summary,.has-dot-cursor label{cursor:none}
+.has-dot-cursor input,.has-dot-cursor textarea,.has-dot-cursor select{cursor:text}
+.dd-cursor{position:fixed;left:0;top:0;z-index:2147483647;width:26px;height:auto;pointer-events:none;opacity:0;transition:opacity .15s ease,scale .15s ease;will-change:transform}
+.dd-cursor.is-on{opacity:1}
+.dd-cursor.is-link{scale:1.35}
+html[data-theme="dark"] .dd-cursor{filter:invert(1)}

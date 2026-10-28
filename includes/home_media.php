@@ -66,7 +66,14 @@ function fetchHomeMedia(PDO $pdo, string $placement): array
         );
         $stmt->execute(['placement' => $placement]);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        return array_values(array_filter($rows, static fn(array $row): bool => is_file(__DIR__ . '/../' . ltrim((string)$row['media'], '/'))));
+        // Item yang filenya tidak ada di server dilewati (dan dicatat), supaya tidak tampil gambar rusak.
+        return array_values(array_filter($rows, static function (array $row): bool {
+            $exists = is_file(__DIR__ . '/../' . ltrim((string)$row['media'], '/'));
+            if (!$exists) {
+                error_log('[home_media] file missing on server, skipped: ' . $row['media']);
+            }
+            return $exists;
+        }));
     } catch (Throwable $e) {
         error_log('[home_media] query failed: ' . $e->getMessage());
         return [];

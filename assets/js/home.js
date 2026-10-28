@@ -24,8 +24,9 @@
       return Promise.race([decoded, giveUp]);
     }
 
-    function next() {
-      var previous = slides[current], nextIndex = (current + 1) % slides.length, incoming = slides[nextIndex];
+    /* step: +1 maju, -1 mundur. Dipakai timer otomatis dan tombol panah. */
+    function go(step) {
+      var previous = slides[current], nextIndex = (current + step + slides.length) % slides.length, incoming = slides[nextIndex];
       ready(incoming).then(function () {
         if (document.hidden) { schedule(HOLD_MS); return; }   // tab di belakang: jangan jalan, coba lagi nanti
         previous.classList.remove('active');
@@ -37,7 +38,11 @@
       });
     }
 
+    function next() { go(1); }
     function schedule(ms) { clearTimeout(timer); timer = setTimeout(next, ms); }
+
+    on('heroPrev', 'click', function () { go(-1); });
+    on('heroNext', 'click', function () { go(1); });
 
     ready(slides[0]).then(function () { schedule(HOLD_MS); });
   })();

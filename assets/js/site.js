@@ -277,6 +277,25 @@
     });
   });
 
+  /* ── kursor: tiga titik logo menggantikan panah (hanya mouse/trackpad; layar sentuh tidak terpengaruh) ── */
+  (function () {
+    if (!window.matchMedia || !window.matchMedia('(hover:hover) and (pointer:fine)').matches || reducedMotion) return;
+    var dots = document.createElement('img');
+    dots.className = 'dd-cursor';
+    dots.src = 'assets/images/simple-days-dots.png';
+    dots.alt = '';
+    dots.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(dots);
+    document.documentElement.classList.add('has-dot-cursor');
+
+    document.addEventListener('mousemove', function (e) {
+      dots.style.transform = 'translate3d(' + e.clientX + 'px,' + e.clientY + 'px,0) translate(-50%,-50%)';
+      dots.classList.add('is-on');
+      dots.classList.toggle('is-link', !!e.target.closest('a,button,summary,label,[role=button]'));
+    }, { passive: true });
+    document.addEventListener('mouseleave', function () { dots.classList.remove('is-on'); });
+  })();
+
   window.Site = {
     cart: cart,
     showToast: showToast,

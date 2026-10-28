@@ -145,6 +145,11 @@ siteBodyOpen([
           </div>
         <?php endforeach; ?>
 
+        <?php if (count($heroSlides) > 1): ?>
+        <button type="button" class="hero-arrow hero-arrow--prev" id="heroPrev" aria-label="Previous photo">&#8592;</button>
+        <button type="button" class="hero-arrow hero-arrow--next" id="heroNext" aria-label="Next photo">&#8594;</button>
+        <?php endif; ?>
+
         <img class="hero-mark" src="<?= esc(BRAND_LOGO) ?>" alt="<?= esc(BRAND_NAME) ?>">
         <?php if (!$isFiltered): ?>
           <a href="shop.php" class="hero-shop link-u">SHOP NOW</a>
