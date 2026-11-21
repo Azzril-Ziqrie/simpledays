@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/_guard.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/variants.php';
+$variantColors = ddVariantColumnsReady($pdo);
+$noColorSql = $variantColors ? " AND color_name = ''" : '';
 require_once __DIR__ . '/../includes/db_schema.php';
 
 $message = '';
@@ -72,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $checkProduct->execute(['id' => $productId]);
                 if (!$checkProduct->fetch()) throw new RuntimeException('Selected product was not found.');
 
-                $findRelation   = $pdo->prepare('SELECT id FROM product_sizes WHERE product_id = :product_id AND size_id = :size_id LIMIT 1');
+                $findRelation   = $pdo->prepare('SELECT id FROM product_sizes WHERE product_id = :product_id AND size_id = :size_id' . $noColorSql . ' LIMIT 1');
                 $insertRelation = $pdo->prepare('INSERT INTO product_sizes (product_id, size_id, stock, is_active) VALUES (:product_id, :size_id, :stock, :is_active)');
                 $updateRelation = $pdo->prepare('UPDATE product_sizes SET stock = :stock, is_active = :is_active WHERE id = :id');
 
@@ -132,7 +135,7 @@ if ($selectedProductId > 0) {
     $selectedProduct = $selectedProductStmt->fetch();
 
     if ($selectedProduct) {
-        $productSizeStmt = $pdo->prepare('SELECT size_id, stock, is_active FROM product_sizes WHERE product_id = :product_id');
+        $productSizeStmt = $pdo->prepare('SELECT size_id, stock, is_active FROM product_sizes WHERE product_id = :product_id' . $noColorSql);
         $productSizeStmt->execute(['product_id' => $selectedProductId]);
         foreach ($productSizeStmt->fetchAll() as $row) {
             $productSizeMap[(int) $row['size_id']] = ['stock' => (int) $row['stock'], 'is_active' => (int) $row['is_active']];
@@ -163,7 +166,7 @@ $sizeOverview = $pdo->query(
     "SELECT p.id AS product_id, p.name AS product_name, p.slug,
             COALESCE(c.slug, 'fashion') AS category_slug,
             COALESCE(c.name, 'Fashion') AS category_name,
-            s.name AS size_name, ps.stock, ps.is_active
+            " . ddSizeLabelSql($pdo) . " AS size_name, ps.stock, ps.is_active
      FROM product_sizes ps
      INNER JOIN products p ON p.id = ps.product_id
      INNER JOIN sizes s ON s.id = ps.size_id

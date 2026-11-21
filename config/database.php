@@ -24,6 +24,10 @@ try {
     die('Koneksi database gagal: ' . $e->getMessage());
 }
 
+// Migrasi otomatis (migrations/*.php): deploy kode saja, tidak perlu jalankan SQL manual.
+require_once __DIR__ . '/../includes/migrate.php';
+ddRunMigrations($pdo, __DIR__ . '/../migrations');
+
 /**
  * Get database connection instance
  * @return PDO Database connection

@@ -7,6 +7,7 @@ require_once __DIR__ . '/includes/db_schema.php';
 require_once __DIR__ . '/includes/currency_helper.php';
 require_once __DIR__ . '/includes/pricing.php';
 require_once __DIR__ . '/includes/layout.php';
+require_once __DIR__ . '/includes/variants.php';
 
 $slug = isset($_GET['slug']) ? trim($_GET['slug']) : '';
 if ($slug === '') { http_response_code(404); exit('Product not found.'); }
@@ -66,26 +67,32 @@ if ($hasCategorySize) {
 }
 
 /* ── gallery images ──────────────────────────────────── */
+$imageHasColor = columnExists($pdo, 'product_images', 'color_name');
 $imageStmt = $pdo->prepare(
-    'SELECT image_path FROM product_images
+    'SELECT image_path, ' . ($imageHasColor ? 'color_name' : "'' AS color_name") . ' FROM product_images
      WHERE product_id = :product_id
      ORDER BY sort_order ASC, id ASC'
 );
 $imageStmt->execute(['product_id' => $product['id']]);
-$detailImages = $imageStmt->fetchAll(PDO::FETCH_COLUMN);
+$detailRows = $imageStmt->fetchAll(PDO::FETCH_ASSOC);
 
+// galleryItems: foto utama + foto detail, tiap foto punya warna ('' = umum). galleryImages: semua path (untuk SEO).
+$galleryItems = [];
 $galleryImages = [];
-if (!empty($product['thumbnail'])) $galleryImages[] = $product['thumbnail'];
-foreach ($detailImages as $p) {
-    if ($p !== '' && !in_array($p, $galleryImages, true)) $galleryImages[] = $p;
+if (!empty($product['thumbnail'])) { $galleryItems[] = ['path' => $product['thumbnail'], 'color' => '']; $galleryImages[] = $product['thumbnail']; }
+foreach ($detailRows as $row) {
+    $path = (string)$row['image_path'];
+    if ($path === '' || in_array($path, $galleryImages, true)) continue;
+    $galleryItems[] = ['path' => $path, 'color' => trim((string)$row['color_name'])];
+    $galleryImages[] = $path;
 }
-if (empty($galleryImages)) $galleryImages[] = 'assets/images/placeholder.png';
+if (empty($galleryImages)) { $galleryImages[] = 'assets/images/placeholder.png'; $galleryItems[] = ['path' => 'assets/images/placeholder.png', 'color' => '']; }
 
 /* ── sizes ───────────────────────────────────────────── */
 $sizeStmt = $pdo->prepare(
-    'SELECT ps.id AS product_size_id, s.name, s.sort_order, ps.stock, ps.is_active
+    'SELECT ps.id AS product_size_id, s.name, s.sort_order, ' . (ddVariantColumnsReady($pdo) ? 'ps.color_name, ps.color_hex,' : "'' AS color_name, NULL AS color_hex,") . ' ps.stock, ps.is_active
      FROM product_sizes ps INNER JOIN sizes s ON s.id=ps.size_id
-     WHERE ps.product_id=:pid ORDER BY s.sort_order ASC, s.name ASC'
+     WHERE ps.product_id=:pid ORDER BY s.sort_order ASC, s.name ASC, ps.id ASC'
 );
 $sizeStmt->execute(['pid' => $product['id']]);
 $productSizes = $sizeStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -99,8 +106,33 @@ usort($productSizes, function ($a, $b) {
 
 $availableSizes = array_values(array_filter($productSizes, fn($s) => (int)$s['is_active']===1 && (int)$s['stock']>0));
 $isSoldOut = count($availableSizes) === 0;
-$selectedSize = $isSoldOut ? '' : $availableSizes[0]['name'];
-$selectedProductSizeId = $isSoldOut ? null : (int)$availableSizes[0]['product_size_id'];
+
+/* ── warna: tiap baris product_sizes = satu varian (ukuran + warna) dengan stok sendiri ── */
+$colors = [];   // key lowercase => ['name','hex','available']
+foreach ($productSizes as $row) {
+    $cName = trim((string)($row['color_name'] ?? ''));
+    if ($cName === '' || (int)$row['is_active'] !== 1) continue;
+    $key = mb_strtolower($cName);
+    if (!isset($colors[$key])) $colors[$key] = ['name' => $cName, 'hex' => ddNormalizeHex($row['color_hex'] ?? ''), 'available' => false];
+    if ((int)$row['stock'] > 0) $colors[$key]['available'] = true;
+}
+$colors = array_values($colors);
+$hasColorChoices = count($colors) > 0;
+
+$selectedColor = '';
+foreach ($colors as $c) { if ($c['available']) { $selectedColor = $c['name']; break; } }
+$selectedVariant = null;
+foreach ($availableSizes as $v) {
+    if (!$hasColorChoices || strcasecmp(trim((string)$v['color_name']), $selectedColor) === 0) { $selectedVariant = $v; break; }
+}
+if ($selectedVariant === null && !$isSoldOut) $selectedVariant = $availableSizes[0];
+
+$selectedSize = $selectedVariant ? $selectedVariant['name'] : '';
+$selectedProductSizeId = $selectedVariant ? (int)$selectedVariant['product_size_id'] : null;
+$variantData = array_map(fn($v) => [
+    'id' => (int)$v['product_size_id'], 'size' => (string)$v['name'],
+    'color' => trim((string)($v['color_name'] ?? '')), 'stock' => (int)$v['stock'],
+], $availableSizes);
 
 $relatedProducts = fetchRelatedProducts($pdo, catalogSchema($pdo), (int)$product['id'], (string)($product['category_slug'] ?? ''), 4);
 
@@ -115,8 +147,7 @@ $comparePriceToShow = $isFlashSaleActive ? $originalPrice : $comparePrice;
 $displayPrice        = ddFormatDisplay($basePrice);
 $displayComparePrice = $hasDiscount ? ddFormatDisplay($comparePriceToShow) : null;
 
-$hasColor = $hasColorColumn && trim((string)($product['color'] ?? '')) !== '';
-$galleryCount = count($galleryImages);
+$hasColor = !$hasColorChoices && $hasColorColumn && trim((string)($product['color'] ?? '')) !== '';
 $metaDescription = trim(preg_replace('/\s+/', ' ', (string)$product['description']));
 if ($metaDescription !== '') {
     $metaDescription = mb_strlen($metaDescription) > 160 ? mb_substr($metaDescription, 0, 157) . '…' : $metaDescription;
@@ -180,6 +211,24 @@ siteHeadOpen([
 .pdp-field{margin-top:36px}
 .pdp-label{display:block;margin-bottom:12px;font-size:12px;letter-spacing:.03em;color:var(--ink-2)}
 .pdp-label b{color:var(--ink);font-weight:400}
+
+/* warna: bulatan kecil, yang dipilih diberi cincin */
+.pdp-colors{display:flex;flex-wrap:wrap;gap:10px}
+.color-btn{
+  position:relative;width:26px;height:26px;padding:0;border-radius:50%;border:0;background:var(--sw,#ddd);cursor:pointer;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);
+  transition:transform .12s ease-out,box-shadow .2s ease;-webkit-tap-highlight-color:transparent;
+}
+.color-btn::after{content:'';position:absolute;inset:-5px;border-radius:50%;border:1px solid transparent;transition:border-color .2s ease}
+.color-btn:hover{transform:scale(1.08)}
+.color-btn:active{transform:scale(.92)}
+.color-btn.active::after{border-color:var(--ink)}
+.color-btn:focus-visible{outline:2px solid var(--ink);outline-offset:6px}
+.color-btn:disabled{cursor:not-allowed;opacity:.35;transform:none}
+.color-btn:disabled::before{content:'';position:absolute;left:50%;top:-3px;width:1px;height:32px;background:var(--ink);transform:rotate(45deg)}
+.color-btn--text{width:auto;height:auto;padding:6px 0;border-radius:0;background:none;box-shadow:none;font-size:13px;letter-spacing:.05em;color:var(--mute);border-bottom:1px solid transparent}
+.color-btn--text::after{display:none}
+.color-btn--text.active{color:var(--ink);border-bottom-color:var(--ink)}
 
 /* ukuran: teks polos, yang dipilih bergaris bawah */
 .pdp-sizes{display:flex;flex-wrap:wrap;gap:6px 22px}
@@ -263,7 +312,7 @@ siteHeadOpen([
   .pdp-related .product-info{padding:12px 14px 6px}
 }
 @media(min-width:901px){.pdp-wrap{display:contents}}
-@media(prefers-reduced-motion:reduce){.pdp-modal,.size-btn,.pdp-buy .btn,.pdp-more summary::before,.pdp-progress span{transition:none}}
+@media(prefers-reduced-motion:reduce){.pdp-modal,.size-btn,.color-btn,.color-btn::after,.pdp-buy .btn,.pdp-more summary::before,.pdp-progress span{transition:none}}
 @media(prefers-reduced-transparency:reduce){.pdp-modal{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(0,0,0,.45)}.pdp-chart{background:#fff;-webkit-backdrop-filter:none;backdrop-filter:none}.pdp-fs{background:#fff}}
 </style>
 <?php
@@ -273,15 +322,25 @@ siteBodyOpen(['bodyClass' => 'page-product', 'searchAction' => 'shop.php']);
   <div class="pdp">
     <div class="pdp-wrap">
       <div class="pdp-gallery" id="productImageContainer" aria-label="Product photos">
-        <?php foreach ($galleryImages as $i => $imagePath): ?>
-          <figure class="pdp-slide">
-            <img src="<?= esc($imagePath) ?>" alt="<?= esc($product['name']) ?>" loading="<?= $i === 0 ? 'eager' : 'lazy' ?>" decoding="async" data-index="<?= $i ?>">
+        <?php
+          // Foto sesuai warna terpilih; kalau warna itu tidak punya foto sendiri, pakai foto umum.
+          $selColorKey = mb_strtolower($selectedColor);
+          $colorHasOwn = false;
+          foreach ($galleryItems as $gi) { if ($selColorKey !== '' && mb_strtolower($gi['color']) === $selColorKey) { $colorHasOwn = true; break; } }
+          $firstShown = true;
+        ?>
+        <?php foreach ($galleryItems as $i => $gi): ?>
+          <?php
+            $gc = mb_strtolower($gi['color']);
+            $showSlide = $selColorKey === '' ? true : ($colorHasOwn ? $gc === $selColorKey : $gc === '');
+            $eager = $showSlide && $firstShown; if ($showSlide) $firstShown = false;
+          ?>
+          <figure class="pdp-slide" data-color="<?= esc($gi['color']) ?>"<?= $showSlide ? '' : ' hidden' ?>>
+            <img src="<?= esc($gi['path']) ?>" alt="<?= esc($product['name']) ?>" loading="<?= $eager ? 'eager' : 'lazy' ?>" decoding="async">
           </figure>
         <?php endforeach; ?>
       </div>
-      <?php if ($galleryCount > 1): ?>
-        <div class="pdp-progress" aria-hidden="true"><span id="imageIndicator" style="width:<?= round(100 / $galleryCount, 3) ?>%"></span></div>
-      <?php endif; ?>
+      <div class="pdp-progress" id="imageProgress" aria-hidden="true"><span id="imageIndicator" style="width:100%"></span></div>
     </div>
 
     <div class="pdp-info">
@@ -296,17 +355,39 @@ siteBodyOpen(['bodyClass' => 'page-product', 'searchAction' => 'shop.php']);
         <div class="pdp-field"><span class="pdp-label">Color: <b><?= esc($product['color']) ?></b></span></div>
       <?php endif; ?>
 
+      <?php if ($hasColorChoices && !$isSoldOut): ?>
+        <div class="pdp-field">
+          <span class="pdp-label">Color: <b id="colorLabel"><?= esc($selectedColor) ?></b></span>
+          <div class="pdp-colors" id="colorBtnGroup" role="group" aria-label="Select color">
+            <?php foreach ($colors as $c): ?>
+              <?php $isSelColor = strcasecmp($c['name'], $selectedColor) === 0; ?>
+              <button type="button" class="color-btn<?= $c['hex'] ? '' : ' color-btn--text' ?><?= $isSelColor ? ' active' : '' ?>"
+                      data-color="<?= esc($c['name']) ?>"
+                      <?= $c['hex'] ? 'style="--sw:' . esc($c['hex']) . '"' : '' ?>
+                      aria-label="<?= esc($c['name']) . ($c['available'] ? '' : ' (sold out)') ?>"
+                      aria-pressed="<?= $isSelColor ? 'true' : 'false' ?>"
+                      <?= $c['available'] ? '' : 'disabled' ?>><?= $c['hex'] ? '' : esc($c['name']) ?></button>
+            <?php endforeach; ?>
+          </div>
+        </div>
+      <?php endif; ?>
+
       <?php if ($hasSizeSelector && !$isSoldOut): ?>
         <div class="pdp-field">
           <span class="sr-only">Size</span>
           <div class="pdp-sizes" id="sizeBtnGroup" role="group" aria-label="Select size">
             <?php foreach ($availableSizes as $size): ?>
-              <?php $isSelectedOpt = $selectedProductSizeId === (int)$size['product_size_id']; ?>
+              <?php
+                $isSelectedOpt = $selectedProductSizeId === (int)$size['product_size_id'];
+                $sizeColor = trim((string)($size['color_name'] ?? ''));
+                $showSize = !$hasColorChoices || strcasecmp($sizeColor, $selectedColor) === 0;
+              ?>
               <button type="button" class="size-btn<?= $isSelectedOpt ? ' active' : '' ?>"
                       data-id="<?= (int)$size['product_size_id'] ?>"
                       data-size="<?= esc($size['name']) ?>"
+                      data-color="<?= esc($sizeColor) ?>"
                       data-stock="<?= (int)$size['stock'] ?>"
-                      aria-pressed="<?= $isSelectedOpt ? 'true' : 'false' ?>"><?= esc($size['name']) ?></button>
+                      aria-pressed="<?= $isSelectedOpt ? 'true' : 'false' ?>"<?= $showSize ? '' : ' hidden' ?>><?= esc($size['name']) ?></button>
             <?php endforeach; ?>
           </div>
         </div>
@@ -362,13 +443,11 @@ siteBodyOpen(['bodyClass' => 'page-product', 'searchAction' => 'shop.php']);
 <div id="fullscreenGallery" class="pdp-modal pdp-fs" role="dialog" aria-modal="true" aria-label="Photo gallery">
   <button type="button" class="pdp-close" id="closeGalleryBtn" aria-label="Close gallery">&times;</button>
   <img src="" alt="<?= esc($product['name']) ?>" id="fullscreenGalleryImg">
-  <?php if ($galleryCount > 1): ?>
-  <div class="pdp-fs-ctrl">
+  <div class="pdp-fs-ctrl" id="fsCtrl">
     <button type="button" id="galleryPrevBtn" aria-label="Previous image">&#8592;</button>
-    <span id="galleryIndicator">1 / <?= $galleryCount ?></span>
+    <span id="galleryIndicator">1 / 1</span>
     <button type="button" id="galleryNextBtn" aria-label="Next image">&#8594;</button>
   </div>
-  <?php endif; ?>
 </div>
 <?php
 siteBodyClose();
@@ -386,9 +465,11 @@ siteBodyClose();
   const prodThumb = <?= json_encode($product['thumbnail']) ?>;
   const prodPrice = <?= json_encode((float)$basePrice) ?>;
 
+  const variants            = <?= json_encode($variantData) ?>;
+  let selectedColor         = <?= json_encode($selectedColor) ?>;
   let selectedSize          = <?= json_encode($selectedSize) ?>;
   let selectedProductSizeId = <?= json_encode($selectedProductSizeId) ?>;
-  let selectedStock         = <?= json_encode($selectedProductSizeId ? (int)($availableSizes[0]['stock'] ?? 0) : 0) ?>;
+  let selectedStock         = <?= json_encode($selectedVariant ? (int)$selectedVariant['stock'] : 0) ?>;
   const quantity            = 1;
 
   const cart      = Site.cart;
@@ -396,15 +477,42 @@ siteBodyClose();
   const showToast = Site.showToast;
   const addToCartBtn = document.getElementById('addToCartBtn');
 
-  /* ── pilihan ukuran ────── */
-  document.querySelectorAll('.size-btn').forEach(btn => {
+  /* ── pilihan warna & ukuran: tiap kombinasi punya id varian (product_sizes.id) & stok sendiri ────── */
+  const sizeBtns  = Array.from(document.querySelectorAll('.size-btn'));
+  const colorBtns = Array.from(document.querySelectorAll('.color-btn'));
+  const colorLabel = document.getElementById('colorLabel');
+
+  function applyVariant(v) {
+    selectedProductSizeId = String(v.id);
+    selectedSize  = v.size;
+    selectedStock = v.stock;
+    sizeBtns.forEach(b => {
+      const on = b.dataset.id === String(v.id);
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+
+  colorBtns.forEach(btn => {
     btn.addEventListener('click', function () {
-      document.querySelectorAll('.size-btn').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-pressed', 'false'); });
-      this.classList.add('active');
-      this.setAttribute('aria-pressed', 'true');
-      selectedSize = this.dataset.size;
-      selectedProductSizeId = this.dataset.id;
-      selectedStock = parseInt(this.dataset.stock || '0', 10) || 0;
+      if (this.disabled) return;
+      selectedColor = this.dataset.color;
+      colorBtns.forEach(b => { const on = b === this; b.classList.toggle('active', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+      if (colorLabel) colorLabel.textContent = selectedColor;
+
+      const ofColor = variants.filter(v => v.color.toLowerCase() === selectedColor.toLowerCase());
+      sizeBtns.forEach(b => { b.hidden = b.dataset.color.toLowerCase() !== selectedColor.toLowerCase(); });
+      // pertahankan ukuran yang sama kalau warna baru punya, kalau tidak pakai ukuran pertama
+      const next = ofColor.find(v => v.size === selectedSize) || ofColor[0];
+      if (next) applyVariant(next);
+      filterGallery(selectedColor);
+    });
+  });
+
+  sizeBtns.forEach(btn => {
+    btn.addEventListener('click', function () {
+      const v = variants.find(x => String(x.id) === this.dataset.id);
+      if (v) applyVariant(v);
     });
   });
 
@@ -419,7 +527,7 @@ siteBodyClose();
     if (!hasSelection()) { showToast('Please select an available option first.'); return; }
     if (selectedStock <= 0) { showToast('Stok untuk ukuran ini habis.'); return; }
 
-    const itemName    = prodName + (selectedSize ? ` - ${selectedSize}` : '');
+    const itemName    = prodName + (selectedSize ? ` - ${selectedSize}` : '') + (selectedColor ? ` - ${selectedColor}` : '');
     const existingIdx = cartItems.findIndex(i => i.id === productId && i.name === itemName);
 
     // validasi stok SEBELUM apa pun dikirim, supaya cart lokal & server tidak beda
@@ -475,19 +583,44 @@ siteBodyClose();
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeChart(); });
   }
 
-  /* ── penunjuk foto (galeri geser di mobile) ────── */
+  /* ── galeri: foto mengikuti warna terpilih ────── */
   const imageContainer = document.getElementById('productImageContainer');
   const imageIndicator = document.getElementById('imageIndicator');
-  const totalImages    = <?= $galleryCount ?>;
+  const imageProgress  = document.getElementById('imageProgress');
+  const fsCtrl         = document.getElementById('fsCtrl');
+  const slides         = Array.from(document.querySelectorAll('.pdp-slide'));
+
+  function visibleSlides() { return slides.filter(s => !s.hidden); }
+
+  function refreshGalleryUi() {
+    const n = visibleSlides().length;
+    if (imageIndicator) { imageIndicator.style.width = (100 / Math.max(n, 1)) + '%'; imageIndicator.style.left = '0%'; }
+    if (imageProgress) imageProgress.style.visibility = n > 1 ? '' : 'hidden';
+    if (fsCtrl) fsCtrl.style.display = n > 1 ? '' : 'none';
+  }
+
+  function filterGallery(color) {
+    const c = (color || '').toLowerCase();
+    const hasOwn = c !== '' && slides.some(s => s.dataset.color.toLowerCase() === c);
+    slides.forEach(s => {
+      const sc = s.dataset.color.toLowerCase();
+      s.hidden = c === '' ? false : (hasOwn ? sc !== c : sc !== '');
+    });
+    if (imageContainer) imageContainer.scrollLeft = 0;
+    refreshGalleryUi();
+  }
+  refreshGalleryUi();
+
   if (imageContainer && imageIndicator) {
     imageContainer.addEventListener('scroll', () => {
-      const current = Math.min(totalImages, Math.max(1, Math.round(imageContainer.scrollLeft / imageContainer.clientWidth) + 1));
-      imageIndicator.style.left = ((current - 1) / totalImages * 100) + '%';
+      const total   = Math.max(visibleSlides().length, 1);
+      const current = Math.min(total, Math.max(1, Math.round(imageContainer.scrollLeft / imageContainer.clientWidth) + 1));
+      imageIndicator.style.left = ((current - 1) / total * 100) + '%';
     }, { passive: true });
   }
 
   /* ── galeri layar penuh ────── */
-  const galleryImagesSrc = <?= json_encode(array_values($galleryImages)) ?>;
+  let galleryImagesSrc = [];
   const fsGallery = document.getElementById('fullscreenGallery');
   const fsImg     = document.getElementById('fullscreenGalleryImg');
   const fsText    = document.getElementById('galleryIndicator');
@@ -498,7 +631,8 @@ siteBodyClose();
     if (fsText) fsText.textContent = (fsIndex + 1) + ' / ' + galleryImagesSrc.length;
   }
   function openFs(index) {
-    fsIndex = index;
+    galleryImagesSrc = visibleSlides().map(s => s.querySelector('img').getAttribute('src'));
+    fsIndex = Math.max(0, index);
     updateFs();
     fsGallery.classList.add('active');
     document.body.classList.add('lock-scroll');
@@ -512,7 +646,7 @@ siteBodyClose();
     updateFs();
   }
 
-  document.querySelectorAll('#productImageContainer img').forEach((img, idx) => img.addEventListener('click', () => openFs(idx)));
+  slides.forEach(s => s.querySelector('img').addEventListener('click', () => openFs(visibleSlides().indexOf(s))));
   document.getElementById('closeGalleryBtn').addEventListener('click', closeFs);
   const prevBtn = document.getElementById('galleryPrevBtn'), nextBtn = document.getElementById('galleryNextBtn');
   if (prevBtn) prevBtn.addEventListener('click', () => stepFs(-1));

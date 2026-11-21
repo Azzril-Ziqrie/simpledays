@@ -3,16 +3,10 @@ require_once __DIR__ . '/_guard.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/currency_helper.php';
 if (isset($pdo) && $pdo instanceof PDO) ddEnsureCurrencyColumns($pdo);
-
-// Penanda "produk baru": produk tetap punya satu kategori utama (mis. Top) dan, kalau is_new = 1,
-// ikut tampil di kategori "New". Kolom dibuat otomatis kalau belum ada.
-try {
-    if ($pdo->query("SHOW COLUMNS FROM products LIKE 'is_new'")->fetch() === false) {
-        $pdo->exec('ALTER TABLE products ADD COLUMN is_new TINYINT(1) NOT NULL DEFAULT 0');
-    }
-} catch (Throwable $e) {
-    error_log('[admin] ensure is_new column failed: ' . $e->getMessage());
-}
+require_once __DIR__ . '/../includes/variants.php';
+require_once __DIR__ . '/../includes/db_schema.php';
+$variantColors = ddVariantColumnsReady($pdo);
+$imageColors   = columnExists($pdo, 'product_images', 'color_name');
 
 $message = '';
 $error   = '';
@@ -99,11 +93,11 @@ if ($editProductId > 0) {
         $editProduct = $stmtEdit->fetch(PDO::FETCH_ASSOC);
 
         if ($editProduct) {
-            $stmtSizes = $pdo->prepare('SELECT size_id, stock, is_active FROM product_sizes WHERE product_id = :pid ORDER BY size_id ASC');
+            $stmtSizes = $pdo->prepare('SELECT size_id, ' . ($variantColors ? 'color_name, color_hex,' : "'' AS color_name, NULL AS color_hex,") . ' stock, is_active FROM product_sizes WHERE product_id = :pid ORDER BY size_id ASC, id ASC');
             $stmtSizes->execute(['pid' => $editProductId]);
             $editProductSizes = $stmtSizes->fetchAll(PDO::FETCH_ASSOC);
 
-            $stmtImgs = $pdo->prepare('SELECT id, image_path, sort_order FROM product_images WHERE product_id = :pid ORDER BY sort_order ASC');
+            $stmtImgs = $pdo->prepare('SELECT id, image_path, ' . ($imageColors ? 'color_name,' : "'' AS color_name,") . ' sort_order FROM product_images WHERE product_id = :pid ORDER BY sort_order ASC');
             $stmtImgs->execute(['pid' => $editProductId]);
             $editProductImages = $stmtImgs->fetchAll(PDO::FETCH_ASSOC);
         } else {
@@ -216,6 +210,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
+                $detailColor = $imageColors ? trim(mb_substr((string) ($_POST['detail_image_color'] ?? ''), 0, 60)) : '';
+
                 // Handle images to delete (for update)
                 $imagesToDelete = $_POST['delete_images'] ?? [];
                 $imagesToDelete = array_map('intval', $imagesToDelete);
@@ -306,15 +302,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $startOrder = (int) $stmtMaxOrder->fetchColumn();
 
                     $insertImage = $pdo->prepare(
-                        'INSERT INTO product_images (product_id, image_path, sort_order)
-                         VALUES (:product_id, :image_path, :sort_order)'
+                        $imageColors
+                            ? 'INSERT INTO product_images (product_id, image_path, color_name, sort_order)
+                               VALUES (:product_id, :image_path, :color_name, :sort_order)'
+                            : 'INSERT INTO product_images (product_id, image_path, sort_order)
+                               VALUES (:product_id, :image_path, :sort_order)'
                     );
                     foreach ($detailImages as $index => $imagePath) {
-                        $insertImage->execute([
+                        $params = [
                             'product_id' => $productId,
                             'image_path' => $imagePath,
                             'sort_order' => $startOrder + $index + 1,
-                        ]);
+                        ];
+                        if ($imageColors) $params['color_name'] = $detailColor;
+                        $insertImage->execute($params);
                     }
                 }
 
@@ -324,6 +325,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $sizeIds = $_POST['size_id'] ?? [];
                 $stocks  = $_POST['stock'] ?? [];
                 $isActives = $_POST['is_active'] ?? [];
+                $colorNames = $_POST['color_name'] ?? [];
+                $colorHexes = $_POST['color_hex'] ?? [];
+                $seenVariants = [];
+                $coloredRows = 0;
+                $plainRows = 0;
 
                 foreach ($sizeIds as $index => $sizeId) {
                     $sizeId = (int) $sizeId;
@@ -334,16 +340,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         continue;
                     }
 
-                    $insertSize = $pdo->prepare(
-                        'INSERT INTO product_sizes (product_id, size_id, stock, is_active)
-                         VALUES (:product_id, :size_id, :stock, :is_active)'
-                    );
-                    $insertSize->execute([
-                        'product_id' => $productId,
-                        'size_id'    => $sizeId,
-                        'stock'      => $stock,
-                        'is_active'  => $sizeActive,
-                    ]);
+                    $colorName = $variantColors ? trim(mb_substr((string) ($colorNames[$index] ?? ''), 0, 60)) : '';
+                    $colorHex  = $colorName !== '' ? ddNormalizeHex($colorHexes[$index] ?? '') : null;
+
+                    $variantKey = $sizeId . '|' . mb_strtolower($colorName);
+                    if (isset($seenVariants[$variantKey])) {
+                        throw new RuntimeException('Duplicate size/color row' . ($colorName !== '' ? ' (' . $colorName . ')' : '') . '. Each size + color can only be listed once.');
+                    }
+                    $seenVariants[$variantKey] = true;
+                    $colorName !== '' ? $coloredRows++ : $plainRows++;
+
+                    if ($variantColors) {
+                        $insertSize = $pdo->prepare(
+                            'INSERT INTO product_sizes (product_id, size_id, color_name, color_hex, stock, is_active)
+                             VALUES (:product_id, :size_id, :color_name, :color_hex, :stock, :is_active)'
+                        );
+                        $insertSize->execute([
+                            'product_id' => $productId,
+                            'size_id'    => $sizeId,
+                            'color_name' => $colorName,
+                            'color_hex'  => $colorHex,
+                            'stock'      => $stock,
+                            'is_active'  => $sizeActive,
+                        ]);
+                    } else {
+                        $insertSize = $pdo->prepare(
+                            'INSERT INTO product_sizes (product_id, size_id, stock, is_active)
+                             VALUES (:product_id, :size_id, :stock, :is_active)'
+                        );
+                        $insertSize->execute([
+                            'product_id' => $productId,
+                            'size_id'    => $sizeId,
+                            'stock'      => $stock,
+                            'is_active'  => $sizeActive,
+                        ]);
+                    }
+                }
+
+                if ($coloredRows > 0 && $plainRows > 0) {
+                    throw new RuntimeException('Some rows have a color and some do not. Set a color on every row, or leave all rows without color.');
                 }
 
                 $pdo->commit();
@@ -749,6 +784,8 @@ try {
       display: flex;
       flex-direction: column;
     }
+    .color-field { display: flex; gap: 8px; align-items: center; }
+    .color-swatch-input { flex: none; width: 44px; height: 44px; padding: 3px; border: 1px solid #d8d5ce; background: #faf9f5; cursor: pointer; }
     .size-field label {
       font-size: 11px;
       text-transform: uppercase;
@@ -931,6 +968,12 @@ try {
                   <span>Product Sizes</span>
                   <span>Stock & Availability</span>
                 </div>
+                <p class="form-hint" style="margin:10px 0">Each row is one size in one color, with its own stock. For a product in several colors, add a row per size + color (e.g. M / Black, M / Cream). Leave color empty if the product has none.</p>
+                <datalist id="colorPresets">
+                  <?php foreach (['Black','White','Off White','Cream','Beige','Grey','Charcoal','Navy','Blue','Green','Olive','Brown','Red','Burgundy','Pink'] as $presetColor): ?>
+                    <option value="<?= $presetColor ?>"></option>
+                  <?php endforeach; ?>
+                </datalist>
                 <div id="sizeEntriesContainer">
                   <?php
                     // If editing, show existing sizes; otherwise show one empty entry
@@ -943,7 +986,7 @@ try {
                   ?>
                     <div class="size-entry">
                       <div class="size-entry-header">
-                        <h3>Size Entry</h3>
+                        <h3>Size / Color Entry</h3>
                         <button type="button" class="remove-size-btn">Remove</button>
                       </div>
                       <div class="size-fields">
@@ -959,6 +1002,19 @@ try {
                             <?php endforeach; ?>
                           </select>
                         </div>
+                        <?php if ($variantColors): ?>
+                        <div class="size-field">
+                          <label>Color (optional)</label>
+                          <div class="color-field">
+                            <input type="color" name="color_hex[]" class="color-swatch-input"
+                                   value="<?= htmlspecialchars((string) (ddNormalizeHex($sizeEntry['color_hex'] ?? '') ?? '#111111')) ?>"
+                                   aria-label="Color swatch">
+                            <input type="text" name="color_name[]" class="form-input color-name-input" list="colorPresets"
+                                   maxlength="60" placeholder="e.g. Black"
+                                   value="<?= htmlspecialchars((string) ($sizeEntry['color_name'] ?? '')) ?>">
+                          </div>
+                        </div>
+                        <?php endif; ?>
                         <div class="size-field">
                           <label>Stock</label>
                           <input type="number" name="stock[]" min="0" value="<?= (int) $sizeEntry['stock'] ?>" class="form-input" required>
@@ -988,6 +1044,7 @@ try {
                   <?php foreach ($editProductImages as $img): ?>
                     <label style="display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:#333;">
                       <img src="../<?= htmlspecialchars($img['image_path']) ?>" alt="detail" style="width:80px;height:104px;object-fit:cover;border:1px solid #d8d5ce;">
+                      <span style="color:#888;"><?= trim((string) ($img['color_name'] ?? '')) !== '' ? htmlspecialchars($img['color_name']) : 'All colors' ?></span>
                       <span>
                         <input type="checkbox" name="delete_images[]" value="<?= (int) $img['id'] ?>">
                         Delete
@@ -1003,6 +1060,23 @@ try {
               <label class="form-label" for="detail_images"><?= $editProduct ? 'Add More Detail Images' : 'Upload Detail Images' ?></label>
               <input type="file" id="detail_images" name="detail_images[]"
                      class="form-input" accept="image/*" multiple>
+              <?php if ($imageColors): ?>
+                <?php
+                  $imgColorOptions = [];
+                  foreach ($editProductSizes as $ps) {
+                      $cn = trim((string) ($ps['color_name'] ?? ''));
+                      if ($cn !== '') $imgColorOptions[mb_strtolower($cn)] = $cn;
+                  }
+                ?>
+                <label class="form-label" for="detail_image_color" style="margin-top:12px;">Show these photos for color</label>
+                <select id="detail_image_color" name="detail_image_color" class="form-select" data-initial="<?= htmlspecialchars(json_encode(array_values($imgColorOptions))) ?>">
+                  <option value="">All colors (default photos)</option>
+                  <?php foreach ($imgColorOptions as $cn): ?>
+                    <option value="<?= htmlspecialchars($cn) ?>"><?= htmlspecialchars($cn) ?></option>
+                  <?php endforeach; ?>
+                </select>
+                <span class="form-hint">When a shopper picks a color, the gallery shows that color's photos. A color with no photos of its own shows the default photos. To add photos for another color, save, then upload again with that color selected.</span>
+              <?php endif; ?>
               <span class="form-hint">
                 <?= $editProduct ? 'New images will be appended to existing ones.' : 'You can select multiple images.' ?>
                 Files are saved to <strong>assets/images/products/</strong> and linked in the database.
@@ -1155,6 +1229,9 @@ try {
           checkbox.checked = true;
         });
 
+        newEntry.querySelectorAll('input[name="color_name[]"]').forEach(i => { i.value = ''; });
+        newEntry.querySelectorAll('input[name="color_hex[]"]').forEach(i => { i.value = '#111111'; });
+
         // Add remove button functionality
         const removeBtn = newEntry.querySelector('.remove-size-btn');
         removeBtn.addEventListener('click', function () {
@@ -1178,6 +1255,35 @@ try {
       });
 
       addSizeBtn.addEventListener('click', addSizeEntry);
+
+      // Pilihan warna untuk foto = nama warna yang sedang diisi di baris ukuran
+      const imgColorSel = document.getElementById('detail_image_color');
+      if (imgColorSel) {
+        const refreshImgColors = function () {
+          const names = [];
+          document.querySelectorAll('input[name="color_name[]"]').forEach(i => {
+            const v = i.value.trim();
+            if (v && !names.some(n => n.toLowerCase() === v.toLowerCase())) names.push(v);
+          });
+          const current = imgColorSel.value;
+          imgColorSel.innerHTML = '';
+          imgColorSel.add(new Option('All colors (default photos)', ''));
+          names.forEach(n => imgColorSel.add(new Option(n, n)));
+          imgColorSel.value = names.includes(current) ? current : '';
+        };
+        imgColorSel.addEventListener('mousedown', refreshImgColors);
+        imgColorSel.addEventListener('focus', refreshImgColors);
+      }
+
+      // Pilih nama warna umum -> swatch ikut terisi
+      const presetHex = { black:'#111111', white:'#ffffff', 'off white':'#f5f2ea', cream:'#efe6d2', beige:'#d8c8a8', grey:'#9a9a9a', charcoal:'#3a3a3c',
+        navy:'#1c2a4a', blue:'#2f5fb3', green:'#2e6b43', olive:'#6b6b2e', brown:'#6b4a2e', red:'#c0262d', burgundy:'#6d1f2c', pink:'#e9a7b5' };
+      sizeEntriesContainer.addEventListener('input', function (e) {
+        if (!e.target.matches('.color-name-input')) return;
+        const hex = presetHex[e.target.value.trim().toLowerCase()];
+        const swatch = e.target.closest('.color-field').querySelector('.color-swatch-input');
+        if (hex && swatch) swatch.value = hex;
+      });
     });
   </script>
 

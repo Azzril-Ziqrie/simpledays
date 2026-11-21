@@ -4,6 +4,7 @@ require __DIR__ . '/includes/site_gate.php';
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/currency_helper.php';
 require_once __DIR__ . '/includes/layout.php';
+require_once __DIR__ . '/includes/variants.php';
 
 if (!isset($_SESSION['user']['id'])) {
     header('Location: login.php');
@@ -77,7 +78,7 @@ if ($cart) {
             p.name,
             p.slug,
             p.thumbnail,
-            s.name AS size_name,
+            " . ddSizeLabelSql($pdo) . " AS size_name,
             COALESCE(cat.name, 'Fashion') AS category_name,
             COALESCE(cat.slug, 'fashion') AS category_slug
          FROM cart_items ci

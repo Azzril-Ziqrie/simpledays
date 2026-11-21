@@ -117,6 +117,39 @@ $recentPendingOrders = $pdo->query(
      LIMIT 8"
 )->fetchAll(PDO::FETCH_ASSOC);
 
+/* ── sidebar navigation ───────────────────────────────── */
+$navGroups = [
+    'Overview' => [
+        ['dashboard.php', 'i-dash', 'Dashboard', null],
+    ],
+    'Orders & shipping' => [
+        ['dashboard-orders.php', 'i-bag', 'Orders', $totalPendingOrders],
+        ['send-resi.php', 'i-truck', 'Send tracking', null],
+    ],
+    'Catalog' => [
+        ['dashboard-product.php', 'i-box', 'Products', null],
+        ['dashboard-size.php', 'i-tag', 'Sizes & stock', null],
+        ['dashboard-categories.php', 'i-folder', 'Categories', null],
+        ['admin_products.php', 'i-grid', 'Product order', null],
+    ],
+    'Sales & marketing' => [
+        ['set-diskon.php', 'i-percent', 'Discounts', null],
+        ['promo-codes.php', 'i-percent', 'Promo codes', null],
+        ['campaign-email.php', 'i-mail', 'Email campaign', null],
+        ['payments.php', 'i-card', 'Payments', null],
+    ],
+    'Storefront content' => [
+        ['dashboard-hero.php', 'i-image', 'Hero banner', null],
+        ['dashboard-announcement.php', 'i-tag', 'Announcement bar', null],
+        ['dashboard-home-media.php', 'i-grid', 'Homepage media', null],
+        ['lookbook.php', 'i-book', 'Lookbook', null],
+        ['dashboard-blogs.php', 'i-doc', 'Research / Blog', null],
+    ],
+    'Account' => [
+        ['#change-password', 'i-key', 'Change password', null],
+    ],
+];
+
 function formatDashboardMoney(string $currency, float $amount): string
 {
     return ddFormatMoney($amount, $currency);
@@ -227,7 +260,58 @@ function paymentBadgeClass(string $status): string
     details.pw-box > summary::after { content: '+'; font-size: 18px; color: var(--muted); }
     details.pw-box[open] > summary::after { content: '−'; }
 
+    /* ── SIDEBAR ───────────────────────────────────────── */
+    .shell { display: grid; grid-template-columns: 264px minmax(0, 1fr); align-items: start; }
+    .sidebar {
+      position: sticky; top: 64px; height: calc(100vh - 64px); overflow-y: auto; overscroll-behavior: contain;
+      padding: 18px 12px 28px;
+      background: rgba(255, 255, 255, .72);
+      -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+      border-right: 1px solid var(--line);
+    }
+    .side-group + .side-group { margin-top: 18px; }
+    .side-group h2 { margin: 0 12px 6px; font-size: 11px; font-weight: 600; letter-spacing: .02em; color: var(--muted); }
+    .side-link {
+      position: relative; display: flex; align-items: center; gap: 12px;
+      padding: 9px 12px; border-radius: 10px; font-size: 14px; font-weight: 500; letter-spacing: -.005em;
+      color: var(--text); transition: background .2s var(--spring), transform .1s ease-out;
+    }
+    .side-link:hover { background: rgba(0, 0, 0, .05); }
+    .side-link:active { transform: scale(.97); }
+    .side-link.active { background: rgba(0, 0, 0, .08); font-weight: 600; }
+    .side-link svg { flex: none; width: 19px; height: 19px; color: var(--muted); transition: color .2s; }
+    .side-link:hover svg, .side-link.active svg { color: var(--text); }
+    .side-link span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .side-badge { flex: none; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--amber); color: #fff; font-size: 11px; font-weight: 700; display: inline-grid; place-items: center; }
+    .side-toggle, .side-scrim { display: none; }
+    .side-toggle { width: 38px; height: 38px; border: 0; border-radius: 10px; background: transparent; color: var(--text); cursor: pointer; place-items: center; }
+    .side-toggle:hover { background: rgba(0, 0, 0, .05); }
+    .side-toggle:active { transform: scale(.94); }
+    .side-toggle svg { width: 22px; height: 22px; }
+
     /* ── RESPONSIVE ────────────────────────────────────── */
+    @media (max-width: 980px) {
+      .shell { display: block; }
+      .side-toggle { display: inline-grid; }
+      .topbar .logo { margin-right: auto; }
+      .sidebar {
+        position: fixed; z-index: 30; top: 0; left: 0; bottom: 0; width: min(300px, 84vw); height: auto;
+        padding-top: 20px; background: rgba(255, 255, 255, .86); box-shadow: 0 0 60px rgba(0, 0, 0, .18);
+        transform: translateX(-102%); visibility: hidden;
+        transition: transform .4s var(--spring), visibility 0s .4s;
+      }
+      body.side-open .sidebar { transform: none; visibility: visible; transition: transform .4s var(--spring), visibility 0s; }
+      .side-scrim { display: block; position: fixed; inset: 0; z-index: 25; background: rgba(0, 0, 0, .32); opacity: 0; pointer-events: none; transition: opacity .3s ease; }
+      body.side-open .side-scrim { opacity: 1; pointer-events: auto; }
+      body.side-open { overflow: hidden; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .sidebar { transition: opacity .2s ease, visibility 0s !important; transform: none !important; opacity: 0; }
+      body.side-open .sidebar { opacity: 1; }
+    }
+    @media (prefers-reduced-transparency: reduce) {
+      .sidebar { background: #fff !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
+    }
     @media (max-width: 1180px) {
       .kpi-groups, .section-grid { grid-template-columns: 1fr; }
     }
@@ -258,11 +342,16 @@ function paymentBadgeClass(string $status): string
     <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></symbol>
     <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3"/></symbol>
     <symbol id="i-go" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+    <symbol id="i-dash" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></symbol>
+    <symbol id="i-card" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
   </svg>
 
   <!-- TOPBAR -->
   <header class="topbar">
     <div class="topbar__left">
+      <button type="button" class="side-toggle" id="sideToggle" aria-label="Open menu" aria-controls="sidebar" aria-expanded="false"><svg class="ic"><use href="#i-menu"/></svg></button>
       <a href="../index.php" class="nav-link">Storefront</a>
     </div>
     <a href="dashboard.php" class="logo" aria-label="<?= htmlspecialchars(BRAND_NAME) ?> Admin">
@@ -272,6 +361,25 @@ function paymentBadgeClass(string $status): string
       <a href="logout.php" class="nav-link">Logout</a>
     </div>
   </header>
+
+  <div class="side-scrim" id="sideScrim"></div>
+  <div class="shell">
+  <aside class="sidebar" id="sidebar" aria-label="Admin navigation">
+    <nav>
+      <?php foreach ($navGroups as $groupLabel => $links): ?>
+        <div class="side-group">
+          <h2><?= htmlspecialchars($groupLabel) ?></h2>
+          <?php foreach ($links as [$href, $icon, $label, $badge]): ?>
+            <a href="<?= htmlspecialchars($href) ?>" class="side-link<?= $href === 'dashboard.php' ? ' active' : '' ?>"<?= $href === 'dashboard.php' ? ' aria-current="page"' : '' ?><?= $href === '#change-password' ? ' id="openChangePassword"' : '' ?>>
+              <svg class="ic"><use href="#<?= $icon ?>"/></svg>
+              <span><?= htmlspecialchars($label) ?></span>
+              <?php if ($badge): ?><em class="side-badge" style="font-style:normal"><?= (int) $badge ?></em><?php endif; ?>
+            </a>
+          <?php endforeach; ?>
+        </div>
+      <?php endforeach; ?>
+    </nav>
+  </aside>
 
   <main class="wrap">
 
@@ -370,110 +478,6 @@ function paymentBadgeClass(string $status): string
         </nav>
       </div>
       <?php include __DIR__ . '/_analytics_panels.php'; ?>
-    </section>
-
-    <!-- MANAGE -->
-    <section class="block" aria-label="Manage">
-      <h2 class="block-title">Manage</h2>
-      <div class="groups">
-
-        <div class="group">
-          <h2>Orders &amp; shipping</h2>
-          <a href="dashboard-orders.php" class="tile">
-            <span class="tile__icon"><svg class="ic"><use href="#i-bag"/></svg></span>
-            <span class="tile__text"><div class="tile__title">Orders</div><div class="tile__desc">Check payment proofs, approve or reject.</div></span>
-            <svg class="tile__go ic"><use href="#i-go"/></svg>
-          </a>
-          <a href="send-resi.php" class="tile">
-            <span class="tile__icon"><svg class="ic"><use href="#i-truck"/></svg></span>
-            <span class="tile__text"><div class="tile__title">Send tracking (resi)</div><div class="tile__desc">Email the tracking number to a customer.</div></span>
-            <svg class="tile__go ic"><use href="#i-go"/></svg>
-          </a>
-        </div>
-
-        <div class="group">
-          <h2>Catalog</h2>
-          <a href="dashboard-product.php" class="tile">
-            <span class="tile__icon"><svg class="ic"><use href="#i-box"/></svg></span>
-            <span class="tile__text"><div class="tile__title">Products</div><div class="tile__desc">Photos, prices and details.</div></span>
-            <svg class="tile__go ic"><use href="#i-go"/></svg>
-          </a>
-          <a href="dashboard-size.php" class="tile">
-            <span class="tile__icon"><svg class="ic"><use href="#i-tag"/></svg></span>
-            <span class="tile__text"><div class="tile__title">Sizes &amp; stock</div><div class="tile__desc">Sizes and stock for each product.</div></span>
-            <svg class="tile__go ic"><use href="#i-go"/></svg>
-          </a>
-          <a href="dashboard-categories.php" class="tile">
-            <span class="tile__icon"><svg class="ic"><use href="#i-folder"/></svg></span>
-            <span class="tile__text"><div class="tile__title">Categories</div><div class="tile__desc">Organise how the shop is grouped.</div></span>
-            <svg class="tile__go ic"><use href="#i-go"/></svg>
-          </a>
-          <a href="set-diskon.php" class="tile">
-            <span class="tile__icon"><svg class="ic"><use href="#i-percent"/></svg></span>
-            <span class="tile__text"><div class="tile__title">Discounts</div><div class="tile__desc">Sale prices and strikethrough pricing.</div></span>
-            <svg class="tile__go ic"><use href="#i-go"/></svg>
-          </a>
-          <a href="promo-codes.php" class="tile">
-            <span class="tile__icon"><svg class="ic"><use href="#i-percent"/></svg></span>
-            <span class="tile__text"><div class="tile__title">Promo codes</div><div class="tile__desc">Checkout codes: percent off, fixed off, free shipping.</div></span>
-            <svg class="tile__go ic"><use href="#i-go"/></svg>
-          </a>
-          <a href="campaign-email.php" class="tile">
-            <span class="tile__icon"><svg class="ic"><use href="#i-tag"/></svg></span>
-            <span class="tile__text"><div class="tile__title">Email campaign</div><div class="tile__desc">Send a campaign email to past customers.</div></span>
-            <svg class="tile__go ic"><use href="#i-go"/></svg>
-          </a>
-          <a href="payments.php" class="tile">
-            <span class="tile__icon"><svg class="ic"><use href="#i-tag"/></svg></span>
-            <span class="tile__text"><div class="tile__title">Payments</div><div class="tile__desc">Enter an amount in any currency, convert to USD, pay with PayPal.</div></span>
-            <svg class="tile__go ic"><use href="#i-go"/></svg>
-          </a>
-          <a href="admin_products.php" class="tile">
-            <span class="tile__icon"><svg class="ic"><use href="#i-grid"/></svg></span>
-            <span class="tile__text"><div class="tile__title">Product order</div><div class="tile__desc">Arrange products on the home and shop pages.</div></span>
-            <svg class="tile__go ic"><use href="#i-go"/></svg>
-          </a>
-        </div>
-
-        <div class="group">
-          <h2>Storefront content</h2>
-          <a href="dashboard-hero.php" class="tile">
-            <span class="tile__icon"><svg class="ic"><use href="#i-image"/></svg></span>
-            <span class="tile__text"><div class="tile__title">Hero banner</div><div class="tile__desc">Landscape photos at the top of the homepage.</div></span>
-            <svg class="tile__go ic"><use href="#i-go"/></svg>
-          </a>
-          <a href="dashboard-announcement.php" class="tile">
-            <span class="tile__icon"><svg class="ic"><use href="#i-tag"/></svg></span>
-            <span class="tile__text"><div class="tile__title">Announcement bar</div><div class="tile__desc">Black bar below the hero banner, with animated text.</div></span>
-            <svg class="tile__go ic"><use href="#i-go"/></svg>
-          </a>
-          <a href="dashboard-home-media.php" class="tile">
-            <span class="tile__icon"><svg class="ic"><use href="#i-grid"/></svg></span>
-            <span class="tile__text"><div class="tile__title">Homepage media</div><div class="tile__desc">Photos and GIFs between the products while scrolling.</div></span>
-            <svg class="tile__go ic"><use href="#i-go"/></svg>
-          </a>
-          <a href="lookbook.php" class="tile">
-            <span class="tile__icon"><svg class="ic"><use href="#i-book"/></svg></span>
-            <span class="tile__text"><div class="tile__title">Lookbook</div><div class="tile__desc">Collections and photos.</div></span>
-            <svg class="tile__go ic"><use href="#i-go"/></svg>
-          </a>
-          <a href="dashboard-blogs.php" class="tile">
-            <span class="tile__icon"><svg class="ic"><use href="#i-doc"/></svg></span>
-            <span class="tile__text"><div class="tile__title">Research / Blog</div><div class="tile__desc">Write and publish articles.</div></span>
-            <svg class="tile__go ic"><use href="#i-go"/></svg>
-          </a>
-        </div>
-
-        <div class="group">
-          <h2>Account</h2>
-          <a href="#change-password" class="tile" id="openChangePassword">
-            <span class="tile__icon"><svg class="ic"><use href="#i-key"/></svg></span>
-            <span class="tile__text"><div class="tile__title">Change password</div><div class="tile__desc">Other signed-in sessions are signed out.</div></span>
-            <svg class="tile__go ic"><use href="#i-go"/></svg>
-          </a>
-        </div>
-
-      </div>
     </section>
 
     <!-- ACTIVITY -->
@@ -656,9 +660,21 @@ function paymentBadgeClass(string $status): string
       </details>
     </section>
   </main>
+  </div>
 
   <script>
     (function () {
+      var toggle = document.getElementById('sideToggle');
+      var scrim = document.getElementById('sideScrim');
+      function setSide(open) {
+        document.body.classList.toggle('side-open', open);
+        if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      }
+      if (toggle) toggle.addEventListener('click', function () { setSide(!document.body.classList.contains('side-open')); });
+      if (scrim) scrim.addEventListener('click', function () { setSide(false); });
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setSide(false); });
+      document.querySelectorAll('.side-link').forEach(function (a) { a.addEventListener('click', function () { setSide(false); }); });
+
       var box = document.getElementById('pwBox');
       var link = document.getElementById('openChangePassword');
       function openBox() { if (box) box.open = true; }

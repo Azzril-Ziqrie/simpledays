@@ -54,6 +54,15 @@ Ringkas:
  4. (Opsional) Aktifkan Auto Deployment lewat webhook supaya setiap
     push otomatis ter-deploy.
 
+ 5. PERUBAHAN DATABASE OTOMATIS (tanpa phpMyAdmin): setiap file di
+    folder migrations/*.php dijalankan sekali oleh request pertama yang
+    masuk setelah deploy (kolom warna, foto per warna, dll), lalu
+    dicatat di tabel schema_migrations. Impor simple.sql (bagian C)
+    cukup SEKALI saat database masih kosong. Kalau ada migrasi gagal
+    (mis. user DB tanpa izin ALTER), pesannya ada di error_log.
+    Perubahan skema berikutnya: tambah satu file di migrations/ yang
+    mengembalikan function (PDO $pdo): void dan aman dijalankan ulang.
+
  ALTERNATIF tanpa Git: Files -> File Manager -> upload ZIP isi project
  ke public_html, lalu Extract.
 
