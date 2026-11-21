@@ -9,7 +9,6 @@ require_once __DIR__ . '/includes/promo.php';
 require_once __DIR__ . '/config/kasera_client.php';
 require_once __DIR__ . '/config/intl_shipping.php';
 require_once __DIR__ . '/includes/order_payment.php';
-require_once __DIR__ . '/includes/stripe_helper.php';
 require_once __DIR__ . '/includes/email_helpers.php';
 require_once __DIR__ . '/includes/layout.php';
 require_once __DIR__ . '/includes/db_schema.php';
@@ -325,22 +324,6 @@ if ($payOrder && isset($_GET['status'])) {
 
 /* ── pay mode: handler QRIS / Virtual Account (Kasera) & upload bukti transfer ── */
 $payError = '';
-/* ── Kembali dari Stripe (Apple Pay / Google Pay): verifikasi PaymentIntent di server, jangan percaya browser ── */
-if ($payOrder && STRIPE_ENABLED && isset($_GET['payment_intent']) && strtolower((string)$payOrder['payment_status']) !== 'paid') {
-    try {
-        $stripeIntent = stripeRequest('GET', 'payment_intents/' . rawurlencode((string)$_GET['payment_intent']));
-        $stripeResult = ddStripeFinalizeIntent($pdo, $payOrder, $stripeIntent);
-        if ($stripeResult['ok']) {
-            header('Location: index.php?payment_uploaded=1&invoice_email=' . $stripeResult['invoice_mail'] . '&order=' . urlencode((string)$payOrder['order_number']));
-            exit;
-        }
-        $payError = (string)$stripeResult['error'];
-    } catch (Throwable $e) {
-        error_log('[stripe] return failed for order ' . $payOrder['order_number'] . ': ' . $e->getMessage());
-        $payError = 'We could not confirm your payment yet. If you were charged, it will be confirmed shortly.';
-    }
-}
-
 if ($payOrder && strtolower((string)$payOrder['payment_status']) !== 'paid' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $kaseraMethods = kaseraPaymentMethods();
 
@@ -1088,20 +1071,6 @@ siteBodyOpen(['bodyClass' => 'page-checkout', 'searchAction' => 'shop.php']);
           </div>
           <?php endif; ?>
 
-          <!-- Apple Pay & Google Pay (lewat Stripe Express Checkout) -->
-          <?php if (STRIPE_ENABLED): ?>
-          <div class="pay-opt">
-            <input type="radio" class="pm-radio" name="paymethod" id="pm_wallet">
-            <label for="pm_wallet" class="pay-row"><span class="rdot"></span><span class="pay-name">Apple Pay / Google Pay</span></label>
-            <div class="pay-panel">
-              <p class="pay-note">Pay with Touch ID, Face ID or a card saved to your Google account. Your card details are never shared with us.</p>
-              <div id="wallet-button" style="max-width:440px"></div>
-              <p class="field-hint" id="wallet-unavailable" style="display:none">Apple Pay needs Safari on an Apple device with a card in Wallet. Google Pay needs Chrome with a card saved to your Google account. Please choose another method.</p>
-              <div class="copy-status" id="wallet-status" style="color:var(--err)"></div>
-            </div>
-          </div>
-          <?php endif; ?>
-
           <!-- PayPal (selalu USD) -->
           <div class="pay-opt">
             <input type="radio" class="pm-radio" name="paymethod" id="pm_paypal">
@@ -1344,64 +1313,6 @@ siteBodyClose();
   <?php if ($payOrder): ?>
   <?php if (!$payIsPaid && !$showKasera): ?>
   <script src="https://www.paypal.com/sdk/js?client-id=<?= htmlspecialchars(PAYPAL_CLIENT_ID) ?>&components=buttons&currency=<?= htmlspecialchars($payCharge['currency']) ?>&intent=capture"></script>
-  <?php if (STRIPE_ENABLED): ?>
-  <script src="https://js.stripe.com/v3/"></script>
-  <script>
-  (function () {
-    'use strict';
-    const radio = document.getElementById('pm_wallet');
-    if (!radio || !window.Stripe) { return; }
-    const ORDER = <?= json_encode((string)$payOrder['order_number']) ?>;
-    const AMOUNT = <?= (int)ddStripeAmountCents($payOrder) ?>;
-    const statusEl = document.getElementById('wallet-status');
-    const say = m => { statusEl.textContent = m || ''; };
-    let mounted = false;
-
-    function mount() {
-      if (mounted) { return; }
-      mounted = true;
-      const stripe = Stripe(<?= json_encode(STRIPE_PUBLISHABLE_KEY) ?>);
-      const elements = stripe.elements({ mode: 'payment', amount: AMOUNT, currency: 'usd' });
-      const btn = elements.create('expressCheckout', {
-        paymentMethods: { applePay: 'always', googlePay: 'always', link: 'never', paypal: 'never', amazonPay: 'never' },
-        buttonHeight: 44
-      });
-      btn.mount('#wallet-button');
-      btn.on('ready', function (e) {
-        const m = e.availablePaymentMethods || {};
-        if (!m.applePay && !m.googlePay) {
-          document.getElementById('wallet-unavailable').style.display = 'block';
-        }
-      });
-      btn.on('confirm', async function () {
-        say('');
-        try {
-          const sub = await elements.submit();
-          if (sub.error) { throw new Error(sub.error.message); }
-          const res = await fetch('stripe-create-intent.php', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ order: ORDER })
-          });
-          const data = await res.json();
-          if (!data.client_secret) { throw new Error(data.error || 'Could not start the payment.'); }
-          const returnUrl = new URL('checkout.php?order=' + encodeURIComponent(ORDER), location.href).href;
-          const result = await stripe.confirmPayment({
-            elements: elements, clientSecret: data.client_secret,
-            confirmParams: { return_url: returnUrl }, redirect: 'if_required'
-          });
-          if (result.error) { throw new Error(result.error.message); }
-          // Server memverifikasi ulang PaymentIntent saat halaman ini dimuat dengan ?payment_intent=
-          location.href = returnUrl + '&payment_intent=' + encodeURIComponent(result.paymentIntent.id);
-        } catch (err) {
-          say(err && err.message ? err.message : 'Payment failed.');
-        }
-      });
-    }
-    radio.addEventListener('change', function () { if (radio.checked) { mount(); } });
-    if (radio.checked) { mount(); }
-  })();
-  </script>
-  <?php endif; ?>
   <script>
   (function () {
     'use strict';
