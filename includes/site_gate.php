@@ -3,31 +3,35 @@
  * Gate untuk semua halaman storefront: password → pilih tujuan (Storefront / Admin).
  * Dipanggil sebelum apa pun dirender; mengakhiri request sendiri jika belum selesai.
  */
-require_once __DIR__ . '/../config/env.php';
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/site_lock.php';
+require_once __DIR__ . '/brand.php';
 
-// Gate hanya aktif kalau SITE_LOCK=1 (di config/secrets.local.php komputer lokal).
-// Di hosting nilainya kosong → beranda langsung terbuka untuk publik.
-if (ddSecret('SITE_LOCK') !== '1') {
+// Aktif/password diatur dari admin (admin/dashboard-site-lock.php). Belum pernah diatur →
+// ikut SITE_LOCK=1 di secrets seperti sebelumnya.
+$siteLock = siteLockSettings($pdo);
+if (!$siteLock['enabled']) {
     return;
 }
 
-const SITE_LOCK_PASSWORD = 'simpledays';
-const SITE_GATE_BG       = 'assets/images/hero/sd-hero-1.webp';
+const SITE_GATE_BG = 'assets/images/hero/sd-hero-1.webp';
 
 $lockError = false;
 
 if (($_POST['site_password'] ?? null) !== null) {
-    if (hash_equals(SITE_LOCK_PASSWORD, (string)$_POST['site_password'])) {
+    if (siteLockVerify($siteLock, (string)$_POST['site_password'])) {
         session_regenerate_id(true);
-        $_SESSION['site_unlocked'] = true;
+        // Simpan versi password: kalau admin mengganti password, sesi lama otomatis terkunci lagi.
+        $_SESSION['site_unlocked'] = $siteLock['version'];
         unset($_SESSION['site_entered']);
         header('Location: ' . $_SERVER['REQUEST_URI']);
         exit;
     }
+    usleep(400000); // perlambat tebak-tebakan password
     $lockError = true;
 }
 
-$unlocked = !empty($_SESSION['site_unlocked']);
+$unlocked = isset($_SESSION['site_unlocked']) && $_SESSION['site_unlocked'] === $siteLock['version'];
 
 // Pilihan "Storefront": tandai sesi, lalu masuk ke beranda.
 if ($unlocked && ($_GET['enter'] ?? '') === 'store') {
@@ -91,9 +95,10 @@ header('Cache-Control: no-store');
 
     .stage { position: relative; z-index: 2; width: min(760px, 100%); text-align: center; }
 
-    .mark {
-      font-size: 13px; font-weight: 600; letter-spacing: .32em; text-transform: uppercase;
-      opacity: .92; margin-bottom: 18px;
+    .mark { display: block; margin: 0 auto 22px; }
+    .mark img {
+      display: block; width: min(220px, 60vw); height: auto; margin: 0 auto;
+      filter: brightness(0) invert(1) drop-shadow(0 2px 12px rgba(0,0,0,.35)); /* logo hitam → putih */
     }
     h1 {
       margin: 0 0 6px;
@@ -193,7 +198,7 @@ header('Cache-Control: no-store');
 
   <main class="stage">
 <?php if (!$unlocked): ?>
-    <div class="mark">S/DAYS</div>
+    <div class="mark"><img src="<?= BRAND_LOGO ?>" alt="S/DAYS" width="220"></div>
     <h1>Simple Days</h1>
     <p class="lede">Enter the password to continue.</p>
     <form method="post" autocomplete="off" class="lock<?= $lockError ? ' shake' : '' ?>">
@@ -202,7 +207,7 @@ header('Cache-Control: no-store');
     </form>
     <?php if ($lockError): ?><div class="err" role="alert">Wrong password. Try again.</div><?php endif; ?>
 <?php else: ?>
-    <div class="mark">S/DAYS</div>
+    <div class="mark"><img src="<?= BRAND_LOGO ?>" alt="S/DAYS" width="220"></div>
     <h1>Where to?</h1>
     <p class="lede">Choose where you want to go.</p>
     <div class="choices">
