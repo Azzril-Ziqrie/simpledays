@@ -394,3 +394,10 @@ html[data-theme="dark"] .theme-switch::before{transform:translateX(100%)}
 .theme-opt:active{transform:var(--press)}
 .theme-opt[aria-pressed="true"]{color:var(--bg)}
 @media(prefers-reduced-motion:reduce){.theme-switch::before{transition:none}}
+
+/* ── logo tiga titik di titik sentuh (site.js), khusus layar sentuh ── */
+.dd-tap{position:fixed;left:0;top:0;z-index:2147483647;width:30px;height:auto;pointer-events:none;opacity:0;scale:.6;transition:opacity .3s ease,scale .3s var(--ease,ease)}
+.dd-tap.is-on{opacity:1;scale:1;transition-duration:.12s}
+.dd-tap.is-out{opacity:0;scale:1.25}
+html[data-theme="dark"] .dd-tap{filter:invert(1)}
+@media(prefers-reduced-motion:reduce){.dd-tap,.dd-tap.is-out{transition:opacity .15s linear;scale:1}}

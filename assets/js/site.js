@@ -311,6 +311,40 @@
     });
   });
 
+  /* Logo tiga titik di titik sentuh: khusus layar sentuh (HP/tablet), desktop tidak.
+     Muncul saat jari menyentuh, ikut bergeser selama jari ditahan, lalu memudar saat dilepas. */
+  (function () {
+    if (!window.matchMedia || !window.matchMedia('(hover:none) and (pointer:coarse)').matches) return;
+    var dots = document.createElement('img');
+    dots.className = 'dd-tap';
+    dots.src = 'assets/images/simple-days-dots.png';
+    dots.alt = '';
+    dots.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(dots);
+
+    var fadeTimer = 0;
+    function place(e) {
+      dots.style.transform = 'translate3d(' + e.clientX + 'px,' + e.clientY + 'px,0) translate(-50%,-50%)';
+    }
+    document.addEventListener('pointerdown', function (e) {
+      if (e.pointerType !== 'touch') return;
+      clearTimeout(fadeTimer);
+      place(e);
+      dots.classList.remove('is-out');
+      dots.classList.add('is-on');
+    }, { passive: true });
+    document.addEventListener('pointermove', function (e) {
+      if (e.pointerType === 'touch' && dots.classList.contains('is-on')) place(e);
+    }, { passive: true });
+    function release(e) {
+      if (e.pointerType !== 'touch') return;
+      clearTimeout(fadeTimer);
+      fadeTimer = setTimeout(function () { dots.classList.add('is-out'); dots.classList.remove('is-on'); }, reducedMotion ? 0 : 350);
+    }
+    document.addEventListener('pointerup', release, { passive: true });
+    document.addEventListener('pointercancel', release, { passive: true });
+  })();
+
   window.Site = {
     cart: cart,
     showToast: showToast,

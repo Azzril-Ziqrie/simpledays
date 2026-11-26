@@ -15,3 +15,14 @@ new assets/
 
 # Gambar placeholder produk dummy (lokal)
 assets/images/products/dummy-*
+
+# Folder upload admin/pelanggan. Isinya hidup di server, jadi file baru
+# tidak boleh ikut ter-commit supaya auto-deploy Hostinger tidak menimpa
+# atau menghapus foto di server. File lama yang sudah ter-commit tetap
+# dilacak, jadi deploy tidak menghapusnya.
+assets/images/products/*
+assets/images/lookbook/*
+assets/images/hero/*
+assets/images/home/*
+uploads/blogs/*
+uploads/payment-proofs/*

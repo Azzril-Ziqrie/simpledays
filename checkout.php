@@ -7,6 +7,7 @@ require_once __DIR__ . '/includes/currency_helper.php';
 require_once __DIR__ . '/includes/pricing.php';
 require_once __DIR__ . '/includes/promo.php';
 require_once __DIR__ . '/includes/wise_payment.php';
+require_once __DIR__ . '/includes/campaign.php';
 require_once __DIR__ . '/config/kasera_client.php';
 require_once __DIR__ . '/config/intl_shipping.php';
 require_once __DIR__ . '/includes/order_payment.php';
@@ -461,6 +462,12 @@ foreach ($cartItems as $item) { $subtotal += (float)$item['line_total']; }
 // Berat paket untuk hitung ongkir = Σ (berat produk × qty), dari products.weight_gram
 $totalWeightGram = cartTotalWeightGram($cartItems);
 
+// Campaign hadiah gratis (includes/campaign.php): kode acak otomatis kalau subtotal >= minimum
+$campaign      = (!$payOrder && $cartItems) ? campaignCurrent($pdo) : null;
+$campaignCode  = $campaign ? campaignSessionCode((int)$campaign['id']) : '';
+$giftEligible  = $campaign !== null && campaignQualifies($campaign, $subtotal);
+$selectedGift  = null;
+
 /* ════════════════════════════════════════════════════════════
    AJAX HANDLER: TERAPKAN KODE PROMO (pratinjau; dihitung ulang saat order dibuat)
 ═══════════════════════════════════════════════════════════════ */
@@ -535,6 +542,8 @@ if (!$payOrder && $_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['ajax_u
                   $pdo, (string)($_POST['promo_code'] ?? ''), $subtotal, ddConvertFromIdr($serverShippingIdr), $userId
               ))['error'] !== null) {
         $error = $promoResult['error'];
+    } elseif ($giftEligible && ($selectedGift = campaignFindGift($campaign, (int)($_POST['gift_product_size_id'] ?? 0))) === null) {
+        $error = 'Please choose your free gift.';
     } else {
         // Internasional: negara diambil dari daftar statis (bukan dari input browser); country_code = kode ISO.
         if ($form['shipping_mode'] !== 'domestic' && ($intlCountry = intlFindCountry((string)($_POST['destination_id'] ?? '')))) {
@@ -600,6 +609,10 @@ if (!$payOrder && $_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['ajax_u
                     'lt' => $item['line_total'], 'th' => $item['thumbnail'],
                 ]);
             }
+            // Hadiah campaign: baris order_items harga 0 + kode tercatat; kuota/stok habis → order dibatalkan
+            if ($giftEligible && $selectedGift) {
+                campaignClaim($pdo, $campaign, $selectedGift, $campaignCode, $orderId, $orderNumber);
+            }
             $pdo->prepare(
                 'INSERT INTO order_status_logs (order_id,status_type,status_value,notes)
                  VALUES (:oid,:st,:sv,:n)'
@@ -607,6 +620,7 @@ if (!$payOrder && $_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['ajax_u
                         'n' => 'Order created. Waiting for payment method selection.']);
             $pdo->commit();
 
+            if ($campaign) campaignForgetSessionCode((int)$campaign['id']);
             if ($checkoutMode === 'buy_now') unset($_SESSION['buy_now']);
             elseif (!$isLoggedIn) $_SESSION['guest_cart'] = [];
 
@@ -736,6 +750,17 @@ details.opt[open]>summary{margin-bottom:10px}
 #promoStatus.ok{color:var(--ok)}
 #promoStatus.err{color:var(--err)}
 #promo_code{text-transform:uppercase}
+
+/* ── hadiah campaign ────────────────────────────────── */
+.gift-box{border:1px solid var(--line);padding:16px}
+.gift-box fieldset{border:0;margin:0;padding:0;min-width:0}
+.gift-box [hidden]{display:none}
+.gift-title{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:0;margin:0 0 6px;font-weight:500}
+.gift-code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;letter-spacing:.04em;padding:2px 6px;border:1px solid var(--ok);color:var(--ok)}
+.gift-opts{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.gift-opt{display:flex;align-items:center;gap:10px;min-height:40px;padding:0 12px;border:1px solid var(--line);cursor:pointer}
+.gift-opt:has(input:checked){border-color:var(--ink)}
+.gift-swatch{width:14px;height:14px;border-radius:50%;border:1px solid var(--line);flex:none}
 .form-actions{margin-top:8px}
 .secure-note{color:var(--ink-2);margin-top:12px}
 .back-row{margin-top:16px}
@@ -1198,6 +1223,33 @@ siteBodyOpen(['bodyClass' => 'page-checkout', 'searchAction' => 'shop.php']);
               <select id="courier_picker"></select>
             </div>
             <div id="shippingOptions" class="shipping-options-box">Enter your shipping address to view available shipping methods.</div>
+            <?php if ($campaign):
+              $giftMin     = (float)$campaign['min_subtotal'];
+              $postedGift  = (int)($_POST['gift_product_size_id'] ?? 0);
+              $checkedGift = campaignFindGift($campaign, $postedGift) ? $postedGift : $campaign['gifts'][0]['product_size_id'];
+              $giftNames   = implode(' or ', array_unique(array_column($campaign['gifts'], 'product_name')));
+            ?>
+            <div class="gift-box" id="giftBox" data-min="<?= htmlspecialchars(number_format($giftMin, 2, '.', '')) ?>">
+              <div id="giftLocked"<?= $giftEligible ? ' hidden' : '' ?>>
+                <p class="gift-title">Free gift on orders of <?= htmlspecialchars(ddFormatMoney($giftMin, $currency)) ?>+</p>
+                <p class="field-hint">Spend <strong id="giftRemaining"><?= htmlspecialchars(ddFormatMoney(max(0, $giftMin - $subtotal), $currency)) ?></strong> more to get a free <?= htmlspecialchars($giftNames) ?>.</p>
+              </div>
+              <fieldset id="giftUnlocked"<?= $giftEligible ? '' : ' hidden disabled' ?>>
+                <legend class="gift-title">Free gift unlocked <span class="gift-code" id="giftCode"><?= htmlspecialchars($campaignCode) ?></span></legend>
+                <p class="field-hint">Your code is applied automatically. Choose your free gift:</p>
+                <div class="gift-opts">
+                  <?php foreach ($campaign['gifts'] as $g): ?>
+                    <label class="gift-opt">
+                      <input type="radio" name="gift_product_size_id" value="<?= (int)$g['product_size_id'] ?>"
+                             data-label="<?= htmlspecialchars(campaignGiftLabel($g)) ?>"<?= $g['product_size_id'] === $checkedGift ? ' checked' : '' ?>>
+                      <?php if ($g['color_hex']): ?><span class="gift-swatch" style="background:<?= htmlspecialchars($g['color_hex']) ?>"></span><?php endif; ?>
+                      <span><?= htmlspecialchars(campaignGiftLabel($g)) ?></span>
+                    </label>
+                  <?php endforeach; ?>
+                </div>
+              </fieldset>
+            </div>
+            <?php endif; ?>
             <details class="opt" id="promoBox"<?= $form['promo_code'] !== '' ? ' open' : '' ?>>
               <summary>Have a promo code?</summary>
               <div class="promo-row">
@@ -1312,6 +1364,9 @@ siteBodyOpen(['bodyClass' => 'page-checkout', 'searchAction' => 'shop.php']);
           <div class="total-row"><span>Subtotal</span><span id="subtotalDisplay"><?= htmlspecialchars(ddFormatMoney($subtotal, $currency)) ?></span></div>
           <div class="total-row"><span>Shipping</span><span id="shippingDisplay" style="color:var(--muted)">Enter shipping address</span></div>
           <div class="total-row" id="discountRow" style="display:none"><span id="discountLabel">Discount</span><span id="discountDisplay"></span></div>
+          <?php if ($campaign): ?>
+          <div class="total-row" id="giftRow"<?= $giftEligible ? '' : ' hidden' ?>><span>Free gift (<?= htmlspecialchars($campaignCode) ?>)<br><small class="co-item-meta" id="giftRowLabel"></small></span><span>Free</span></div>
+          <?php endif; ?>
           <div class="total-row grand"><span>Total</span><span><span class="cur"><?= htmlspecialchars($currency) ?></span><strong id="grandTotalDisplay"><?= htmlspecialchars(ddFormatMoney($grandTotal, $currency)) ?></strong></span></div>
         </div>
       <?php endif; ?>
@@ -1586,7 +1641,31 @@ siteBodyClose();
     }
     <?php endif; ?>
 
+    /* ── HADIAH CAMPAIGN: tampil/sembunyi mengikuti subtotal ── */
+    const giftBox = document.getElementById('giftBox');
+    function syncGift() {
+      if (!giftBox) return;
+      const min = Number(giftBox.dataset.min) || 0;
+      const eligible = Math.round(subtotal * 100) >= Math.round(min * 100);
+      const unlocked = document.getElementById('giftUnlocked');
+      document.getElementById('giftLocked').hidden = eligible;
+      unlocked.hidden = !eligible;
+      unlocked.disabled = !eligible; // fieldset nonaktif → pilihan hadiah tidak ikut terkirim
+      document.getElementById('giftRemaining').textContent = formatCurrencyJS(Math.max(0, min - subtotal));
+      const row = document.getElementById('giftRow');
+      const picked = giftBox.querySelector('input[name="gift_product_size_id"]:checked');
+      if (row) {
+        row.hidden = !eligible;
+        document.getElementById('giftRowLabel').textContent = picked ? picked.dataset.label : '';
+      }
+    }
+    if (giftBox) {
+      giftBox.addEventListener('change', syncGift);
+      syncGift();
+    }
+
     function updateGrandTotal(shippingCostIdr) {
+      syncGift();
       const shippingConverted = convertFromIdr(shippingCostIdr);
       const subtotalConverted = subtotal; 
       const discount = promoDiscountFor(shippingConverted);
