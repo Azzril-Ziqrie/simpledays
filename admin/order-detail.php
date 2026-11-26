@@ -2,6 +2,7 @@
 require_once __DIR__ . '/_guard.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/currency_helper.php';
+require_once __DIR__ . '/../includes/wise_payment.php';
 require_once __DIR__ . '/../includes/promo.php';
 
 $orderId = (int) ($_GET['id'] ?? 0);
@@ -464,6 +465,9 @@ function statusBadgeClass(string $status): string
           <div class="proof-box">
             <?php if (!empty($order['payment_proof_path'])): ?>
               <p style="margin-top:0;">Payment proof uploaded.</p>
+              <?php if (($order['payment_provider'] ?? '') === 'wise'): ?>
+                <p><strong>Paid via Wise.</strong> Check your Wise app for a transfer with reference <strong><?= htmlspecialchars(wisePaymentReference((string)$order['order_number'])) ?></strong> before approving.</p>
+              <?php endif; ?>
               <div class="btns">
                 <a class="btn-secondary" href="../<?= htmlspecialchars($order['payment_proof_path']) ?>" target="_blank">View Payment Proof</a>
               </div>

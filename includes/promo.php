@@ -50,6 +50,13 @@ function promoEnsureSchema(PDO $pdo): void
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
             );
         }
+        // Batasan per pelanggan (dipakai juga untuk reward pendaftaran akun)
+        if (!columnExists($pdo, 'promo_codes', 'members_only')) {
+            $pdo->exec('ALTER TABLE promo_codes ADD COLUMN members_only TINYINT(1) NOT NULL DEFAULT 0');
+        }
+        if (!columnExists($pdo, 'promo_codes', 'once_per_customer')) {
+            $pdo->exec('ALTER TABLE promo_codes ADD COLUMN once_per_customer TINYINT(1) NOT NULL DEFAULT 0');
+        }
         if (!columnExists($pdo, 'orders', 'promo_code')) {
             $pdo->exec('ALTER TABLE orders ADD COLUMN promo_code VARCHAR(32) NULL');
         }
@@ -160,12 +167,41 @@ function promoDiscounts(array $promo, float $subtotal, float $shippingCost): arr
     return ['item' => $item, 'shipping' => $shipping, 'total' => round($item + $shipping, 2)];
 }
 
+/** Status order yang tidak dihitung sebagai "sudah memakai" promo (order batal/gagal). */
+const PROMO_UNUSED_ORDER_STATUSES = ['failed', 'expired', 'cancelled'];
+
+/**
+ * Cek syarat per pelanggan: members_only (harus login) dan once_per_customer (sekali per akun).
+ * Mengembalikan pesan error untuk pembeli, atau null kalau boleh dipakai.
+ */
+function promoCheckCustomer(PDO $pdo, array $promo, ?int $userId): ?string
+{
+    $membersOnly = (int)($promo['members_only'] ?? 0) === 1;
+    $oncePerUser = (int)($promo['once_per_customer'] ?? 0) === 1;
+    if (!$membersOnly && !$oncePerUser) return null;
+
+    if ($userId === null || $userId <= 0) {
+        return 'Please sign in to your account to use this promo code.';
+    }
+    if ($oncePerUser) {
+        $placeholders = implode(',', array_fill(0, count(PROMO_UNUSED_ORDER_STATUSES), '?'));
+        $stmt = $pdo->prepare(
+            "SELECT COUNT(*) FROM orders
+             WHERE user_id = ? AND promo_code = ? AND payment_status NOT IN ($placeholders)"
+        );
+        $stmt->execute(array_merge([$userId, $promo['code']], PROMO_UNUSED_ORDER_STATUSES));
+        if ((int)$stmt->fetchColumn() > 0) return 'You have already used this promo code.';
+    }
+    return null;
+}
+
 /**
  * Cari + cek + hitung dalam satu langkah (dipakai checkout & AJAX apply).
+ * $userId = id akun yang login (null untuk tamu), untuk syarat members_only / once_per_customer.
  *
  * @return array{promo: ?array, error: ?string, discounts: array{item: float, shipping: float, total: float}}
  */
-function promoResolve(PDO $pdo, string $code, float $subtotal, float $shippingCost): array
+function promoResolve(PDO $pdo, string $code, float $subtotal, float $shippingCost, ?int $userId = null): array
 {
     $none = ['item' => 0.0, 'shipping' => 0.0, 'total' => 0.0];
     $code = promoNormalizeCode($code);
@@ -174,7 +210,7 @@ function promoResolve(PDO $pdo, string $code, float $subtotal, float $shippingCo
     $promo = promoFind($pdo, $code);
     if (!$promo) return ['promo' => null, 'error' => 'Promo code not found.', 'discounts' => $none];
 
-    $error = promoCheck($promo, $subtotal);
+    $error = promoCheck($promo, $subtotal) ?? promoCheckCustomer($pdo, $promo, $userId);
     if ($error !== null) return ['promo' => null, 'error' => $error, 'discounts' => $none];
 
     return ['promo' => $promo, 'error' => null, 'discounts' => promoDiscounts($promo, $subtotal, $shippingCost)];
@@ -206,3 +242,125 @@ function promoOrderDiscount(array $order): ?array
     $code = trim((string)($order['promo_code'] ?? ''));
     return ['label' => $code !== '' ? 'Discount (' . $code . ')' : 'Discount', 'amount' => $amount];
 }
+
+/* ════════════════════════════════════════════════════════════
+   REWARD PENDAFTARAN AKUN
+   Admin memilih satu kode promo (admin/promo-codes.php). Setiap akun baru mendapat kode itu:
+   ditampilkan setelah daftar, dikirim lewat email, dan terisi otomatis di checkout.
+   Disimpan sebagai JSON di admin_settings (key "signup_reward").
+═══════════════════════════════════════════════════════════════ */
+
+const PROMO_SIGNUP_REWARD_KEY = 'signup_reward';
+
+/** @return array{enabled: bool, promo_id: int} */
+function promoSignupRewardSettings(PDO $pdo): array
+{
+    $settings = ['enabled' => false, 'promo_id' => 0];
+    try {
+        if (!tableExists($pdo, 'admin_settings')) return $settings;
+        $stmt = $pdo->prepare('SELECT setting_value FROM admin_settings WHERE setting_key = :k LIMIT 1');
+        $stmt->execute(['k' => PROMO_SIGNUP_REWARD_KEY]);
+        $saved = json_decode((string)$stmt->fetchColumn(), true);
+    } catch (Throwable $e) {
+        error_log('[promo] signup reward read failed: ' . $e->getMessage());
+        return $settings;
+    }
+    if (!is_array($saved)) return $settings;
+    return ['enabled' => !empty($saved['enabled']), 'promo_id' => max(0, (int)($saved['promo_id'] ?? 0))];
+}
+
+function promoSaveSignupReward(PDO $pdo, bool $enabled, int $promoId): void
+{
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS admin_settings (
+            setting_key VARCHAR(50) NOT NULL,
+            setting_value TEXT NOT NULL,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (setting_key)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
+    );
+    $pdo->prepare(
+        'INSERT INTO admin_settings (setting_key, setting_value) VALUES (:k, :v)
+         ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)'
+    )->execute(['k' => PROMO_SIGNUP_REWARD_KEY, 'v' => json_encode(['enabled' => $enabled, 'promo_id' => $promoId])]);
+}
+
+/**
+ * Promo reward yang sedang berlaku untuk akun baru, atau null (nonaktif, kode dihapus,
+ * dinonaktifkan, kedaluwarsa, atau kuota habis).
+ */
+function promoActiveSignupReward(PDO $pdo): ?array
+{
+    $settings = promoSignupRewardSettings($pdo);
+    if (!$settings['enabled'] || $settings['promo_id'] <= 0) return null;
+    try {
+        promoEnsureSchema($pdo);
+        $stmt = $pdo->prepare('SELECT * FROM promo_codes WHERE id = :id LIMIT 1');
+        $stmt->execute(['id' => $settings['promo_id']]);
+        $promo = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    } catch (Throwable $e) {
+        error_log('[promo] signup reward lookup failed: ' . $e->getMessage());
+        return null;
+    }
+    // Syarat minimum belanja dicek nanti di checkout; di sini cukup aktif/tanggal/kuota.
+    if (!$promo || promoCheck(array_merge($promo, ['min_subtotal' => 0]), 0.0) !== null) return null;
+    return $promo;
+}
+
+/**
+ * Dipanggil sekali setelah akun baru dibuat (sesi sudah berisi user baru).
+ * Simpan kode di sesi (diisi otomatis di checkout) dan kirim email. Tidak pernah melempar error.
+ *
+ * @return array{code: string, label: string}|null  info untuk ditampilkan, atau null kalau tidak ada reward
+ */
+function promoGrantSignupReward(PDO $pdo, string $email, string $name): ?array
+{
+    $promo = promoActiveSignupReward($pdo);
+    if (!$promo) return null;
+
+    $info = ['code' => (string)$promo['code'], 'label' => promoLabel($promo)];
+    $_SESSION['signup_reward_code'] = $info['code'];
+
+    try {
+        promoSendSignupRewardEmail($promo, $email, $name);
+    } catch (Throwable $e) {
+        error_log('[promo] signup reward email failed: ' . $e->getMessage());
+    }
+    return $info;
+}
+
+function promoSendSignupRewardEmail(array $promo, string $email, string $name): void
+{
+    require_once __DIR__ . '/../vendor/autoload.php'; // PHPMailer
+    require_once __DIR__ . '/campaign_mail.php';      // campaignCreateMailer() + konstanta SMTP
+    require_once __DIR__ . '/currency_helper.php';
+
+    $e = static fn($v) => htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
+    $label = promoLabel($promo);
+    $conditions = [];
+    if ((float)$promo['min_subtotal'] > 0) $conditions[] = 'Minimum spend ' . ddFormatMoney((float)$promo['min_subtotal']) . '.';
+    if (!empty($promo['ends_at']))         $conditions[] = 'Valid until ' . date('d M Y', strtotime((string)$promo['ends_at'])) . '.';
+    if ((int)($promo['once_per_customer'] ?? 0) === 1) $conditions[] = 'One use per account.';
+    $conditions[] = 'Sign in to your account at checkout to use it.';
+
+    $shopUrl = rtrim(DD_SITE_URL, '/') . '/shop';
+
+    $mail = campaignCreateMailer();
+    $mail->SMTPKeepAlive = false;
+    $mail->Timeout = 10; // jangan bikin pendaftaran menggantung kalau SMTP lambat
+    $mail->addAddress($email, $name);
+    $mail->Subject = 'Welcome to ' . BRAND_NAME . ': your ' . $label . ' code';
+    $mail->Body =
+        '<div style="font-family:Helvetica,Arial,sans-serif;color:#111;line-height:1.7;max-width:560px;margin:0 auto;padding:32px 20px;">'
+        . '<p>Hi ' . $e($name) . ',</p>'
+        . '<p>Thanks for creating an account with ' . $e(BRAND_NAME) . '. Here is your welcome reward:</p>'
+        . '<p style="margin:24px 0;text-align:center;"><span style="display:inline-block;padding:14px 22px;border:1px dashed #111;'
+        . 'font:700 20px/1 ui-monospace,Menlo,Consolas,monospace;letter-spacing:2px;">' . $e($promo['code']) . '</span><br>'
+        . '<span style="font-size:13px;color:#555;">' . $e($label) . '</span></p>'
+        . '<p style="font-size:13px;color:#555;">' . $e(implode(' ', $conditions)) . '</p>'
+        . '<p><a href="' . $e($shopUrl) . '" style="color:#111;">Start shopping</a></p></div>';
+    $mail->AltBody = "Hi {$name},\n\nYour welcome code: {$promo['code']} ({$label}).\n"
+        . implode(' ', $conditions) . "\n\n{$shopUrl}";
+    $mail->send();
+}
+

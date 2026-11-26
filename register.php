@@ -4,6 +4,7 @@ require __DIR__ . '/includes/site_gate.php';
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/currency_helper.php';
 require_once __DIR__ . '/includes/layout.php';
+require_once __DIR__ . '/includes/promo.php';
 
 if (isset($_SESSION['user'])) {
     header('Location: index.php');
@@ -56,6 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $userId = (int)$pdo->lastInsertId();
 
+                session_regenerate_id(true); // cegah session fixation
                 $_SESSION['user'] = [
                     'id'        => $userId,
                     'full_name' => $fullName,
@@ -63,11 +65,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'role'      => 'customer',
                 ];
 
-                header('Location: index.php');
-                exit;
+                // Reward akun baru: kode disimpan di sesi (terisi di checkout) dan dikirim lewat email
+                $reward = promoGrantSignupReward($pdo, $email, $fullName);
+                if (!$reward) {
+                    header('Location: index.php');
+                    exit;
+                }
+                // Ada reward → tetap di halaman ini dan tampilkan kodenya
             }
         } catch (Throwable $e) {
-            $error = 'Failed to register account: ' . $e->getMessage();
+            error_log('[register] ' . $e->getMessage());
+            $error = 'Failed to register account. Please try again.';
         }
     }
 }
@@ -75,6 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 /* pre-fill dari redirect index.php account modal */
 $prefillName  = htmlspecialchars(trim($_GET['name']  ?? ''), ENT_QUOTES, 'UTF-8');
 $prefillEmail = htmlspecialchars(trim($_GET['email'] ?? ''), ENT_QUOTES, 'UTF-8');
+$reward = $reward ?? null;
 siteHeadOpen(['title' => 'Create account', 'noindex' => true]);
 ?>
   <style>
@@ -90,6 +99,8 @@ siteHeadOpen(['title' => 'Create account', 'noindex' => true]);
     .pw-hint { font-size: 11px; color: var(--mute); min-height: 16px; margin-top: 4px; }
     .auth-form .btn { margin-top: 4px; }
     .auth-foot { margin-top: 22px; font-size: 12px; color: var(--mute); display: grid; gap: 8px; }
+    .reward-code { margin: 18px 0 8px; padding: 16px; border: 1px dashed var(--ink); text-align: center;
+                   font: 700 22px/1 ui-monospace, Menlo, Consolas, monospace; letter-spacing: 2px; }
     .auth-foot a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
   </style>
 <?php
@@ -98,6 +109,13 @@ siteBodyOpen(['bodyClass' => 'page-register', 'searchAction' => 'shop.php']);
   <main class="page-main">
     <div class="auth-wrap">
       <div class="card auth-card">
+        <?php if ($reward): ?>
+        <h1 class="page-title">Welcome</h1>
+        <p class="auth-sub">Your account is ready. Here is your welcome reward. We've also emailed it to you.</p>
+        <div class="reward-code"><?= esc($reward['code']) ?></div>
+        <p class="auth-sub" style="text-align:center"><?= esc($reward['label']) ?>. It is filled in for you at checkout.</p>
+        <a href="shop.php" class="btn btn--solid btn--block">Start shopping</a>
+        <?php else: ?>
         <h1 class="page-title">Create account</h1>
         <p class="auth-sub">Track your orders and check out faster. It only takes a moment.</p>
 
@@ -140,9 +158,10 @@ siteBodyOpen(['bodyClass' => 'page-register', 'searchAction' => 'shop.php']);
         </form>
 
         <div class="auth-foot">
-          <span>Already have an account? <a href="login.php">Log in</a></span>
+          <span>Already have an account? <a href="login">Log in</a></span>
           <a href="index.php">Back to store</a>
         </div>
+        <?php endif; ?>
       </div>
     </div>
   </main>
@@ -157,6 +176,7 @@ siteBodyClose();
     const confInput = document.getElementById('confirm_password');
     const bars      = [document.getElementById('bar1'), document.getElementById('bar2'), document.getElementById('bar3')];
     const pwHint    = document.getElementById('pwHint');
+    if (!pwInput) return; // halaman reward (form tidak ditampilkan)
 
     /* password strength */
     function getPwStrength(pw) {

@@ -57,6 +57,13 @@
   on('closeAccountBtn', 'click', function () { close('accountPopup'); });
   on('accountBackdrop', 'click', function () { close('accountPopup'); });
   on('overlay', 'click', closeAll);
+
+  // ?login=1 (dari /login, logout, cart) → langsung buka modal akun
+  if (/[?&]login=1(&|$)/.test(location.search) && $('accountPopup')) {
+    open('accountPopup');
+    var cleaned = location.search.replace(/([?&])login=1(&|$)/, '$1').replace(/[?&]$/, '');
+    history.replaceState(null, '', location.pathname + cleaned + location.hash);
+  }
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeAll(); });
 
   document.querySelectorAll('[data-close]').forEach(function (el) {
@@ -169,8 +176,12 @@
           setAccountBusy(false);
           return;
         }
-        setAccountMsg(msgId, 'success', isLogin ? 'Signed in. Refreshing…' : 'Account created. Refreshing…');
         var redirect = typeof data.redirect === 'string' && data.redirect ? data.redirect : 'index.php';
+        if (!isLogin && data.reward && data.reward.code) {
+          showSignupReward(data.reward, redirect);
+          return;
+        }
+        setAccountMsg(msgId, 'success', isLogin ? 'Signed in. Refreshing…' : 'Account created. Refreshing…');
         setTimeout(function () { window.location.href = redirect; }, 450);
       })
       .catch(function (err) {
@@ -179,6 +190,29 @@
         setAccountBusy(false);
       });
   }
+  /** Akun baru dapat kode promo: tampilkan di modal, lanjut setelah pembeli klik tombol. */
+  function showSignupReward(reward, redirect) {
+    var box = $('tabRegister');
+    if (!box) { window.location.href = redirect; return; }
+    box.textContent = '';
+    var intro = document.createElement('p');
+    intro.className = 'account-msg success';
+    intro.textContent = 'Account created. Here is your welcome reward. We\'ve also emailed it to you.';
+    var code = document.createElement('div');
+    code.className = 'reward-code';
+    code.textContent = reward.code;
+    var label = document.createElement('p');
+    label.className = 'reward-label';
+    label.textContent = (reward.label || '') + '. It is filled in for you at checkout.';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'account-submit';
+    btn.textContent = 'Continue';
+    btn.addEventListener('click', function () { window.location.href = redirect; });
+    box.append(intro, code, label, btn);
+    document.querySelectorAll('.account-tab').forEach(function (t) { t.style.display = 'none'; });
+  }
+
   on('loginBtn', 'click', function () { submitAccount('login'); });
   on('registerBtn', 'click', function () { submitAccount('register'); });
 

@@ -1,106 +1,42 @@
 <?php
+// Pencarian tujuan domestik (kecamatan/kota) untuk checkout. Hasil di-cache 30 hari: lihat includes/rajaongkir_cache.php.
 header('Content-Type: application/json; charset=UTF-8');
 ini_set('display_errors', '0');
-error_reporting(E_ALL);
 
-set_error_handler(function ($severity, $message, $file, $line) {
-    throw new ErrorException($message, 0, $severity, $file, $line);
-});
+require_once __DIR__ . '/../includes/rajaongkir_cache.php';
 
-set_exception_handler(function ($e) {
-    http_response_code(500);
-    echo json_encode([
-        'success' => false,
-        'message' => $e->getMessage(),
-        'file' => basename($e->getFile()),
-        'line' => $e->getLine(),
-    ], JSON_PRETTY_PRINT);
-    exit;
-});
-
-register_shutdown_function(function () {
-    $error = error_get_last();
-    if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
-        http_response_code(500);
-        echo json_encode([
-            'success' => false,
-            'message' => $error['message'],
-            'file' => basename($error['file']),
-            'line' => $error['line'],
-        ], JSON_PRETTY_PRINT);
-        exit;
-    }
-});
-
-$config = require __DIR__ . '/rajaongkir.php';
-
-$search = trim((string) ($_GET['search'] ?? ''));
-$limit = (int) ($_GET['limit'] ?? 10);
-$offset = (int) ($_GET['offset'] ?? 0);
-
-if ($limit <= 0) {
-    $limit = 10;
-}
-
-if ($search === '') {
-    http_response_code(422);
-    echo json_encode([
-        'success' => false,
-        'message' => 'Search is required.',
-    ], JSON_PRETTY_PRINT);
+function roRespond(int $status, array $body): void
+{
+    http_response_code($status);
+    echo json_encode($body);
     exit;
 }
 
-$url = rtrim((string) $config['base_url'], '/') .
-    '/destination/domestic-destination?search=' . urlencode($search) .
-    '&limit=' . $limit .
-    '&offset=' . $offset;
+// Kata kunci dinormalkan supaya "Surabaya", " surabaya " dan "SURABAYA" memakai cache yang sama
+$search = mb_strtolower(preg_replace('/\s+/u', ' ', trim((string)($_GET['search'] ?? ''))));
+$limit  = max(1, min(20, (int)($_GET['limit'] ?? 10)));
+$offset = max(0, (int)($_GET['offset'] ?? 0));
 
-$ch = curl_init($url);
-curl_setopt_array($ch, [
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_HTTPHEADER => [
-        'key: ' . $config['api_key'],
-        'Accept: application/json',
-    ],
-    CURLOPT_TIMEOUT => 30,
+if (mb_strlen($search) < 3) {
+    roRespond(422, ['success' => false, 'message' => 'Type at least 3 characters.']);
+}
+
+try {
+    $res = rajaongkirRequest('GET', '/destination/domestic-destination',
+        ['search' => $search, 'limit' => $limit, 'offset' => $offset], RO_TTL_DESTINATION, true);
+} catch (Throwable $e) {
+    error_log('[get-domestic-destinations] ' . $e->getMessage());
+    roRespond(500, ['success' => false, 'message' => 'Could not load destinations.']);
+}
+
+if ($res['data'] === null) {
+    roRespond($res['code'] === 429 ? 429 : 502, ['success' => false, 'message' => $res['error']]);
+}
+
+// Bentuk respons sama seperti sebelumnya: frontend membaca result.raw.data
+roRespond(200, [
+    'success'   => $res['code'] >= 200 && $res['code'] < 300,
+    'http_code' => $res['code'],
+    'message'   => $res['data']['meta']['message'] ?? ($res['data']['message'] ?? 'Response received'),
+    'raw'       => ['data' => $res['data']['data'] ?? []],
 ]);
-
-$response = curl_exec($ch);
-$httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-$curlError = curl_error($ch);
-curl_close($ch);
-
-if ($response === false) {
-    http_response_code(500);
-    echo json_encode([
-        'success' => false,
-        'message' => 'Failed to connect to RajaOngkir.',
-        'curl_error' => $curlError,
-    ], JSON_PRETTY_PRINT);
-    exit;
-}
-
-$data = json_decode($response, true);
-
-if (!is_array($data)) {
-    http_response_code(500);
-    echo json_encode([
-        'success' => false,
-        'message' => 'Invalid JSON response from RajaOngkir.',
-        'raw_text' => $response,
-    ], JSON_PRETTY_PRINT);
-    exit;
-}
-
-/*
-  Tujuan file ini:
-  - menjaga raw response tetap ada
-  - frontend checkout.php bisa parsing result.raw.data
-*/
-echo json_encode([
-    'success' => $httpCode >= 200 && $httpCode < 300,
-    'http_code' => $httpCode,
-    'message' => $data['meta']['message'] ?? ($data['message'] ?? 'Response received'),
-    'raw' => $data,
-], JSON_PRETTY_PRINT);

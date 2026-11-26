@@ -16,7 +16,7 @@
     #    GET/HEAD only: POST requests (forms, PayPal, webhooks, AJAX) keep
     #    hitting the real .php file untouched, so no data is lost in a redirect.
     #    EXCLUDED: AJAX endpoints under /config/ that JS calls with .php.
-    RewriteCond %{REQUEST_URI} !(^|/)config/(get-domestic-destinations|get-international-destinations|get-intl-countries|calculate-domestic-shipping|calculate-intl-shipping|calculate-shipping)\.php$ [NC]
+    RewriteCond %{REQUEST_URI} !(^|/)config/(get-domestic-destinations|get-intl-countries|calculate-domestic-shipping|calculate-intl-shipping)\.php$ [NC]
     RewriteCond %{THE_REQUEST} ^(GET|HEAD)\s/+([^?\s]+)\.php(\?\S*)?\sHTTP/ [NC]
     RewriteRule ^ /%2 [R=301,L]
 

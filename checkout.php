@@ -6,6 +6,7 @@ require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/currency_helper.php';
 require_once __DIR__ . '/includes/pricing.php';
 require_once __DIR__ . '/includes/promo.php';
+require_once __DIR__ . '/includes/wise_payment.php';
 require_once __DIR__ . '/config/kasera_client.php';
 require_once __DIR__ . '/config/intl_shipping.php';
 require_once __DIR__ . '/includes/order_payment.php';
@@ -17,46 +18,6 @@ $composerAutoload = __DIR__ . '/vendor/autoload.php';
 if (is_file($composerAutoload)) require_once $composerAutoload;
 
 promoEnsureSchema($pdo);
-
-const PAYER_COLUMNS = [
-    'payer_name'  => 'VARCHAR(150) DEFAULT NULL',
-    'payer_email' => 'VARCHAR(150) DEFAULT NULL',
-    'payer_phone' => 'VARCHAR(50) DEFAULT NULL',
-];
-
-function ensurePayerColumns(PDO $pdo): void
-{
-    foreach (PAYER_COLUMNS as $column => $definition) {
-        if (!columnExists($pdo, 'orders', $column)) {
-            $pdo->exec("ALTER TABLE orders ADD COLUMN {$column} {$definition}");
-        }
-    }
-}
-
-/** Detail pembayar bersifat opsional: string kosong disimpan sebagai NULL. */
-function nullIfBlank(string $value, int $maxLength): ?string
-{
-    $value = mb_substr(trim($value), 0, $maxLength);
-    return $value === '' ? null : $value;
-}
-
-function savePayerDetails(PDO $pdo, int $orderId, array $input): array
-{
-    $email = nullIfBlank((string)($input['payer_email'] ?? ''), 150);
-    if ($email !== null && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        return ['ok' => false, 'error' => 'Please enter a valid email address.'];
-    }
-
-    $pdo->prepare(
-        'UPDATE orders SET payer_name = :name, payer_email = :email, payer_phone = :phone WHERE id = :id'
-    )->execute([
-        'name'  => nullIfBlank((string)($input['payer_name'] ?? ''), 150),
-        'email' => $email,
-        'phone' => nullIfBlank((string)($input['payer_phone'] ?? ''), 50),
-        'id'    => $orderId,
-    ]);
-    return ['ok' => true];
-}
 
 /* ── helpers ─────────────────────────────────────────── */
 function makeOrderNumber(): string
@@ -87,34 +48,19 @@ function lookupShippingCostIdr(string $mode, string $destination, string $courie
         return null;
     }
 
-    $config   = require __DIR__ . '/config/rajaongkir.php';
-    $endpoint = '/calculate/domestic-cost';
+    // Lewat cache (includes/rajaongkir_cache.php): biasanya sudah tersimpan dari pratinjau ongkir di checkout
+    require_once __DIR__ . '/includes/rajaongkir_cache.php';
+    $config = require __DIR__ . '/config/rajaongkir.php';
+    $res = rajaongkirRequest('POST', '/calculate/domestic-cost', [
+        'origin'      => (int)$config['origin_city_id'],
+        'destination' => $destination,
+        'weight'      => $weightGram,
+        'courier'     => strtolower($courier),
+        'price'       => 'lowest',
+    ], RO_TTL_COST);
 
-    $ch = curl_init(rtrim((string)$config['base_url'], '/') . $endpoint);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => http_build_query([
-            'origin'      => (int)$config['origin_city_id'],
-            'destination' => $destination,
-            'weight'      => $weightGram,
-            'courier'     => $courier,
-            'price'       => 'lowest',
-        ]),
-        CURLOPT_HTTPHEADER     => [
-            'key: ' . $config['api_key'],
-            'Content-Type: application/x-www-form-urlencoded',
-            'Accept: application/json',
-        ],
-        CURLOPT_TIMEOUT        => 30,
-    ]);
-    $response = curl_exec($ch);
-    $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-
-    if ($response === false || $httpCode < 200 || $httpCode >= 300) return null;
-    $data = json_decode($response, true);
-    if (!is_array($data) || !isset($data['data']) || !is_array($data['data'])) return null;
+    $data = $res['data'];
+    if ($res['code'] < 200 || $res['code'] >= 300 || !is_array($data) || !isset($data['data']) || !is_array($data['data'])) return null;
 
     foreach ($data['data'] as $row) {
         $label = (string)($row['service'] ?? ($row['description'] ?? ($row['name'] ?? ($row['code'] ?? 'Service'))));
@@ -300,17 +246,6 @@ if ($payOrderNumber !== '') {
     $payStmt->execute(['n' => $payOrderNumber]);
     $payOrder = $payStmt->fetch(PDO::FETCH_ASSOC) ?: null;
     if (!$payOrder) { header('Location: checkout.php'); exit; }
-    ensurePayerColumns($pdo);
-    $payStmt->execute(['n' => $payOrderNumber]);
-    $payOrder = $payStmt->fetch(PDO::FETCH_ASSOC);
-    $payOrder = array_merge(array_fill_keys(array_keys(PAYER_COLUMNS), null), $payOrder);
-}
-
-/* ── pay mode: simpan detail pembayar (opsional, AJAX) ── */
-if ($payOrder && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_payer'])) {
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode(savePayerDetails($pdo, (int)$payOrder['id'], $_POST));
-    exit;
 }
 
 /* ── pay mode: polling status (+ sinkron ke Kasera sebagai cadangan webhook) ── */
@@ -374,10 +309,14 @@ if ($payOrder && strtolower((string)$payOrder['payment_status']) !== 'paid' && $
                 } else {
                     try {
                         $pdo->beginTransaction();
-                        $pdo->prepare("UPDATE orders SET payment_proof_path = :p, payment_status = 'waiting_verification', updated_at = NOW() WHERE id = :id")
-                            ->execute(['p' => $relativePath, 'id' => $payOrder['id']]);
+                        // Bukti dari opsi Wise → catat provider 'wise' supaya admin tahu harus cek di aplikasi Wise
+                        $viaWise = ($_POST['transfer_via'] ?? '') === 'wise';
+                        $pdo->prepare("UPDATE orders SET payment_proof_path = :p, payment_status = 'waiting_verification',
+                                       payment_provider = :prov, updated_at = NOW() WHERE id = :id")
+                            ->execute(['p' => $relativePath, 'prov' => $viaWise ? 'wise' : 'manual_transfer', 'id' => $payOrder['id']]);
                         $pdo->prepare('INSERT INTO order_status_logs (order_id, status_type, status_value, notes) VALUES (:oid, :st, :sv, :n)')
-                            ->execute(['oid' => $payOrder['id'], 'st' => 'payment', 'sv' => 'waiting_verification', 'n' => 'Customer uploaded payment proof.']);
+                            ->execute(['oid' => $payOrder['id'], 'st' => 'payment', 'sv' => 'waiting_verification',
+                                       'n' => $viaWise ? 'Customer uploaded Wise transfer proof.' : 'Customer uploaded payment proof.']);
                         $pdo->commit();
 
                         $updStmt = $pdo->prepare('SELECT * FROM orders WHERE id = :id LIMIT 1');
@@ -387,7 +326,8 @@ if ($payOrder && strtolower((string)$payOrder['payment_status']) !== 'paid' && $
                         exit;
                     } catch (Throwable $e) {
                         if ($pdo->inTransaction()) $pdo->rollBack();
-                        $payError = 'Failed to process payment proof: ' . $e->getMessage();
+                        error_log('[checkout] payment proof failed: ' . $e->getMessage());
+                        $payError = 'Failed to process payment proof. Please try again.';
                     }
                 }
             }
@@ -527,7 +467,7 @@ $totalWeightGram = cartTotalWeightGram($cartItems);
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_apply_promo'])) {
     header('Content-Type: application/json');
     $shippingPreviewUsd = max(0.0, (float)($_POST['shipping_usd'] ?? 0));
-    $applied = promoResolve($pdo, (string)($_POST['promo_code'] ?? ''), $subtotal, $shippingPreviewUsd);
+    $applied = promoResolve($pdo, (string)($_POST['promo_code'] ?? ''), $subtotal, $shippingPreviewUsd, $userId);
 
     if ($applied['promo'] === null) {
         echo json_encode(['success' => false, 'message' => $applied['error'] ?? 'Please enter a promo code.']);
@@ -560,7 +500,9 @@ $form = [
     'phone' => '', 'shipping_mode' => 'domestic', 'country_code' => 'ID',
     'country_name' => 'Indonesia', 'address_line_1' => '', 'address_line_2' => '',
     'city' => '', 'state' => '', 'postal_code' => '',
-    'courier_code' => '', 'courier_service' => '', 'shipping_cost' => '0', 'notes' => '', 'promo_code' => '',
+    'courier_code' => '', 'courier_service' => '', 'shipping_cost' => '0', 'notes' => '',
+    // Kode reward pendaftaran akun terisi otomatis (pembeli tetap bisa menghapusnya)
+    'promo_code' => $isLoggedIn ? (string)($_SESSION['signup_reward_code'] ?? '') : '',
 ];
 
 // Pastikan proses checkout hanya jalan jika POST biasa (bukan request AJAX qty / hapus)
@@ -590,7 +532,7 @@ if (!$payOrder && $_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['ajax_u
               )) === null) {
         $error = 'Could not verify the shipping cost. Please re-select your destination and courier service.';
     } elseif (($promoResult = promoResolve(
-                  $pdo, (string)($_POST['promo_code'] ?? ''), $subtotal, ddConvertFromIdr($serverShippingIdr)
+                  $pdo, (string)($_POST['promo_code'] ?? ''), $subtotal, ddConvertFromIdr($serverShippingIdr), $userId
               ))['error'] !== null) {
         $error = $promoResult['error'];
     } else {
@@ -637,6 +579,10 @@ if (!$payOrder && $_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['ajax_u
             // Kuota promo dipakai di transaksi yang sama: gagal → order ikut dibatalkan.
             if ($promo && !promoConsume($pdo, (int)$promo['id'])) {
                 throw new RuntimeException('This promo code has reached its usage limit.');
+            }
+            // Reward pendaftaran sudah dipakai → jangan diisi otomatis lagi
+            if ($promo && ($promo['code'] ?? '') === ($_SESSION['signup_reward_code'] ?? null)) {
+                unset($_SESSION['signup_reward_code']);
             }
 
             $insertItem = $pdo->prepare(
@@ -857,6 +803,11 @@ details.opt[open]>summary{margin-bottom:10px}
 .bank-wordmark{font-weight:600;text-align:center}
 .bank-row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:12px}
 .bank-row:first-of-type{border-top:none;padding-top:0}
+.wise-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 4px}
+.wise-steps{margin:0 0 8px;padding-left:18px;font-size:12px;line-height:1.7}
+.wise-ref{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px;padding:12px 14px;border:1px dashed var(--ink)}
+.wise-ref strong{font:700 18px/1 ui-monospace,Menlo,Consolas,monospace;letter-spacing:2px}
+.wise-acct{margin-bottom:12px}
 .bank-key{font-weight:600}
 .bank-value{text-align:right;font-weight:500;word-break:break-all}
 .bank-value small{display:block;font-weight:400;color:var(--ink-2);font-size:11px}
@@ -1002,14 +953,6 @@ siteBodyOpen(['bodyClass' => 'page-checkout', 'searchAction' => 'shop.php']);
 
         <?php else: ?>
         <p class="sec-sub">All transactions are secure and encrypted.</p>
-        <form id="payerForm" class="payer-form" autocomplete="on" novalidate>
-          <input type="hidden" name="save_payer" value="1">
-          <p class="field-hint" style="margin:0 0 10px">Payer details (optional)</p>
-          <?= ckField('payer_name', 'Name', (string)$payOrder['payer_name'], ['autocomplete' => 'name']) ?>
-          <?= ckField('payer_email', 'Email', (string)$payOrder['payer_email'], ['type' => 'email', 'autocomplete' => 'email']) ?>
-          <?= ckField('payer_phone', 'Phone', (string)$payOrder['payer_phone'], ['type' => 'tel', 'autocomplete' => 'tel']) ?>
-          <div class="copy-status" id="payerStatus"></div>
-        </form>
         <?php if (KASERA_ENABLED && $payCurrency !== 'IDR'): ?>
           <p class="field-hint" style="margin:-4px 0 14px">QRIS, Virtual Account and e-wallets settle in Indonesian Rupiah: <strong><?= htmlspecialchars(ddFormatMoney((float)kaseraAmountIdr($payOrder), 'IDR')) ?></strong> (1 USD = <?= htmlspecialchars(ddFormatMoney(ddRateFromIdr(), 'IDR')) ?>).</p>
         <?php endif; ?>
@@ -1084,6 +1027,89 @@ siteBodyOpen(['bodyClass' => 'page-checkout', 'searchAction' => 'shop.php']);
               <div class="copy-status" id="paypal-status" style="color:var(--err)"></div>
             </div>
           </div>
+
+          <?php $wise = wiseSettings($pdo); if (wiseIsAvailable($wise)): ?>
+          <!-- Wise: transfer ke rekening Wise (atau link pembayaran Wise) + upload bukti -->
+          <div class="pay-opt">
+            <input type="radio" class="pm-radio" name="paymethod" id="pm_wise">
+            <label for="pm_wise" class="pay-row"><span class="rdot"></span><span class="pay-name">Wise / Bank transfer</span><span class="pay-logos"><span class="chip"><?= bankLogoHtml('wise', 'Wise') ?></span></span></label>
+            <div class="pay-panel">
+              <?php $wiseRef = wisePaymentReference((string)$payOrder['order_number']); ?>
+              <ol class="wise-steps">
+                <li>Transfer the amount below to our account.</li>
+                <li>Type this code in the transfer note / reference:</li>
+              </ol>
+              <div class="wise-ref">
+                <strong><?= htmlspecialchars($wiseRef) ?></strong>
+                <button type="button" class="btn btn--sm" data-wise-copy="<?= htmlspecialchars($wiseRef) ?>">Copy</button>
+              </div>
+              <ol class="wise-steps" start="3">
+                <li>Upload your transfer receipt at the bottom. We confirm it and email you, usually within 1 business day.</li>
+              </ol>
+
+              <?php if (count($wise['accounts']) > 1): ?>
+              <div class="wise-tabs" role="tablist">
+                <?php foreach ($wise['accounts'] as $i => $acct): ?>
+                  <button type="button" class="btn btn--sm<?= $i === 0 ? ' btn--solid' : '' ?>" data-wise-tab="<?= $i ?>"><?= htmlspecialchars($acct['currency']) ?></button>
+                <?php endforeach; ?>
+              </div>
+              <?php endif; ?>
+
+              <?php foreach ($wise['accounts'] as $i => $acct):
+                $wAmount = wiseAmountFor((float)$payOrder['grand_total'], $payCurrency, $acct['currency']); ?>
+                <div class="wise-acct" data-wise-acct="<?= $i ?>"<?= $i > 0 ? ' hidden' : '' ?>>
+                  <div class="bank-row"><span class="bank-key">Amount</span><span class="bank-value">
+                    <?php if ($wAmount !== null): ?>
+                      <?= htmlspecialchars(ddFormatMoney($wAmount, $acct['currency'])) ?>
+                      <button type="button" class="btn btn--sm" data-wise-copy="<?= htmlspecialchars(number_format($wAmount, 2, '.', '')) ?>">Copy</button>
+                      <?php if ($acct['currency'] !== $payCurrency): ?><small>Order total <?= htmlspecialchars(ddFormatMoney((float)$payOrder['grand_total'], $payCurrency)) ?>, converted at today's rate</small><?php endif; ?>
+                    <?php else: ?>
+                      <?= htmlspecialchars(ddFormatMoney((float)$payOrder['grand_total'], $payCurrency)) ?><small>Send the equivalent in <?= htmlspecialchars($acct['currency']) ?></small>
+                    <?php endif; ?>
+                  </span></div>
+                  <?php foreach (wiseDetailRows($acct['details']) as [$wKey, $wVal]): ?>
+                    <div class="bank-row"><span class="bank-key"><?= htmlspecialchars($wKey) ?></span><span class="bank-value"><?= htmlspecialchars($wVal) ?></span></div>
+                  <?php endforeach; ?>
+                </div>
+              <?php endforeach; ?>
+
+              <?php if ($wise['pay_link'] !== ''): ?>
+                <a href="<?= htmlspecialchars($wise['pay_link']) ?>" target="_blank" rel="noopener" class="btn btn--block" style="margin:12px 0">Pay with Wise link</a>
+              <?php endif; ?>
+              <?php if ($wise['note'] !== ''): ?><p class="pay-note"><?= htmlspecialchars($wise['note']) ?></p><?php endif; ?>
+
+              <form method="POST" enctype="multipart/form-data" id="wiseUploadForm">
+                <input type="hidden" name="transfer_via" value="wise">
+                <div class="upload-zone">
+                  <label for="wise_payment_proof" class="field-hint" style="display:block;margin:0 0 8px">Transfer receipt (JPG, PNG, or PDF)</label>
+                  <input type="file" name="payment_proof" id="wise_payment_proof" class="file-input" accept=".jpg,.jpeg,.png,.pdf" required>
+                  <p class="field-hint">Amount, date and reference must be clearly visible.</p>
+                </div>
+                <button type="submit" class="btn btn--solid btn--block">Submit transfer receipt</button>
+              </form>
+              <p class="field-hint" style="margin-top:10px">After you submit, your order shows "Waiting verification" until we confirm the payment.</p>
+              <div class="copy-status" id="wiseCopyStatus"></div>
+            </div>
+          </div>
+          <script>
+          (function () {
+            var status = document.getElementById('wiseCopyStatus');
+            document.querySelectorAll('[data-wise-copy]').forEach(function (b) {
+              b.addEventListener('click', function () {
+                var done = function (ok) { if (status) { status.textContent = ok ? 'Copied ✓' : 'Failed to copy.'; setTimeout(function () { status.textContent = ''; }, 2200); } };
+                if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(b.dataset.wiseCopy).then(function () { done(true); }, function () { done(false); });
+                else done(false);
+              });
+            });
+            document.querySelectorAll('[data-wise-tab]').forEach(function (tab) {
+              tab.addEventListener('click', function () {
+                document.querySelectorAll('[data-wise-tab]').forEach(function (t) { t.classList.toggle('btn--solid', t === tab); });
+                document.querySelectorAll('[data-wise-acct]').forEach(function (a) { a.hidden = a.dataset.wiseAcct !== tab.dataset.wiseTab; });
+              });
+            });
+          })();
+          </script>
+          <?php endif; ?>
 
           <?php if (false): /* Manual bank transfer disembunyikan sementara; ubah ke true untuk mengaktifkan lagi */ ?>
           <!-- Manual bank transfer + upload proof -->
@@ -1318,24 +1344,6 @@ siteBodyClose();
     'use strict';
     const ORDER_NUMBER = <?= json_encode($payOrder['order_number']) ?>;
 
-    /* Detail pembayar (opsional): tersimpan otomatis saat field berubah */
-    const payerForm = document.getElementById('payerForm');
-    if (payerForm) {
-      const payerStatus = document.getElementById('payerStatus');
-      payerForm.addEventListener('submit', e => e.preventDefault());
-      payerForm.addEventListener('change', async () => {
-        try {
-          const res = await fetch('checkout.php?order=' + encodeURIComponent(ORDER_NUMBER), {
-            method: 'POST', body: new FormData(payerForm)
-          });
-          const data = await res.json();
-          payerStatus.textContent = data.ok ? 'Saved' : (data.error || 'Could not save.');
-        } catch (err) {
-          payerStatus.textContent = 'Could not save.';
-        }
-      });
-    }
-
     /* Tombol submit dinonaktifkan setelah klik (cegah order ganda) & di-reset saat kembali dari bfcache */
     document.querySelectorAll('form[data-pay]').forEach(f => {
       const btn = f.querySelector('button[type=submit]');
@@ -1565,6 +1573,19 @@ siteBodyClose();
     if (applyPromoBtn) applyPromoBtn.addEventListener('click', applyPromo);
     if (promoInput) promoInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); applyPromo(); } });
 
+    // Kode reward akun baru terisi otomatis: langsung terapkan. Kalau tidak memenuhi syarat
+    // (mis. minimum belanja), kosongkan supaya tidak menghalangi pembuatan order.
+    <?php if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $form['promo_code'] !== ''): ?>
+    if (promoInput && promoInput.value.trim()) {
+      applyPromo().then(() => {
+        if (appliedPromo) return;
+        const reason = promoStatus ? promoStatus.textContent : '';
+        promoInput.value = '';
+        setPromoStatus('Your welcome code can\'t be used on this order yet. ' + reason, false);
+      });
+    }
+    <?php endif; ?>
+
     function updateGrandTotal(shippingCostIdr) {
       const shippingConverted = convertFromIdr(shippingCostIdr);
       const subtotalConverted = subtotal; 
@@ -1735,17 +1756,22 @@ siteBodyClose();
       resetShipping();
     }
 
+    const destCache = new Map();
     async function loadDestinations() {
-      if (destSearch.value.trim().length < 2) {
-        destSelect.innerHTML = '<option value="">Type at least 2 characters</option>';
+      const minChars = shippingModeEl.value === 'domestic' ? 3 : 2;
+      if (destSearch.value.trim().length < minChars) {
+        destSelect.innerHTML = '<option value="">Type at least ' + minChars + ' characters</option>';
         return;
       }
       const endpoint = shippingModeEl.value === 'domestic'
         ? 'config/get-domestic-destinations.php'
         : 'config/get-intl-countries.php';
       try {
-        const res    = await fetch(endpoint + '?search=' + encodeURIComponent(destSearch.value.trim()) + '&limit=10');
-        const result = await res.json();
+        // Hasil yang sama tidak diminta ulang selama halaman terbuka (hemat kuota RajaOngkir)
+        const url = endpoint + '?search=' + encodeURIComponent(destSearch.value.trim().toLowerCase()) + '&limit=10';
+        if (!destCache.has(url)) destCache.set(url, fetch(url).then(r => r.json()));
+        const result = await destCache.get(url).catch(e => { destCache.delete(url); throw e; });
+        if (!result.success) destCache.delete(url);
         if (!result.success) { destSelect.innerHTML = '<option value="">Error loading destination</option>'; return; }
         const rows = Array.isArray(result.raw?.data) ? result.raw.data : [];
         destSelect.innerHTML = '<option value="">Choose destination</option>';
@@ -1860,7 +1886,7 @@ siteBodyClose();
     /* ── init ───────────────────────────────────────── */
     shippingModeEl.addEventListener('change', updateModeUI);
     let destTimer = null;
-    destSearch.addEventListener('input', () => { clearTimeout(destTimer); destTimer = setTimeout(loadDestinations, 350); });
+    destSearch.addEventListener('input', () => { clearTimeout(destTimer); destTimer = setTimeout(loadDestinations, 600); });
     updateModeUI();
     updateGrandTotal(Number(shippingCostInput.value || 0));
 

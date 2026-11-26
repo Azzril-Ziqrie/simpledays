@@ -137,6 +137,7 @@ $navGroups = [
         ['promo-codes.php', 'i-percent', 'Promo codes', null],
         ['campaign-email.php', 'i-mail', 'Email campaign', null],
         ['payments.php', 'i-card', 'Payments', null],
+        ['payment-wise.php', 'i-card', 'Wise payments', null],
     ],
     'Storefront content' => [
         ['dashboard-hero.php', 'i-image', 'Hero banner', null],

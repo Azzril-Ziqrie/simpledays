@@ -24,6 +24,8 @@ function readPromoForm(array $post): array
         'ends_at'      => trim((string)($post['ends_at'] ?? '')) !== '' ? date('Y-m-d H:i:s', strtotime((string)$post['ends_at'])) : null,
         'usage_limit'  => trim((string)($post['usage_limit'] ?? '')) !== '' ? max(0, (int)$post['usage_limit']) : null,
         'is_active'    => isset($post['is_active']) ? 1 : 0,
+        'members_only'      => isset($post['members_only']) ? 1 : 0,
+        'once_per_customer' => isset($post['once_per_customer']) ? 1 : 0,
     ];
 
     if (!promoIsValidCodeFormat($data['code'])) return [$data, 'Code must be 3–32 characters: letters, numbers, "-" or "_".'];
@@ -56,23 +58,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $pdo->prepare(
                         'UPDATE promo_codes SET code=:code, description=:description, type=:type, value=:value,
                             max_discount=:max_discount, min_subtotal=:min_subtotal, starts_at=:starts_at,
-                            ends_at=:ends_at, usage_limit=:usage_limit, is_active=:is_active WHERE id=:id'
+                            ends_at=:ends_at, usage_limit=:usage_limit, is_active=:is_active,
+                            members_only=:members_only, once_per_customer=:once_per_customer WHERE id=:id'
                     )->execute($data);
                     $message = 'Promo code updated.';
                 } else {
                     $pdo->prepare(
                         'INSERT INTO promo_codes (code, description, type, value, max_discount, min_subtotal,
-                            starts_at, ends_at, usage_limit, is_active)
+                            starts_at, ends_at, usage_limit, is_active, members_only, once_per_customer)
                          VALUES (:code, :description, :type, :value, :max_discount, :min_subtotal,
-                            :starts_at, :ends_at, :usage_limit, :is_active)'
+                            :starts_at, :ends_at, :usage_limit, :is_active, :members_only, :once_per_customer)'
                     )->execute($data);
                     $message = 'Promo code created.';
+                }
+            } elseif ($action === 'save_reward') {
+                $enabled = isset($_POST['reward_enabled']);
+                $rewardId = (int)($_POST['reward_promo_id'] ?? 0);
+                if ($enabled && $rewardId <= 0) {
+                    $error = 'Choose a promo code for the sign-up reward.';
+                } else {
+                    if ($rewardId > 0) {
+                        // Reward akun baru: wajib login & sekali per akun, supaya tidak dipakai berulang
+                        $pdo->prepare('UPDATE promo_codes SET members_only = 1, once_per_customer = 1 WHERE id = :id')
+                            ->execute(['id' => $rewardId]);
+                    }
+                    promoSaveSignupReward($pdo, $enabled, $rewardId);
+                    $message = $enabled ? 'Sign-up reward saved.' : 'Sign-up reward turned off.';
                 }
             } elseif ($action === 'toggle' && $id > 0) {
                 $pdo->prepare('UPDATE promo_codes SET is_active = 1 - is_active WHERE id = :id')->execute(['id' => $id]);
                 $message = 'Promo code status changed.';
             } elseif ($action === 'delete' && $id > 0) {
                 $pdo->prepare('DELETE FROM promo_codes WHERE id = :id')->execute(['id' => $id]);
+                $rewardNow = promoSignupRewardSettings($pdo);
+                if ($rewardNow['promo_id'] === $id) promoSaveSignupReward($pdo, false, 0); // reward ikut mati
                 $message = 'Promo code deleted.';
             }
         } catch (PDOException $e) {
@@ -90,10 +109,13 @@ foreach ($promos as $p) if ((int)$p['id'] === $editId) $editing = $p;
 $form = $editing ?? [
     'id' => 0, 'code' => '', 'description' => '', 'type' => 'percent', 'value' => '10', 'max_discount' => '',
     'min_subtotal' => '0', 'starts_at' => '', 'ends_at' => '', 'usage_limit' => '', 'is_active' => 1,
+    'members_only' => 0, 'once_per_customer' => 0,
 ];
 if ($error !== '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $form = array_merge($form, array_intersect_key($_POST, $form));
     $form['is_active'] = isset($_POST['is_active']) ? 1 : 0;
+    $form['members_only'] = isset($_POST['members_only']) ? 1 : 0;
+    $form['once_per_customer'] = isset($_POST['once_per_customer']) ? 1 : 0;
     $form['id'] = (int)($_POST['id'] ?? 0);
 }
 
@@ -111,6 +133,9 @@ function promoStatus(array $p): string
     if ($p['usage_limit'] !== null && (int)$p['used_count'] >= (int)$p['usage_limit']) return 'Used up';
     return 'Active';
 }
+
+$reward = promoSignupRewardSettings($pdo);
+$rewardActive = promoActiveSignupReward($pdo);
 
 $csrf = ddAdminCsrf();
 ?>
@@ -182,6 +207,33 @@ $csrf = ddAdminCsrf();
     <?php if ($error !== ''): ?><div class="notice error"><?= htmlspecialchars($error) ?></div><?php endif; ?>
 
     <section class="panel">
+      <form method="POST" class="form-box" id="rewardForm">
+        <h2>Sign-up reward</h2>
+        <p class="sub" style="margin:-6px 0 16px">Give every new account a promo code, e.g. free shipping. It is shown right after sign-up, emailed to the customer and filled in at checkout. The chosen code is set to members only and once per account automatically.</p>
+        <input type="hidden" name="csrf" value="<?= htmlspecialchars($csrf) ?>">
+        <input type="hidden" name="action" value="save_reward">
+        <div class="field">
+          <label for="reward_promo_id">Reward code</label>
+          <select id="reward_promo_id" name="reward_promo_id">
+            <option value="0">Choose a promo code</option>
+            <?php foreach ($promos as $p): ?>
+              <option value="<?= (int)$p['id'] ?>" <?= (int)$p['id'] === $reward['promo_id'] ? 'selected' : '' ?>>
+                <?= htmlspecialchars($p['code'] . ' · ' . promoLabel($p) . ' · ' . promoStatus($p)) ?>
+              </option>
+            <?php endforeach; ?>
+          </select>
+          <small>Create the code below first (for free shipping choose type "Free shipping"). Its dates, minimum spend and usage limit still apply.</small>
+        </div>
+        <div class="check-row">
+          <input type="checkbox" id="reward_enabled" name="reward_enabled" value="1" <?= $reward['enabled'] ? 'checked' : '' ?>>
+          <label for="reward_enabled" style="margin:0;">Give this code to new accounts</label>
+        </div>
+        <?php if ($reward['enabled'] && !$rewardActive): ?>
+          <p class="notice error" style="margin:0 0 16px">The chosen code is inactive, expired or used up, so new accounts currently get no reward.</p>
+        <?php endif; ?>
+        <div class="actions"><button type="submit" class="btn">Save sign-up reward</button></div>
+      </form>
+
       <form method="POST" class="form-box" id="promoForm">
         <h2><?= (int)$form['id'] > 0 ? 'Edit promo code' : 'New promo code' ?></h2>
         <input type="hidden" name="csrf" value="<?= htmlspecialchars($csrf) ?>">
@@ -247,6 +299,14 @@ $csrf = ddAdminCsrf();
           <input type="checkbox" id="is_active" name="is_active" value="1" <?= (int)$form['is_active'] === 1 ? 'checked' : '' ?>>
           <label for="is_active" style="margin:0;">Active</label>
         </div>
+        <div class="check-row">
+          <input type="checkbox" id="members_only" name="members_only" value="1" <?= (int)($form['members_only'] ?? 0) === 1 ? 'checked' : '' ?>>
+          <label for="members_only" style="margin:0;">Members only (shopper must be signed in)</label>
+        </div>
+        <div class="check-row">
+          <input type="checkbox" id="once_per_customer" name="once_per_customer" value="1" <?= (int)($form['once_per_customer'] ?? 0) === 1 ? 'checked' : '' ?>>
+          <label for="once_per_customer" style="margin:0;">Once per customer account</label>
+        </div>
 
         <div class="actions">
           <button type="submit" class="btn"><?= (int)$form['id'] > 0 ? 'Save changes' : 'Create promo code' ?></button>
@@ -266,7 +326,7 @@ $csrf = ddAdminCsrf();
             <tbody>
               <?php foreach ($promos as $p): $status = promoStatus($p); ?>
                 <tr>
-                  <td class="code"><?= htmlspecialchars($p['code']) ?><?php if ($p['description'] !== null && $p['description'] !== ''): ?><br><small style="font-weight:400;font-family:Arial"><?= htmlspecialchars($p['description']) ?></small><?php endif; ?></td>
+                  <td class="code"><?= htmlspecialchars($p['code']) ?><?php if ((int)$p['id'] === $reward['promo_id'] && $reward['enabled']): ?> <span class="badge active">Sign-up reward</span><?php endif; ?><?php if ((int)($p['members_only'] ?? 0) === 1): ?> <span class="badge">Members</span><?php endif; ?><?php if ((int)($p['once_per_customer'] ?? 0) === 1): ?> <span class="badge">1× per account</span><?php endif; ?><?php if ($p['description'] !== null && $p['description'] !== ''): ?><br><small style="font-weight:400;font-family:Arial"><?= htmlspecialchars($p['description']) ?></small><?php endif; ?></td>
                   <td><?= htmlspecialchars(promoLabel($p)) ?></td>
                   <td><?= (float)$p['min_subtotal'] > 0 ? htmlspecialchars(ddFormatMoney((float)$p['min_subtotal'])) : '—' ?></td>
                   <td>

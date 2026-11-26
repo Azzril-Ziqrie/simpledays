@@ -7,7 +7,7 @@ require_once __DIR__ . '/includes/layout.php';
 require_once __DIR__ . '/includes/variants.php';
 
 if (!isset($_SESSION['user']['id'])) {
-    header('Location: login.php');
+    header('Location: login');
     exit;
 }
 

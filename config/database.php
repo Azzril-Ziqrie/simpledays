@@ -21,7 +21,16 @@ $options = [
 try {
     $pdo = new PDO($dsn, $user, $pass, $options);
 } catch (PDOException $e) {
-    die('Koneksi database gagal: ' . $e->getMessage());
+    // Detail (host/user DB) hanya ke error_log, jangan ke pengunjung
+    error_log('[database] connection failed: ' . $e->getMessage());
+    if (!headers_sent()) {
+        http_response_code(503);
+        header('Retry-After: 120');
+        header('Content-Type: text/html; charset=utf-8');
+    }
+    exit('<!doctype html><meta charset="utf-8"><title>Temporarily unavailable</title>'
+        . '<p style="font-family:sans-serif;text-align:center;margin-top:20vh">'
+        . 'We are temporarily unavailable. Please try again in a few minutes.</p>');
 }
 
 // Migrasi otomatis (migrations/*.php): deploy kode saja, tidak perlu jalankan SQL manual.

@@ -161,8 +161,10 @@ function sendTrackingEmail(array $order, string $trackingNumber, string $courier
 $sql    = "SELECT id,order_number,full_name,email,phone,country_name,address_line_1,address_line_2,city,state,postal_code,courier_code,courier_service,currency,grand_total,payment_status,fulfillment_status,invoice_path,created_at FROM orders WHERE payment_status = 'paid'";
 $params = [];
 if ($search !== '') {
-    $sql .= " AND (order_number LIKE :search OR full_name LIKE :search OR email LIKE :search OR phone LIKE :search)";
-    $params['search'] = '%' . $search . '%';
+    // Placeholder bernama tidak boleh dipakai ulang saat ATTR_EMULATE_PREPARES=false → pakai :s1..:s4
+    $sql .= " AND (order_number LIKE :s1 OR full_name LIKE :s2 OR email LIKE :s3 OR phone LIKE :s4)";
+    $like = '%' . $search . '%';
+    $params = ['s1' => $like, 's2' => $like, 's3' => $like, 's4' => $like];
 }
 $sql .= " ORDER BY id DESC LIMIT 100";
 $orderListStmt = $pdo->prepare($sql);
