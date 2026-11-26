@@ -30,4 +30,8 @@ return [
 
     // Hash password admin: php -r 'echo password_hash("PASSWORD_BARU", PASSWORD_DEFAULT), PHP_EOL;'
     'ADMIN_PASSWORD_HASH' => '',
+
+    // Wise API (cek pembayaran otomatis) — isi di server; private key simpan di luar public_html
+    'WISE_API_TOKEN'        => '',
+    'WISE_PRIVATE_KEY_PATH' => '',
 ];

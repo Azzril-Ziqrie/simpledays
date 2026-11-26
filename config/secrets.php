@@ -20,4 +20,8 @@ return [
     'SMTP_PASSWORD'         => 'Agacil12345!',
     'ADMIN_SMTP_PASSWORD'   => 'Agacil12345!',
     'ADMIN_PASSWORD_HASH'   => '$2y$10$eY.IASFCF3zfKMaMMAi0DuHje4cuy/JUYhXQMvixQr6i72zqrfGM2',
+
+    // Wise API (cek pembayaran otomatis) — isi di server; private key simpan di luar public_html
+    'WISE_API_TOKEN'        => '',
+    'WISE_PRIVATE_KEY_PATH' => '',
 ];
