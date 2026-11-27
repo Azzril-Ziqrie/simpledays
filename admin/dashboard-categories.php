@@ -393,6 +393,7 @@ $categories = $pdo->query("SELECT {$selectCols} FROM categories ORDER BY id DESC
     }
   </style>
   <link rel="stylesheet" href="admin-theme.css?v=1">
+  <script src="../assets/js/validation-en.js" defer></script>
 </head>
 <body>
 

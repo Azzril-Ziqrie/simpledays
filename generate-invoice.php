@@ -85,7 +85,7 @@ function generateInvoicePDF(PDO $pdo, int $orderId): string
 
     $html = '
     <!doctype html>
-    <html>
+    <html lang="en">
     <head>
       <meta charset="utf-8">
       <style>

@@ -218,6 +218,7 @@ function siteBodyClose(array $o = []): void
   <script src="<?= esc(siteAsset('assets/js/mini-cart.js')) ?>"></script>
   <script src="<?= esc(siteAsset('assets/js/vendor/motion.js')) ?>"></script>
   <script src="<?= esc(siteAsset('assets/js/site.js')) ?>"></script>
+  <script src="<?= esc(siteAsset('assets/js/validation-en.js')) ?>"></script>
   <?php foreach (($o['scripts'] ?? []) as $script): ?>
   <script src="<?= esc(siteAsset($script)) ?>"></script>
   <?php endforeach; ?>

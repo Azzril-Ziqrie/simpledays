@@ -198,6 +198,7 @@ $counts[''] = array_sum($counts);
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Orders — <?= h(BRAND_NAME) ?> Admin</title>
   <link rel="stylesheet" href="admin-theme.css?v=1">
+  <script src="../assets/js/validation-en.js" defer></script>
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }

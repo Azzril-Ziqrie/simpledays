@@ -236,6 +236,7 @@ $currentYear = (int) date('Y');
     .year-title-row input { flex: 1; padding: 8px; border: 1px solid #d8d5ce; font-size: 12px; }
   </style>
   <link rel="stylesheet" href="admin-theme.css?v=1">
+  <script src="../assets/js/validation-en.js" defer></script>
 </head>
 <body>
   <header class="topbar">

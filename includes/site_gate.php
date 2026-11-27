@@ -226,6 +226,7 @@ header('Cache-Control: no-store');
     </div>
 <?php endif; ?>
   </main>
+<script src="assets/js/validation-en.js"></script>
 </body>
 </html>
 <?php

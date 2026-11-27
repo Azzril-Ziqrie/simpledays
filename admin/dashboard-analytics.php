@@ -153,6 +153,7 @@ $report = analyticsReport($pdo, $days);
 
   </style>
   <link rel="stylesheet" href="admin-theme.css?v=1">
+  <script src="../assets/js/validation-en.js" defer></script>
   <link rel="stylesheet" href="analytics-panels.css?v=<?= filemtime(__DIR__ . '/analytics-panels.css') ?>">
 </head>
 <body>

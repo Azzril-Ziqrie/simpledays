@@ -63,6 +63,7 @@ $h = static fn($v): string => htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Email Campaign — <?= $h(BRAND_NAME) ?> Admin</title>
   <link rel="stylesheet" href="admin-theme.css?v=1">
+  <script src="../assets/js/validation-en.js" defer></script>
   <style>
     body { font-family: Arial, Helvetica, sans-serif; margin: 0; color: #111; }
     main { max-width: 720px; margin: 0 auto; padding: 32px 20px; }

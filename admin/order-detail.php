@@ -386,6 +386,7 @@ function statusBadgeClass(string $status): string
     }
   </style>
   <link rel="stylesheet" href="admin-theme.css?v=1">
+  <script src="../assets/js/validation-en.js" defer></script>
 </head>
 <body>
   <header class="topbar">

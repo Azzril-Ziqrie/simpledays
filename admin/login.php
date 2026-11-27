@@ -58,6 +58,7 @@ $warnHttps = !ddAdminIsHttps() && !$isLocal;
     .warn{margin-top:16px;font-size:12px;color:#7a5b00;background:#fff8e1;border:1px solid #f0d98c;padding:10px 12px;line-height:1.5}
   </style>
   <link rel="stylesheet" href="admin-theme.css?v=1">
+  <script src="../assets/js/validation-en.js" defer></script>
 </head>
 <body>
   <form class="box" method="POST" action="login.php" autocomplete="off">

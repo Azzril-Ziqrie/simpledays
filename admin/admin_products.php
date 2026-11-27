@@ -252,6 +252,7 @@ $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
   </style>
   <link rel="stylesheet" href="admin-theme.css?v=1">
+  <script src="../assets/js/validation-en.js" defer></script>
 </head>
 <body>
 

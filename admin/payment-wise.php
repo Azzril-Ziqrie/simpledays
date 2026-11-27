@@ -87,6 +87,7 @@ $csrf = ddAdminCsrf();
     @media (max-width: 640px) { .acct { grid-template-columns: 1fr; } }
   </style>
   <link rel="stylesheet" href="admin-theme.css?v=1">
+  <script src="../assets/js/validation-en.js" defer></script>
 </head>
 <body>
   <header class="topbar">
