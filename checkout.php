@@ -755,7 +755,7 @@ details.opt[open]>summary{margin-bottom:10px}
 #promo_code{text-transform:uppercase}
 
 /* ── hadiah campaign ────────────────────────────────── */
-.gift-box{border:1px solid var(--line);padding:16px}
+.gift-box{border:1px solid var(--line);padding:16px;margin-bottom:clamp(24px,3vw,36px)}
 .gift-box fieldset{border:0;margin:0;padding:0;min-width:0}
 .gift-box [hidden]{display:none}
 .gift-title{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:0;margin:0 0 6px;font-weight:500}
@@ -1192,6 +1192,49 @@ siteBodyOpen(['bodyClass' => 'page-checkout', 'searchAction' => 'shop.php']);
         <input type="hidden" name="checkout_mode" value="<?= htmlspecialchars($checkoutMode) ?>">
         <input type="hidden" name="currency" value="USD">
 
+        <!-- Hadiah campaign di paling atas supaya langsung terlihat -->
+        <?php if ($campaign):
+          $giftMin     = (float)$campaign['min_subtotal'];
+          $postedGift  = (int)($_POST['gift_product_size_id'] ?? 0);
+          $checkedGift = campaignFindGift($campaign, $postedGift) ? $postedGift : $campaign['gifts'][0]['product_size_id'];
+          $giftNames   = implode(' or ', array_unique(array_column($campaign['gifts'], 'product_name')));
+        ?>
+        <div class="gift-box" id="giftBox" data-min="<?= htmlspecialchars(number_format($giftMin, 2, '.', '')) ?>">
+          <div id="giftLocked"<?= $giftEligible ? ' hidden' : '' ?>>
+            <p class="gift-title">Free gift on orders of <?= htmlspecialchars(ddFormatMoney($giftMin, $currency)) ?>+</p>
+            <p class="field-hint">Spend <strong id="giftRemaining"><?= htmlspecialchars(ddFormatMoney(max(0, $giftMin - $subtotal), $currency)) ?></strong> more to get a free <?= htmlspecialchars($giftNames) ?>.</p>
+          </div>
+          <fieldset id="giftUnlocked"<?= $giftEligible ? '' : ' hidden disabled' ?>>
+            <legend class="gift-title">Claim your free gift <span class="gift-code" id="giftCode"><?= htmlspecialchars($campaignCode) ?></span></legend>
+            <p class="field-hint">Your code is applied automatically. Choose your free gift:</p>
+            <div class="gift-opts">
+              <?php
+                $giftGroups = [];
+                foreach ($campaign['gifts'] as $g) $giftGroups[$g['product_id']][] = $g;
+              ?>
+              <?php foreach ($giftGroups as $variants): $first = $variants[0]; ?>
+                <div class="gift-product">
+                  <?php if ($first['thumbnail'] !== ''): ?><img class="gift-thumb" src="<?= htmlspecialchars($first['thumbnail']) ?>" alt="" loading="lazy"><?php endif; ?>
+                  <div class="gift-product__body">
+                    <p class="gift-product__name"><?= htmlspecialchars($first['product_name']) ?></p>
+                    <div class="gift-variants">
+                      <?php foreach ($variants as $g): ?>
+                        <label class="gift-opt">
+                          <input type="radio" name="gift_product_size_id" value="<?= (int)$g['product_size_id'] ?>"
+                                 data-label="<?= htmlspecialchars(campaignGiftLabel($g)) ?>"<?= $g['product_size_id'] === $checkedGift ? ' checked' : '' ?>>
+                          <?php if ($g['color_hex']): ?><span class="gift-swatch" style="background:<?= htmlspecialchars($g['color_hex']) ?>"></span><?php endif; ?>
+                          <span><?= htmlspecialchars($g['variant'] !== '' ? $g['variant'] : 'Standard') ?></span>
+                        </label>
+                      <?php endforeach; ?>
+                    </div>
+                  </div>
+                </div>
+              <?php endforeach; ?>
+            </div>
+          </fieldset>
+        </div>
+        <?php endif; ?>
+
         <section class="sec" aria-label="Contact information">
           <h2 class="step-title">Contact</h2>
           <div class="stack">
@@ -1247,47 +1290,6 @@ siteBodyOpen(['bodyClass' => 'page-checkout', 'searchAction' => 'shop.php']);
               <select id="courier_picker"></select>
             </div>
             <div id="shippingOptions" class="shipping-options-box">Enter your shipping address to view available shipping methods.</div>
-            <?php if ($campaign):
-              $giftMin     = (float)$campaign['min_subtotal'];
-              $postedGift  = (int)($_POST['gift_product_size_id'] ?? 0);
-              $checkedGift = campaignFindGift($campaign, $postedGift) ? $postedGift : $campaign['gifts'][0]['product_size_id'];
-              $giftNames   = implode(' or ', array_unique(array_column($campaign['gifts'], 'product_name')));
-            ?>
-            <div class="gift-box" id="giftBox" data-min="<?= htmlspecialchars(number_format($giftMin, 2, '.', '')) ?>">
-              <div id="giftLocked"<?= $giftEligible ? ' hidden' : '' ?>>
-                <p class="gift-title">Free gift on orders of <?= htmlspecialchars(ddFormatMoney($giftMin, $currency)) ?>+</p>
-                <p class="field-hint">Spend <strong id="giftRemaining"><?= htmlspecialchars(ddFormatMoney(max(0, $giftMin - $subtotal), $currency)) ?></strong> more to get a free <?= htmlspecialchars($giftNames) ?>.</p>
-              </div>
-              <fieldset id="giftUnlocked"<?= $giftEligible ? '' : ' hidden disabled' ?>>
-                <legend class="gift-title">Claim your free gift <span class="gift-code" id="giftCode"><?= htmlspecialchars($campaignCode) ?></span></legend>
-                <p class="field-hint">Your code is applied automatically. Choose your free gift:</p>
-                <div class="gift-opts">
-                  <?php
-                    $giftGroups = [];
-                    foreach ($campaign['gifts'] as $g) $giftGroups[$g['product_id']][] = $g;
-                  ?>
-                  <?php foreach ($giftGroups as $variants): $first = $variants[0]; ?>
-                    <div class="gift-product">
-                      <?php if ($first['thumbnail'] !== ''): ?><img class="gift-thumb" src="<?= htmlspecialchars($first['thumbnail']) ?>" alt="" loading="lazy"><?php endif; ?>
-                      <div class="gift-product__body">
-                        <p class="gift-product__name"><?= htmlspecialchars($first['product_name']) ?></p>
-                        <div class="gift-variants">
-                          <?php foreach ($variants as $g): ?>
-                            <label class="gift-opt">
-                              <input type="radio" name="gift_product_size_id" value="<?= (int)$g['product_size_id'] ?>"
-                                     data-label="<?= htmlspecialchars(campaignGiftLabel($g)) ?>"<?= $g['product_size_id'] === $checkedGift ? ' checked' : '' ?>>
-                              <?php if ($g['color_hex']): ?><span class="gift-swatch" style="background:<?= htmlspecialchars($g['color_hex']) ?>"></span><?php endif; ?>
-                              <span><?= htmlspecialchars($g['variant'] !== '' ? $g['variant'] : 'Standard') ?></span>
-                            </label>
-                          <?php endforeach; ?>
-                        </div>
-                      </div>
-                    </div>
-                  <?php endforeach; ?>
-                </div>
-              </fieldset>
-            </div>
-            <?php endif; ?>
             <details class="opt" id="promoBox"<?= $form['promo_code'] !== '' ? ' open' : '' ?>>
               <summary>Have a promo code?</summary>
               <div class="promo-row">
