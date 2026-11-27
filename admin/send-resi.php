@@ -3,6 +3,7 @@ require_once __DIR__ . '/_guard.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/env.php';
 require_once __DIR__ . '/../includes/currency_helper.php';
+require_once __DIR__ . '/../includes/email_layout.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
@@ -51,84 +52,27 @@ function buildInvoiceUrl(array $order): string
 
 function buildShippingEmailTemplate(array $order, string $trackingNumber, string $courier, string $service): string
 {
-    $customerName = e(orderValue($order, 'full_name', 'Customer'));
-    $orderNumber  = e(orderValue($order, 'order_number'));
-    $courierSafe  = e($courier);
-    $serviceSafe  = e($service);
-    $trackingSafe = e($trackingNumber);
-    $invoiceUrl   = buildInvoiceUrl($order);
+    $firstName   = strtok(orderValue($order, 'full_name', 'there'), ' ') ?: 'there';
+    $orderNumber = orderValue($order, 'order_number');
+    $invoiceUrl  = buildInvoiceUrl($order);
 
-    $invoiceHtml = '';
-    if ($invoiceUrl !== '') {
-        $invoiceHtml = '
-          <tr>
-            <td style="padding-top:10px;font-size:14px;line-height:1.7;color:#444;">
-              Invoice:
-              <a href="' . e($invoiceUrl) . '" style="color:#111;text-decoration:underline;">Download Invoice</a>
-            </td>
-          </tr>';
-    }
+    $content = ddEmailHeading('Your order is on its way, ' . $firstName . '.')
+        . ddEmailParagraph('Good news — your order has shipped. Use the tracking number below to follow it with ' . ddEmailEsc($courier) . '.', true)
+        . ddEmailHighlight('Tracking number', $trackingNumber)
+        . ddEmailDetails([
+            ['Order', ddEmailEsc($orderNumber)],
+            ['Courier', ddEmailEsc($courier)],
+            ['Service', ddEmailEsc($service)],
+        ])
+        . ($invoiceUrl !== '' ? ddEmailButton('Download invoice', $invoiceUrl) : '')
+        . ddEmailParagraph('Questions about your delivery? Just reply to this email.', true)
+        . ddEmailSignoff();
 
-    return '
-    <!doctype html>
-    <html>
-    <head><meta charset="utf-8"><title>Your Order Has Been Shipped</title></head>
-    <body style="margin:0;padding:0;background:#faf9f5;font-family:Arial,Helvetica,sans-serif;color:#111;">
-      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#faf9f5;padding:30px 16px;">
-        <tr>
-          <td align="center">
-            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:640px;background:#ffffff;border:1px solid #d8d5ce;">
-               <tr>
-                 <td style="padding:24px 24px 18px;border-bottom:1px solid #d8d5ce;text-align:center;">
-                   <div style="font-size:11px;letter-spacing:1.8px;text-transform:uppercase;color:#888;margin-bottom:10px;">' . e(STORE_NAME) . '</div>
-                   <div style="font-size:26px;line-height:1.1;font-weight:400;text-transform:uppercase;color:#111;letter-spacing:-0.5px;">Shipping Update</div>
-                 </td>
-               </tr>
-              <tr>
-                <td style="padding:24px;">
-                  <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                    <tr><td style="font-size:15px;line-height:1.8;color:#333;padding-bottom:14px;">Hi <strong>' . $customerName . '</strong>,</td></tr>
-                    <tr><td style="font-size:15px;line-height:1.8;color:#555;padding-bottom:18px;">Your order has been shipped successfully. Below are your shipping details:</td></tr>
-                  </table>
-                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin-bottom:22px;">
-                    <tr>
-                      <td style="width:180px;padding:12px;border:1px solid #d8d5ce;background:#faf9f5;font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:#777;">Order Number</td>
-                      <td style="padding:12px;border:1px solid #d8d5ce;font-size:14px;color:#111;">' . $orderNumber . '</td>
-                    </tr>
-                    <tr>
-                      <td style="width:180px;padding:12px;border:1px solid #d8d5ce;background:#faf9f5;font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:#777;">Courier</td>
-                      <td style="padding:12px;border:1px solid #d8d5ce;font-size:14px;color:#111;">' . $courierSafe . '</td>
-                    </tr>
-                    <tr>
-                      <td style="width:180px;padding:12px;border:1px solid #d8d5ce;background:#faf9f5;font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:#777;">Service</td>
-                      <td style="padding:12px;border:1px solid #d8d5ce;font-size:14px;color:#111;">' . $serviceSafe . '</td>
-                    </tr>
-                    <tr>
-                      <td style="width:180px;padding:12px;border:1px solid #d8d5ce;background:#faf9f5;font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:#777;">Tracking Number</td>
-                      <td style="padding:12px;border:1px solid #d8d5ce;font-size:16px;color:#111;font-weight:bold;">' . $trackingSafe . '</td>
-                    </tr>
-                  </table>
-                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:20px;">
-                    <tr><td style="font-size:14px;line-height:1.7;color:#555;">Please keep this tracking number for your shipment reference.</td></tr>
-                    ' . $invoiceHtml . '
-                  </table>
-                  <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                    <tr><td style="font-size:14px;line-height:1.7;color:#555;padding-top:4px;">Thank you for shopping with ' . e(STORE_NAME) . '.</td></tr>
-                    <tr><td style="font-size:14px;line-height:1.7;color:#555;padding-top:14px;">Regards,<br><strong>' . e(STORE_NAME) . '</strong><br>' . e(STORE_EMAIL) . '</td></tr>
-                  </table>
-                </td>
-              </tr>
-              <tr>
-                <td style="padding:16px 24px;border-top:1px solid #d8d5ce;background:#faf9f5;font-size:12px;line-height:1.7;color:#888;text-align:center;">
-                  This email was sent automatically by ' . e(STORE_NAME) . '.
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-      </table>
-    </body>
-    </html>';
+    return ddEmailLayout(
+        'Your order has shipped',
+        'Order ' . $orderNumber . ' has shipped via ' . $courier . '. Tracking number: ' . $trackingNumber . '.',
+        $content
+    );
 }
 
 function sendTrackingEmail(array $order, string $trackingNumber, string $courier, string $service): void

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../config/env.php';
 require_once __DIR__ . '/brand.php';
+require_once __DIR__ . '/email_layout.php';
 
 // Konstanta Konfigurasi SMTP & URL
 if (!defined('DD_SMTP_HOST')) {
@@ -66,55 +67,6 @@ function sendDDInvoiceEmail(PDO $pdo, array $order): bool
     }
 
     $items = getDDOrderItemsForEmail($pdo, (int)($order['id'] ?? 0));
-    $itemRows = '';
-
-    foreach ($items as $item) {
-        $pName = htmlspecialchars((string)($item['product_name'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $sName = trim((string)($item['size_name'] ?? ''));
-        $qty = (int)($item['quantity'] ?? 0);
-        $unitPrice = formatDDEmailMoney($item['price'] ?? 0, (string)($order['currency'] ?? 'USD'));
-        $lineTotal = formatDDEmailMoney($item['line_total'] ?? 0, (string)($order['currency'] ?? 'USD'));
-        $thumbRaw = trim((string)($item['thumbnail'] ?? ''));
-        $thumbSrc = '';
-        if ($thumbRaw !== '') {
-            if (preg_match('#^https?://#i', $thumbRaw)) {
-                $thumbSrc = $thumbRaw;
-            } else {
-                $thumbSrc = rtrim(DD_SITE_URL, '/') . '/' . ltrim($thumbRaw, '/');
-            }
-        }
-
-        $sizeHtml = '';
-        if ($sName !== '' && !in_array(strtolower($sName), ['one size', 'default'], true)) {
-            $sizeHtml = '<div style="font-size:10px;font-weight:600;letter-spacing:.1em;color:#888;margin-top:4px;">SIZE: ' . htmlspecialchars($sName, ENT_QUOTES, 'UTF-8') . '</div>';
-        }
-
-        $thumbHtml = $thumbSrc !== ''
-            ? '<img src="' . htmlspecialchars($thumbSrc, ENT_QUOTES, 'UTF-8') . '" alt="' . $pName . '" width="70" height="90" style="display:block;width:70px;height:90px;object-fit:cover;background:#fff;border:0;">'
-            : '<div style="width:70px;height:90px;background:#f9f9f9;"></div>';
-
-        $itemRows .= '
-        <tr>
-          <td style="padding:18px 0;border-bottom:1px solid #eee;">
-            <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;">
-              <tr>
-                <td style="vertical-align:top;padding-right:18px;">' . $thumbHtml . '</td>
-                <td style="vertical-align:top;">
-                  <div style="font-size:11px;font-weight:700;letter-spacing:.05em;color:#111;margin-bottom:6px;">' . $pName . '</div>
-                  ' . $sizeHtml . '
-                  <div style="font-size:10px;font-weight:600;letter-spacing:.1em;color:#888;margin-top:8px;">QTY: ' . $qty . '</div>
-                  <div style="font-size:11px;font-weight:600;letter-spacing:.05em;color:#111;margin-top:6px;">' . $unitPrice . '</div>
-                </td>
-              </tr>
-            </table>
-          </td>
-          <td style="padding:18px 0;border-bottom:1px solid #eee;text-align:right;vertical-align:top;font-size:11px;font-weight:600;letter-spacing:.05em;color:#111;white-space:nowrap;">' . $lineTotal . '</td>
-        </tr>';
-    }
-
-    if ($itemRows === '') {
-        $itemRows = '<tr><td colspan="2" style="padding:18px 0;color:#999;font-size:11px;font-weight:600;letter-spacing:.1em;text-align:center;">ORDER ITEMS ARE BEING PROCESSED.</td></tr>';
-    }
 
     $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
 
@@ -138,79 +90,11 @@ function sendDDInvoiceEmail(PDO $pdo, array $order): bool
             $mail->addBCC($adminEmail, BRAND_NAME . ' Admin');
         }
 
-        $orderNumber = htmlspecialchars((string)($order['order_number'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $fullName = htmlspecialchars((string)($order['full_name'] ?? 'Customer'), ENT_QUOTES, 'UTF-8');
-        $subtotal = formatDDEmailMoney($order['subtotal'] ?? 0, (string)($order['currency'] ?? 'USD'));
-        $shipping = formatDDEmailMoney($order['shipping_cost'] ?? 0, (string)($order['currency'] ?? 'USD'));
         $grandTotal = formatDDEmailMoney($order['grand_total'] ?? 0, (string)($order['currency'] ?? 'USD'));
-        $discountRow = '';
-        if ($orderDiscount = promoOrderDiscount($order)) {
-            $discountRow = '<tr>
-                  <td style="padding:8px 0;color:#555;font-size:11px;font-weight:600;letter-spacing:.1em;">' . htmlspecialchars($orderDiscount['label'], ENT_QUOTES, 'UTF-8') . '</td>
-                  <td style="padding:8px 0;text-align:right;font-size:11px;font-weight:600;letter-spacing:.08em;">-' . formatDDEmailMoney($orderDiscount['amount'], (string)($order['currency'] ?? 'USD')) . '</td>
-                </tr>';
-        }
-        $address = htmlspecialchars(trim((string)($order['address_line_1'] ?? '') . ' ' . (string)($order['address_line_2'] ?? '')), ENT_QUOTES, 'UTF-8');
-        $cityLine = htmlspecialchars(trim((string)($order['city'] ?? '') . ', ' . (string)($order['state'] ?? '') . ' ' . (string)($order['postal_code'] ?? '')), ENT_QUOTES, 'UTF-8');
-        $country = htmlspecialchars((string)($order['country_name'] ?? 'Indonesia'), ENT_QUOTES, 'UTF-8');
 
         $mail->isHTML(true);
         $mail->Subject = BRAND_NAME . ' Order Invoice — ' . (string)($order['order_number'] ?? '');
-        $mail->Body = '
-        <div style="font-family:\'Helvetica Neue\',Helvetica,Arial,sans-serif;color:#111;background:#fafafa;padding:40px 20px;line-height:1.6;letter-spacing:.02em;">
-          <div style="max-width:600px;margin:0 auto;background:#fff;border:1px solid #eee;">
-
-            <!-- Header -->
-            <div style="padding:40px 30px;text-align:center;border-bottom:1px solid #eee;">
-              <img src="' . rtrim(DD_SITE_URL, '/') . '/' . BRAND_LOGO . '" alt="' . BRAND_NAME . '" style="height:40px;width:auto;display:inline-block;">
-              <div style="font-size:10px;font-weight:600;color:#888;margin-top:15px;letter-spacing:.15em;">Order Invoice</div>
-            </div>
-
-            <div style="padding:40px 30px;">
-              <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.1em;color:#111;">Hi ' . $fullName . ',</p>
-              <p style="margin:0 0 30px;color:#555;font-size:11px;font-weight:500;letter-spacing:.08em;">Your payment has been received &mdash; your order is now being processed.</p>
-
-              <div style="background:#fafafa;border:1px solid #eee;padding:20px;margin-bottom:35px;text-align:center;">
-                <div style="font-size:10px;font-weight:600;color:#888;letter-spacing:.15em;">Order Number</div>
-                <div style="font-size:16px;font-weight:700;margin-top:8px;letter-spacing:.1em;color:#111;">' . $orderNumber . '</div>
-              </div>
-
-              <div style="font-size:11px;font-weight:700;letter-spacing:.1em;color:#111;padding-bottom:12px;border-bottom:2px solid #111;margin-bottom:8px;">Items</div>
-              <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:30px;">' . $itemRows . '</table>
-
-              <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-top:1px solid #eee;padding-top:15px;">
-                <tr>
-                  <td style="padding:8px 0;color:#555;font-size:11px;font-weight:600;letter-spacing:.1em;">Subtotal</td>
-                  <td style="padding:8px 0;text-align:right;font-size:11px;font-weight:600;letter-spacing:.08em;">' . $subtotal . '</td>
-                </tr>
-                <tr>
-                  <td style="padding:8px 0;color:#555;font-size:11px;font-weight:600;letter-spacing:.1em;">Shipping</td>
-                  <td style="padding:8px 0;text-align:right;font-size:11px;font-weight:600;letter-spacing:.08em;">' . $shipping . '</td>
-                </tr>' . $discountRow . '
-                <tr>
-                  <td style="padding:20px 0 0;border-top:1px solid #eee;font-weight:700;font-size:12px;letter-spacing:.1em;color:#111;">Grand Total</td>
-                  <td style="padding:20px 0 0;border-top:1px solid #eee;text-align:right;font-weight:700;font-size:14px;letter-spacing:.05em;color:#111;">' . $grandTotal . '</td>
-                </tr>
-              </table>
-
-              <div style="margin-top:35px;padding:20px;border:1px solid #eee;background:#fafafa;">
-                <div style="font-size:10px;font-weight:700;color:#111;letter-spacing:.15em;margin-bottom:12px;">Shipping Address</div>
-                <div style="font-size:11px;font-weight:500;line-height:1.8;letter-spacing:.08em;color:#555;">' . $address . '<br>' . $cityLine . '<br>' . $country . '</div>
-              </div>
-
-              <p style="margin:35px 0 0;color:#555;font-size:11px;font-weight:600;letter-spacing:.1em;">Thank you for shopping with us.</p>
-              <p style="margin:10px 0 0;font-size:12px;font-weight:900;letter-spacing:.1em;color:#111;">' . BRAND_NAME . '</p>
-            </div>
-
-            <!-- Footer -->
-            <div style="border-top:1px solid #eee;padding:25px 30px;background:#fafafa;text-align:center;">
-              <div style="font-size:10px;font-weight:500;letter-spacing:.1em;color:#888;">
-                &copy; ' . date('Y') . ' ' . BRAND_NAME . '<br><br>
-              </div>
-            </div>
-
-          </div>
-        </div>';
+        $mail->Body = ddInvoiceEmailHtml($order, $items);
 
         $mail->AltBody = BRAND_NAME . ' Order Invoice — ' . (string)($order['order_number'] ?? '') . '. Total: ' . $grandTotal . '.';
         $mail->send();
@@ -219,4 +103,85 @@ function sendDDInvoiceEmail(PDO $pdo, array $order): bool
         error_log('Invoice email failed: ' . $e->getMessage());
         return false;
     }
+}
+
+/** HTML email invoice: sapaan, nomor order, daftar item, ringkasan biaya, alamat kirim. */
+function ddInvoiceEmailHtml(array $order, array $items): string
+{
+    $currency = (string)($order['currency'] ?? 'USD');
+    $money = static fn($amount): string => ddEmailEsc(formatDDEmailMoney($amount ?? 0, $currency));
+    $firstName = strtok(trim((string)($order['full_name'] ?? '')), ' ') ?: 'there';
+    $orderNumber = (string)($order['order_number'] ?? '');
+
+    $summary = [['Subtotal', $money($order['subtotal'] ?? 0)], ['Shipping', $money($order['shipping_cost'] ?? 0)]];
+    if ($discount = promoOrderDiscount($order)) {
+        $summary[] = [$discount['label'], '−' . $money($discount['amount'])];
+    }
+    $summary[] = ['Total', $money($order['grand_total'] ?? 0), true];
+
+    $content = ddEmailHeading('Thanks for your order, ' . $firstName . '.')
+        . ddEmailParagraph('Your payment has been received and we’re preparing your order. We’ll email you again with tracking details once it ships.', true)
+        . ddEmailHighlight('Order number', $orderNumber)
+        . ddEmailSection('Items')
+        . ddInvoiceItemsHtml($items, $money)
+        . ddEmailDetails($summary)
+        . ddEmailSection('Shipping to')
+        . ddEmailParagraph(ddInvoiceAddressHtml($order), true)
+        . ddEmailButton('Visit ' . BRAND_NAME, ddEmailSiteUrl())
+        . ddEmailSignoff();
+
+    return ddEmailLayout(
+        BRAND_NAME . ' Order ' . $orderNumber,
+        'Payment received for order ' . $orderNumber . '. Total ' . formatDDEmailMoney($order['grand_total'] ?? 0, $currency) . '.',
+        $content
+    );
+}
+
+/** Baris item: foto, nama, ukuran × jumlah, total baris. */
+function ddInvoiceItemsHtml(array $items, callable $money): string
+{
+    if (!$items) {
+        return ddEmailParagraph('Your order items are being processed.', true);
+    }
+
+    $rows = '';
+    foreach ($items as $item) {
+        $name = ddEmailEsc((string)($item['product_name'] ?? ''));
+        $size = trim((string)($item['size_name'] ?? ''));
+        $meta = 'Qty ' . (int)($item['quantity'] ?? 0);
+        if ($size !== '' && !in_array(strtolower($size), ['one size', 'default'], true)) {
+            $meta = 'Size ' . ddEmailEsc($size) . ' · ' . $meta;
+        }
+
+        $rows .= '<tr>
+          <td class="em-line" width="72" style="padding:16px 16px 16px 0;border-bottom:1px solid ' . EMAIL_LINE . ';vertical-align:top;">' . ddInvoiceThumbHtml($item, $name) . '</td>
+          <td class="em-line" style="padding:16px 0;border-bottom:1px solid ' . EMAIL_LINE . ';vertical-align:top;">
+            <div class="em-ink" style="font-size:15px;line-height:1.4;font-weight:600;color:' . EMAIL_INK . ';">' . $name . '</div>
+            <div class="em-ink-2" style="margin-top:4px;font-size:13px;line-height:1.4;color:' . EMAIL_INK_2 . ';">' . $meta . '</div>
+          </td>
+          <td class="em-ink em-line" align="right" style="padding:16px 0 16px 12px;border-bottom:1px solid ' . EMAIL_LINE . ';vertical-align:top;font-size:15px;line-height:1.4;color:' . EMAIL_INK . ';white-space:nowrap;">' . $money($item['line_total'] ?? 0) . '</td>
+        </tr>';
+    }
+    return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:4px 0 8px;">' . $rows . '</table>';
+}
+
+function ddInvoiceThumbHtml(array $item, string $altEscaped): string
+{
+    $raw = trim((string)($item['thumbnail'] ?? ''));
+    if ($raw === '') {
+        return '<div class="em-fill" style="width:72px;height:90px;border-radius:10px;background:' . EMAIL_FILL . ';"></div>';
+    }
+    $src = preg_match('#^https?://#i', $raw) ? $raw : ddEmailSiteUrl() . '/' . ltrim($raw, '/');
+    return '<img src="' . ddEmailEsc($src) . '" alt="' . $altEscaped . '" width="72" height="90" style="display:block;width:72px;height:90px;object-fit:cover;border-radius:10px;border:0;background:' . EMAIL_FILL . ';">';
+}
+
+function ddInvoiceAddressHtml(array $order): string
+{
+    $lines = [
+        trim((string)($order['full_name'] ?? '')),
+        trim((string)($order['address_line_1'] ?? '') . ' ' . (string)($order['address_line_2'] ?? '')),
+        trim(implode(', ', array_filter([trim((string)($order['city'] ?? '')), trim((string)($order['state'] ?? '') . ' ' . (string)($order['postal_code'] ?? ''))]))),
+        trim((string)($order['country_name'] ?? '')),
+    ];
+    return implode('<br>', array_map('ddEmailEsc', array_filter($lines, 'strlen')));
 }

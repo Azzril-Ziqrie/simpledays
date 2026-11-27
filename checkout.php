@@ -838,7 +838,7 @@ details.opt[open]>summary{margin-bottom:10px}
 .bank-value small{display:block;font-weight:400;color:var(--ink-2);font-size:11px}
 .upload-zone{border:1px dashed #bbb;padding:16px;margin:14px 0;background:#fff}
 .file-input{width:100%;font-size:12px}
-#paypal-button-container,#apple-pay-button,#google-pay-button{max-width:440px}
+#paypal-button-container,#card-button-container,#apple-pay-button,#google-pay-button{max-width:440px}
 apple-pay-button{--apple-pay-button-width:100%;--apple-pay-button-height:44px;--apple-pay-button-border-radius:0;--apple-pay-button-padding:0;display:block}
 .pay-opt[hidden],#express-status:empty{display:none}
 .copy-status{font-size:11px;color:var(--ok);min-height:16px;margin-top:6px}
@@ -1045,11 +1045,25 @@ siteBodyOpen(['bodyClass' => 'page-checkout', 'searchAction' => 'shop.php']);
             <label for="pm_paypal" class="pay-row"><span class="rdot"></span><span class="pay-name">PayPal</span><span class="pay-logos"><span class="chip pp"><?= bankLogoHtml('paypal', 'PayPal') ?></span></span></label>
             <div class="pay-panel">
               <p class="pay-note">
-                Pay securely with PayPal or a credit/debit card.
+                Pay securely with your PayPal account.
                 <?php if ($payCurrency === 'IDR'): ?>PayPal does not support IDR, so you will be charged <strong>$<?= htmlspecialchars($payCharge['value']) ?> USD</strong>.<?php endif; ?>
               </p>
               <div id="paypal-button-container"></div>
               <div class="copy-status" id="paypal-status" style="color:var(--err)"></div>
+            </div>
+          </div>
+
+          <!-- Kartu debit/kredit (diproses PayPal, tanpa perlu akun PayPal; selalu USD) -->
+          <div class="pay-opt">
+            <input type="radio" class="pm-radio" name="paymethod" id="pm_card">
+            <label for="pm_card" class="pay-row"><span class="rdot"></span><span class="pay-name">Debit or Credit Card</span><span class="pay-logos"><span class="chip"><?= bankLogoHtml('visa', 'Visa') ?></span><span class="chip"><?= bankLogoHtml('mastercard', 'Mastercard') ?></span></span></label>
+            <div class="pay-panel">
+              <p class="pay-note">
+                Pay with Visa, Mastercard or other cards. No PayPal account needed.
+                <?php if ($payCurrency === 'IDR'): ?>You will be charged <strong>$<?= htmlspecialchars($payCharge['value']) ?> USD</strong>.<?php endif; ?>
+              </p>
+              <div id="card-button-container"></div>
+              <div class="copy-status" id="card-status" style="color:var(--err)"></div>
             </div>
           </div>
 
@@ -1423,16 +1437,17 @@ siteBodyClose();
     const uploadBtn  = document.getElementById('uploadBtn');
     if (uploadForm && uploadBtn) uploadForm.addEventListener('submit', function () { uploadBtn.disabled = true; uploadBtn.textContent = 'Uploading...'; });
 
-    /* PayPal: dirender saat baris PayPal pertama kali dipilih (container baru terlihat saat itu) */
-    const box = document.getElementById('paypal-button-container');
-    const status = document.getElementById('paypal-status');
-    const fail = msg => { if (status) status.textContent = msg; };
-    let paypalRendered = false;
-    function renderPayPal() {
-      if (paypalRendered || !box) return;
-      paypalRendered = true;
-      if (!window.paypal) { box.textContent = 'PayPal could not be loaded. Please refresh the page.'; return; }
-      paypal.Buttons({
+    /* PayPal & kartu: masing-masing dirender saat barisnya pertama kali dipilih (container baru terlihat saat itu).
+       fundingSource memisahkan tombol: PayPal hanya akun PayPal, kartu langsung membuka form debit/kredit. */
+    function renderFunding(funding, boxId, statusId) {
+      const box = document.getElementById(boxId);
+      const status = document.getElementById(statusId);
+      const fail = msg => { if (status) status.textContent = msg; };
+      if (!box || box.dataset.rendered) return;
+      box.dataset.rendered = '1';
+      if (!window.paypal) { box.textContent = 'Payment could not be loaded. Please refresh the page.'; return; }
+      const buttons = paypal.Buttons({
+        fundingSource: paypal.FUNDING[funding],
         createOrder: function () {
           return fetch('paypal-create-order.php?order=' + encodeURIComponent(ORDER_NUMBER), { method: 'POST' })
             .then(r => r.json())
@@ -1454,11 +1469,21 @@ siteBodyClose();
               }
             });
         },
-        onError: function () { fail('PayPal error. Please try again.'); }
-      }).render('#paypal-button-container');
+        onError: function () { fail('Payment error. Please try again.'); }
+      });
+      if (!buttons.isEligible()) { box.textContent = 'This payment method is not available right now. Please choose another one.'; return; }
+      buttons.render('#' + boxId);
     }
-    const ppRadio = document.getElementById('pm_paypal');
-    if (ppRadio) ppRadio.addEventListener('change', () => { if (ppRadio.checked) renderPayPal(); });
+    const FUNDING_OPTIONS = [
+      { radioId: 'pm_paypal', funding: 'PAYPAL', boxId: 'paypal-button-container', statusId: 'paypal-status' },
+      { radioId: 'pm_card',   funding: 'CARD',   boxId: 'card-button-container',   statusId: 'card-status' },
+    ];
+    FUNDING_OPTIONS.forEach(function (opt) {
+      const radio = document.getElementById(opt.radioId);
+      if (radio) radio.addEventListener('change', () => {
+        if (radio.checked) renderFunding(opt.funding, opt.boxId, opt.statusId);
+      });
+    });
   })();
   </script>
   <?php endif; ?>
