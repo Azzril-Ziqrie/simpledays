@@ -101,10 +101,12 @@ $productSizes = $sizeStmt->fetchAll(PDO::FETCH_ASSOC);
 // Urut menurut sort_order dulu (S/M sebelum L/XL), lalu natural (1, 2, 10) untuk yang sama.
 usort($productSizes, 'ddCompareSizes'); // S/M sebelum L/XL walau sort_order di admin belum diatur
 
-$availableSizes = array_values(array_filter($productSizes, fn($s) => (int)$s['is_active']===1 && (int)$s['stock']>0));
+// Semua ukuran aktif tetap tampil; yang stoknya habis ditandai "Sold out" dan tidak bisa dipilih
+$activeSizes    = array_values(array_filter($productSizes, fn($s) => (int)$s['is_active'] === 1));
+$availableSizes = array_values(array_filter($activeSizes, fn($s) => (int)$s['stock'] > 0));
 $isSoldOut = count($availableSizes) === 0;
 // Pilihan ukuran tampil kalau produk punya ukuran nyata (bukan "One size"), walau flag has_size kategorinya mati
-foreach ($availableSizes as $v) {
+foreach ($activeSizes as $v) {
     if (!in_array(strtolower(trim((string)$v['name'])), ['one size', 'onesize', 'default', ''], true)) { $hasSizeSelector = true; break; }
 }
 // Produk hadiah campaign: tidak bisa di-cart, hanya diklaim di checkout
@@ -235,7 +237,7 @@ siteHeadOpen([
 .color-btn--text.active{color:var(--ink);border-bottom-color:var(--ink)}
 
 /* ukuran: teks polos, yang dipilih bergaris bawah */
-.pdp-sizes{display:flex;flex-wrap:wrap;gap:6px 22px}
+.pdp-sizes{display:flex;flex-wrap:wrap;align-items:flex-start;gap:6px 22px}
 .size-btn{
   padding:6px 0;border:0;border-bottom:1px solid transparent;background:none;color:var(--mute);
   font-size:13px;letter-spacing:.05em;cursor:pointer;
@@ -246,6 +248,10 @@ siteHeadOpen([
 .size-btn:active{transform:scale(.94)}
 .size-btn.active{color:var(--ink);border-bottom-color:var(--ink)}
 .size-btn:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.size-btn__name,.size-btn__note{display:block}
+.size-btn__note{margin-top:2px;font-size:9px;letter-spacing:.08em;text-transform:uppercase}
+.size-btn--soldout,.size-btn--soldout:hover{color:var(--mute);cursor:not-allowed;transform:none}
+.size-btn--soldout .size-btn__name{text-decoration:line-through;opacity:.6}
 .pdp-soldout{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--mute)}
 
 .pdp-desc{margin-top:36px;font-size:12.5px;line-height:1.75;letter-spacing:.01em;color:var(--ink)}
@@ -377,22 +383,24 @@ siteBodyOpen(['bodyClass' => 'page-product', 'searchAction' => 'shop.php']);
         </div>
       <?php endif; ?>
 
-      <?php if ($hasSizeSelector && !$isSoldOut): ?>
+      <?php if ($hasSizeSelector && $activeSizes): ?>
         <div class="pdp-field">
           <span class="sr-only">Size</span>
           <div class="pdp-sizes" id="sizeBtnGroup" role="group" aria-label="Select size">
-            <?php foreach ($availableSizes as $size): ?>
+            <?php foreach ($activeSizes as $size): ?>
               <?php
+                $sizeSoldOut = (int)$size['stock'] <= 0;
                 $isSelectedOpt = $selectedProductSizeId === (int)$size['product_size_id'];
                 $sizeColor = trim((string)($size['color_name'] ?? ''));
                 $showSize = !$hasColorChoices || $sizeColor === '' || strcasecmp($sizeColor, $selectedColor) === 0;
               ?>
-              <button type="button" class="size-btn<?= $isSelectedOpt ? ' active' : '' ?>"
+              <button type="button" class="size-btn<?= $isSelectedOpt ? ' active' : '' ?><?= $sizeSoldOut ? ' size-btn--soldout' : '' ?>"
                       data-id="<?= (int)$size['product_size_id'] ?>"
                       data-size="<?= esc($size['name']) ?>"
                       data-color="<?= esc($sizeColor) ?>"
                       data-stock="<?= (int)$size['stock'] ?>"
-                      aria-pressed="<?= $isSelectedOpt ? 'true' : 'false' ?>"<?= $showSize ? '' : ' hidden' ?>><?= esc($size['name']) ?></button>
+                      aria-pressed="<?= $isSelectedOpt ? 'true' : 'false' ?>"
+                      <?= $sizeSoldOut ? 'disabled aria-label="' . esc($size['name']) . ', sold out"' : '' ?><?= $showSize ? '' : ' hidden' ?>><span class="size-btn__name"><?= esc($size['name']) ?></span><?php if ($sizeSoldOut): ?><span class="size-btn__note">Sold out</span><?php endif; ?></button>
             <?php endforeach; ?>
           </div>
         </div>
