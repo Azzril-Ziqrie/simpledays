@@ -18,7 +18,7 @@
 require_once __DIR__ . '/db_schema.php';
 require_once __DIR__ . '/variants.php';
 
-const CAMPAIGN_MAX_PRODUCTS  = 2;
+const CAMPAIGN_MAX_PRODUCTS  = 20; // product_ids VARCHAR(100): 20 id × 4 digit + koma muat
 const CAMPAIGN_CODE_PREFIX   = 'GIFT-';
 const CAMPAIGN_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // tanpa 0/O/1/I supaya mudah dibaca
 

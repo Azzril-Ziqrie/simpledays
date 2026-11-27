@@ -14,10 +14,10 @@ $error   = '';
 /** Ambil & validasi isian form campaign. @return array{0: array, 1: ?string} [data, error] */
 function readCampaignForm(array $post): array
 {
-    $productIds = array_values(array_unique(array_filter(
-        array_map('intval', [(string)($post['product_1'] ?? ''), (string)($post['product_2'] ?? '')]),
+    $productIds = array_slice(array_values(array_unique(array_filter(
+        array_map('intval', (array)($post['product_ids'] ?? [])),
         static fn(int $id): bool => $id > 0
-    )));
+    ))), 0, CAMPAIGN_MAX_PRODUCTS);
     $data = [
         'name'         => trim((string)($post['name'] ?? '')),
         'min_subtotal' => max(0.0, round((float)($post['min_subtotal'] ?? 0), 2)),
@@ -172,6 +172,13 @@ $csrf = ddAdminCsrf();
     .badge.expired { border-color: #d70015; color: #d70015; }
     .row-actions { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
     .row-actions form { margin: 0; }
+    .field--wide { grid-column: 1 / -1; }
+    .gift-pick { max-height: 280px; overflow-y: auto; border: 1px solid #bdbdbd; background: #fff; }
+    .gift-pick__row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #eee; cursor: pointer; text-transform: none; letter-spacing: 0; font-size: 13px; }
+    .gift-pick__row:has(input:checked) { background: #f1f1f1; }
+    .gift-pick__row input { width: auto; min-height: auto; }
+    .gift-pick__row small { margin-left: auto; color: #777; }
+    .gift-pick__row[hidden] { display: none; }
     @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
   </style>
   <link rel="stylesheet" href="admin-theme.css?v=1">
@@ -214,20 +221,20 @@ $csrf = ddAdminCsrf();
             <input type="number" id="min_subtotal" name="min_subtotal" min="0.01" step="0.01" required value="<?= htmlspecialchars((string)$form['min_subtotal']) ?>">
             <small>Cart subtotal before shipping and promo discounts. The gift unlocks at this amount or more.</small>
           </div>
-          <?php foreach ([1, 2] as $n): $selected = $formProducts[$n - 1] ?? 0; ?>
-          <div class="field">
-            <label for="product_<?= $n ?>">Gift product <?= $n ?><?= $n === 2 ? ' (optional)' : '' ?></label>
-            <select id="product_<?= $n ?>" name="product_<?= $n ?>"<?= $n === 1 ? ' required' : '' ?>>
-              <option value=""><?= $n === 1 ? 'Choose a product' : 'None' ?></option>
-              <?php foreach ($products as $p): ?>
-                <option value="<?= (int)$p['id'] ?>"<?= (int)$p['id'] === $selected ? ' selected' : '' ?>>
-                  <?= htmlspecialchars($p['name']) ?> — stock <?= (int)$p['stock'] ?><?= (int)$p['is_active'] === 1 ? '' : ' (hidden in shop)' ?>
-                </option>
+          <div class="field field--wide">
+            <label for="giftSearch">Gift products</label>
+            <input type="search" id="giftSearch" placeholder="Search products…" autocomplete="off">
+            <div class="gift-pick" id="giftPick">
+              <?php foreach ($products as $p): $pid = (int)$p['id']; ?>
+                <label class="gift-pick__row" data-name="<?= htmlspecialchars(strtolower($p['name'])) ?>">
+                  <input type="checkbox" name="product_ids[]" value="<?= $pid ?>"<?= in_array($pid, $formProducts, true) ? ' checked' : '' ?>>
+                  <span><?= htmlspecialchars($p['name']) ?></span>
+                  <small>stock <?= (int)$p['stock'] ?><?= (int)$p['is_active'] === 1 ? '' : ' · hidden in shop' ?></small>
+                </label>
               <?php endforeach; ?>
-            </select>
-            <?php if ($n === 1): ?><small>Shoppers choose from every colour/size of the gift that is in stock. Create the gift product first in Products, with its colours in Sizes &amp; stock.</small><?php else: ?><small>Add a second product to let shoppers pick one of the two.</small><?php endif; ?>
+            </div>
+            <small><span id="giftCount"><?= count($formProducts) ?></span> selected (up to <?= CAMPAIGN_MAX_PRODUCTS ?>). Shoppers pick ONE gift from every colour/size of these products that is in stock. While the campaign is on, these products can't be added to cart.</small>
           </div>
-          <?php endforeach; ?>
           <div class="field">
             <label for="starts_at">Starts (optional)</label>
             <input type="datetime-local" id="starts_at" name="starts_at" value="<?= htmlspecialchars(dtLocal($form['starts_at'])) ?>">
@@ -315,5 +322,29 @@ $csrf = ddAdminCsrf();
       </div>
     </section>
   </main>
+<script>
+(function () {
+  const pick = document.getElementById('giftPick');
+  if (!pick) return;
+  const boxes = Array.from(pick.querySelectorAll('input[type=checkbox]'));
+  const count = document.getElementById('giftCount');
+  const max = <?= CAMPAIGN_MAX_PRODUCTS ?>;
+  function sync() {
+    const n = boxes.filter(b => b.checked).length;
+    count.textContent = n;
+    boxes.forEach(b => { b.disabled = !b.checked && n >= max; });
+  }
+  pick.addEventListener('change', sync);
+  document.getElementById('giftSearch').addEventListener('input', function () {
+    const q = this.value.trim().toLowerCase();
+    pick.querySelectorAll('.gift-pick__row').forEach(r => { r.hidden = q !== '' && !r.dataset.name.includes(q); });
+  });
+  // checklist tidak punya atribut required: cegah simpan tanpa produk
+  pick.closest('form').addEventListener('submit', function (e) {
+    if (!boxes.some(b => b.checked)) { e.preventDefault(); alert('Choose at least one gift product.'); }
+  });
+  sync();
+})();
+</script>
 </body>
 </html>

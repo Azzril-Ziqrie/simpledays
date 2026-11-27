@@ -760,9 +760,16 @@ details.opt[open]>summary{margin-bottom:10px}
 .gift-box [hidden]{display:none}
 .gift-title{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:0;margin:0 0 6px;font-weight:500}
 .gift-code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;letter-spacing:.04em;padding:2px 6px;border:1px solid var(--ok);color:var(--ok)}
-.gift-opts{display:flex;flex-direction:column;gap:6px;margin-top:10px}
-.gift-opt{display:flex;align-items:center;gap:10px;min-height:40px;padding:0 12px;border:1px solid var(--line);cursor:pointer}
-.gift-opt:has(input:checked){border-color:var(--ink)}
+.gift-opts{display:flex;flex-direction:column;gap:14px;margin-top:12px}
+.gift-product{display:flex;gap:12px;align-items:flex-start}
+.gift-thumb{width:48px;height:60px;object-fit:cover;flex:none;background:#fff}
+.gift-product__body{min-width:0;flex:1}
+.gift-product__name{margin:0 0 8px;font-weight:500}
+.gift-variants{display:flex;flex-wrap:wrap;gap:6px}
+.gift-opt{position:relative;display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 12px;border:1px solid var(--line);cursor:pointer}
+.gift-opt input{position:absolute;opacity:0;pointer-events:none}
+.gift-opt:has(input:checked){border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.gift-opt:has(input:focus-visible){outline:2px solid var(--ink);outline-offset:2px}
 .gift-swatch{width:14px;height:14px;border-radius:50%;border:1px solid var(--line);flex:none}
 .form-actions{margin-top:8px}
 .secure-note{color:var(--ink-2);margin-top:12px}
@@ -1255,13 +1262,27 @@ siteBodyOpen(['bodyClass' => 'page-checkout', 'searchAction' => 'shop.php']);
                 <legend class="gift-title">Free gift unlocked <span class="gift-code" id="giftCode"><?= htmlspecialchars($campaignCode) ?></span></legend>
                 <p class="field-hint">Your code is applied automatically. Choose your free gift:</p>
                 <div class="gift-opts">
-                  <?php foreach ($campaign['gifts'] as $g): ?>
-                    <label class="gift-opt">
-                      <input type="radio" name="gift_product_size_id" value="<?= (int)$g['product_size_id'] ?>"
-                             data-label="<?= htmlspecialchars(campaignGiftLabel($g)) ?>"<?= $g['product_size_id'] === $checkedGift ? ' checked' : '' ?>>
-                      <?php if ($g['color_hex']): ?><span class="gift-swatch" style="background:<?= htmlspecialchars($g['color_hex']) ?>"></span><?php endif; ?>
-                      <span><?= htmlspecialchars(campaignGiftLabel($g)) ?></span>
-                    </label>
+                  <?php
+                    $giftGroups = [];
+                    foreach ($campaign['gifts'] as $g) $giftGroups[$g['product_id']][] = $g;
+                  ?>
+                  <?php foreach ($giftGroups as $variants): $first = $variants[0]; ?>
+                    <div class="gift-product">
+                      <?php if ($first['thumbnail'] !== ''): ?><img class="gift-thumb" src="<?= htmlspecialchars($first['thumbnail']) ?>" alt="" loading="lazy"><?php endif; ?>
+                      <div class="gift-product__body">
+                        <p class="gift-product__name"><?= htmlspecialchars($first['product_name']) ?></p>
+                        <div class="gift-variants">
+                          <?php foreach ($variants as $g): ?>
+                            <label class="gift-opt">
+                              <input type="radio" name="gift_product_size_id" value="<?= (int)$g['product_size_id'] ?>"
+                                     data-label="<?= htmlspecialchars(campaignGiftLabel($g)) ?>"<?= $g['product_size_id'] === $checkedGift ? ' checked' : '' ?>>
+                              <?php if ($g['color_hex']): ?><span class="gift-swatch" style="background:<?= htmlspecialchars($g['color_hex']) ?>"></span><?php endif; ?>
+                              <span><?= htmlspecialchars($g['variant'] !== '' ? $g['variant'] : 'Standard') ?></span>
+                            </label>
+                          <?php endforeach; ?>
+                        </div>
+                      </div>
+                    </div>
                   <?php endforeach; ?>
                 </div>
               </fieldset>
