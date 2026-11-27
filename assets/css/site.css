@@ -170,6 +170,12 @@ button{cursor:pointer;background:none;border:none}
 .cart-total{display:flex;justify-content:space-between;align-items:baseline;font-weight:500;margin-bottom:14px}
 .cart-total strong{font-size:15px;letter-spacing:-.01em}
 .cart-note{margin:-6px 0 16px;color:var(--mute)}
+.cart-gift{margin-bottom:16px;padding:12px 14px;border-radius:var(--r-sm);background:var(--tile)}
+.cart-gift__text{margin:0 0 8px;font-size:12px;line-height:1.5}
+.cart-gift__bar{height:3px;border-radius:var(--r-pill);background:var(--line);overflow:hidden}
+.cart-gift__bar span{display:block;height:100%;width:0;background:var(--ink);transition:width .4s var(--ease)}
+.cart-gift.is-unlocked .cart-gift__bar span{background:var(--ok)}
+@media(prefers-reduced-motion:reduce){.cart-gift__bar span{transition:none}}
 .cart-checkout-btn{display:block;width:100%;min-height:48px;border-radius:var(--r-pill);background:var(--ink);color:var(--bg);font-weight:500;letter-spacing:.02em;transition:transform .12s ease-out,background-color .15s}
 .cart-checkout-btn:hover{background:#000}
 .cart-checkout-btn:active:not(:disabled){transform:var(--press)}

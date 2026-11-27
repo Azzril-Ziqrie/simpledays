@@ -82,6 +82,22 @@ window.DDMiniCart = (function () {
       cart.render();
     }
 
+    /** Progres campaign hadiah gratis (elemen #cartGift hanya ada kalau campaign berjalan). */
+    function renderGift(total) {
+      var box = document.getElementById('cartGift');
+      if (!box) return;
+      var min = parseFloat(box.dataset.min) || 0;
+      var gift = box.dataset.gift || 'gift';
+      var left = Math.max(0, min - total);
+      var text = document.getElementById('cartGiftText');
+      var bar = document.getElementById('cartGiftBar');
+      box.classList.toggle('is-unlocked', left <= 0);
+      text.textContent = left <= 0
+        ? 'Free gift unlocked: choose your ' + gift + ' at checkout.'
+        : 'Spend ' + window.ddFormatDisplay(left) + ' more to get a free ' + gift + '.';
+      if (bar) bar.style.width = (min > 0 ? Math.min(100, total / min * 100) : 100) + '%';
+    }
+
     cart.render = function () {
       var body  = document.getElementById('cartBody');
       var foot  = document.getElementById('cartFoot');
@@ -103,6 +119,7 @@ window.DDMiniCart = (function () {
 
       foot.style.display = '';
       setText('cartTotal', window.ddFormatDisplay(total));
+      renderGift(total);
 
       body.innerHTML = cart.items.map(function (item, idx) {
         return itemHtml(item, idx, item.name === cart.lastAddedName);
