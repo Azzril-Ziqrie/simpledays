@@ -1259,7 +1259,7 @@ siteBodyOpen(['bodyClass' => 'page-checkout', 'searchAction' => 'shop.php']);
                 <p class="field-hint">Spend <strong id="giftRemaining"><?= htmlspecialchars(ddFormatMoney(max(0, $giftMin - $subtotal), $currency)) ?></strong> more to get a free <?= htmlspecialchars($giftNames) ?>.</p>
               </div>
               <fieldset id="giftUnlocked"<?= $giftEligible ? '' : ' hidden disabled' ?>>
-                <legend class="gift-title">Free gift unlocked <span class="gift-code" id="giftCode"><?= htmlspecialchars($campaignCode) ?></span></legend>
+                <legend class="gift-title">Claim your free gift <span class="gift-code" id="giftCode"><?= htmlspecialchars($campaignCode) ?></span></legend>
                 <p class="field-hint">Your code is applied automatically. Choose your free gift:</p>
                 <div class="gift-opts">
                   <?php

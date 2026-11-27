@@ -86,6 +86,7 @@ window.DDMiniCart = (function () {
     function renderGift(total) {
       var box = document.getElementById('cartGift');
       if (!box) return;
+      box.hidden = false;
       var min = parseFloat(box.dataset.min) || 0;
       var gift = box.dataset.gift || 'gift';
       var left = Math.max(0, min - total);
@@ -93,7 +94,7 @@ window.DDMiniCart = (function () {
       var bar = document.getElementById('cartGiftBar');
       box.classList.toggle('is-unlocked', left <= 0);
       text.textContent = left <= 0
-        ? 'Free gift unlocked: choose your ' + gift + ' at checkout.'
+        ? 'Claim your free ' + gift + ' at checkout.'
         : 'Spend ' + window.ddFormatDisplay(left) + ' more to get a free ' + gift + '.';
       if (bar) bar.style.width = (min > 0 ? Math.min(100, total / min * 100) : 100) + '%';
     }
@@ -111,6 +112,8 @@ window.DDMiniCart = (function () {
       if (!body || !foot) return;
 
       if (cart.items.length === 0) {
+        var giftBox = document.getElementById('cartGift');
+        if (giftBox) giftBox.hidden = true;
         body.innerHTML = '<div class="cart-empty"><span>Your cart is empty</span>' +
           '<a class="cart-empty-link" href="shop.php">Continue shopping</a></div>';
         foot.style.display = 'none';

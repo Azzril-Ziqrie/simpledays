@@ -170,7 +170,8 @@ button{cursor:pointer;background:none;border:none}
 .cart-total{display:flex;justify-content:space-between;align-items:baseline;font-weight:500;margin-bottom:14px}
 .cart-total strong{font-size:15px;letter-spacing:-.01em}
 .cart-note{margin:-6px 0 16px;color:var(--mute)}
-.cart-gift{margin-bottom:16px;padding:12px 14px;border-radius:var(--r-sm);background:var(--tile)}
+.cart-gift{flex-shrink:0;margin:0 var(--gutter) 8px;padding:12px 14px;border-radius:var(--r-sm);background:var(--tile)}
+.cart-gift[hidden]{display:none}
 .cart-gift__text{margin:0 0 8px;font-size:12px;line-height:1.5}
 .cart-gift__bar{height:3px;border-radius:var(--r-pill);background:var(--line);overflow:hidden}
 .cart-gift__bar span{display:block;height:100%;width:0;background:var(--ink);transition:width .4s var(--ease)}
