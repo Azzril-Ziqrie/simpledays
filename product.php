@@ -99,11 +99,7 @@ $sizeStmt->execute(['pid' => $product['id']]);
 $productSizes = $sizeStmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Urut menurut sort_order dulu (S/M sebelum L/XL), lalu natural (1, 2, 10) untuk yang sama.
-usort($productSizes, function ($a, $b) {
-    $orderCmp = ((int)($a['sort_order'] ?? 0)) <=> ((int)($b['sort_order'] ?? 0));
-    if ($orderCmp !== 0) return $orderCmp;
-    return strnatcasecmp((string)$a['name'], (string)$b['name']);
-});
+usort($productSizes, 'ddCompareSizes'); // S/M sebelum L/XL walau sort_order di admin belum diatur
 
 $availableSizes = array_values(array_filter($productSizes, fn($s) => (int)$s['is_active']===1 && (int)$s['stock']>0));
 $isSoldOut = count($availableSizes) === 0;

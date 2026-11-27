@@ -73,3 +73,34 @@ function ddNormalizeHex(?string $hex): ?string
     $hex = strtolower(trim((string) $hex));
     return preg_match('/^#[0-9a-f]{6}$/', $hex) ? $hex : null;
 }
+
+/**
+ * Urutan ukuran pakaian dari namanya: XS < S < M < L < XL < XXL, juga gabungan ("S/M" di antara S dan M).
+ * Null kalau bukan ukuran huruf (mis. "28", "One Size") → pemanggil memakai sort_order / urutan alami.
+ */
+function ddSizeRank(string $name): ?float
+{
+    static $ranks = [
+        'xxs' => 0, 'xx-small' => 0, 'xs' => 1, 'x-small' => 1, 's' => 2, 'small' => 2, 'm' => 3, 'medium' => 3,
+        'l' => 4, 'large' => 4, 'xl' => 5, 'x-large' => 5, 'xxl' => 6, '2xl' => 6, 'xx-large' => 6,
+        'xxxl' => 7, '3xl' => 7, 'xxx-large' => 7,
+    ];
+    $parts = preg_split('/\s*[\/,|]\s*/', strtolower(trim($name)));
+    $values = [];
+    foreach ($parts as $part) {
+        if (!isset($ranks[$part])) return null;
+        $values[] = $ranks[$part];
+    }
+    return $values ? array_sum($values) / count($values) : null;
+}
+
+/** Pembanding untuk usort baris ukuran (butuh key 'name', opsional 'sort_order'). */
+function ddCompareSizes(array $a, array $b): int
+{
+    $ra = ddSizeRank((string)($a['name'] ?? ''));
+    $rb = ddSizeRank((string)($b['name'] ?? ''));
+    if ($ra !== null && $rb !== null && $ra !== $rb) return $ra <=> $rb;
+    $orderCmp = ((int)($a['sort_order'] ?? 0)) <=> ((int)($b['sort_order'] ?? 0));
+    if ($orderCmp !== 0) return $orderCmp;
+    return strnatcasecmp((string)($a['name'] ?? ''), (string)($b['name'] ?? ''));
+}
