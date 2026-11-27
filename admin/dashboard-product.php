@@ -906,7 +906,7 @@ try {
                 <input type="number" step="1" min="1" id="weight_gram" name="weight_gram"
                        class="form-input"
                        value="<?= htmlspecialchars((string) old('weight_gram', $editProduct['weight_gram'] ?? '1000')) ?>" required>
-                <div class="form-hint">Berat 1 pcs setelah dikemas. Dipakai untuk menghitung ongkir.</div>
+                <div class="form-hint">Weight of 1 piece once packed. Used to calculate shipping.</div>
               </div>
 
               <div class="form-group">

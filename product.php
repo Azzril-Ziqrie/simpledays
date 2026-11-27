@@ -539,14 +539,14 @@ siteBodyClose();
 
   function doAddToCart() {
     if (!hasSelection()) { showToast('Please select an available option first.'); return; }
-    if (selectedStock <= 0) { showToast('Stok untuk ukuran ini habis.'); return; }
+    if (selectedStock <= 0) { showToast('This size is sold out.'); return; }
 
     const itemName    = prodName + (selectedSize ? ` - ${selectedSize}` : '') + (selectedColor ? ` - ${selectedColor}` : '');
     const existingIdx = cartItems.findIndex(i => i.id === productId && i.name === itemName);
 
     // validasi stok SEBELUM apa pun dikirim, supaya cart lokal & server tidak beda
     if (existingIdx > -1 && cartItems[existingIdx].qty + quantity > selectedStock) {
-      showToast('Stok tersisa hanya ' + selectedStock);
+      showToast('Only ' + selectedStock + ' left in stock.');
       return;
     }
 

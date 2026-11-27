@@ -520,13 +520,13 @@ $sizeOverview = $pdo->query(
       <div class="panel-body">
 
         <div class="diagnostic">
-          <strong>Diagnostik kolom has_size:</strong><br>
-          Status kolom:
+          <strong>has_size column check:</strong><br>
+          Column status:
           <?= $hasSizeCol
-              ? '<span style="font-weight:bold;">DITEMUKAN / OK</span>'
-              : '<span style="color:#888;font-weight:bold;">TIDAK ADA</span>' ?>
+              ? '<span style="font-weight:bold;">FOUND / OK</span>'
+              : '<span style="color:#888;font-weight:bold;">MISSING</span>' ?>
           <?php if ($alterError !== ''): ?>
-            <br>Pesan error saat mencoba menambahkan kolom otomatis:
+            <br>Error while adding the column automatically:
             <code><?= htmlspecialchars($alterError) ?></code>
           <?php endif; ?>
         </div>
@@ -633,7 +633,7 @@ $sizeOverview = $pdo->query(
             <div class="field field-narrow">
               <label for="new_sort_order">Sort</label>
               <input type="number" id="new_sort_order" name="new_sort_order"
-                     value="10" title="Urutan posisi (1 = Paling Atas)">
+                     value="10" title="Sort order (1 = first)">
             </div>
             <button type="submit" class="btn" style="height:44px;padding:0 20px;margin-bottom:0;">Add</button>
           </div>

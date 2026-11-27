@@ -1758,7 +1758,7 @@ siteBodyClose();
 
         if (newQty < 1) return;
         if (newQty > maxStock) {
-            showToast('Sisa stok hanya ' + maxStock);
+            showToast('Only ' + maxStock + ' left in stock.');
             return;
         }
 
@@ -1826,7 +1826,7 @@ siteBodyClose();
 
     /* ── AJAX REMOVE ITEM LOGIC ───────────────────────── */
     window.removeCheckoutItem = async function(psid) {
-        if (!confirm('Apakah Anda yakin ingin menghapus produk ini dari keranjang?')) return;
+        if (!confirm('Remove this item from your cart?')) return;
         
         const fd = new FormData();
         fd.append('ajax_remove_item', '1');
@@ -1846,10 +1846,10 @@ siteBodyClose();
                 
                 window.location.reload();
             } else {
-                showToast('Gagal menghapus produk.');
+                showToast('Could not remove the item.');
             }
         } catch (err) {
-            showToast('Terjadi kesalahan server saat menghapus.');
+            showToast('Something went wrong. Please try again.');
         }
     };
     /* ─────────────────────────────────────────────────── */

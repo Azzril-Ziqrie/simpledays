@@ -245,7 +245,7 @@ $currentYear = (int) date('Y');
   <main class="wrap">
     <section class="hero">
       <h1>Lookbook Manager</h1>
-      <p>Kelola foto lookbook tahunan. Judul di bawah ini berlaku untuk satu tahun (bukan per foto), dan akan tampil di bawah tahun pada halaman lookbook.</p>
+      <p>Manage yearly lookbook photos. The title below applies to the whole year (not per photo) and appears under the year on the lookbook page.</p>
     </section>
     <?php if ($tableReady): ?>
       <?php if ($message): ?><div class="alert" style="margin:16px 20px 0;"><?= htmlspecialchars($message) ?></div><?php endif; ?>
@@ -262,9 +262,9 @@ $currentYear = (int) date('Y');
                 <input type="number" name="year" class="form-input" value="<?= $currentYear ?>" required>
               </div>
               <div class="form-group">
-                <label>Judul Tahun (Year Title)</label>
+                <label>Year title</label>
                 <input type="text" name="year_title" class="form-input" placeholder="mis. Summer Collection 2026">
-                <small>Judul ini berlaku untuk seluruh tahun yang dipilih, akan tampil di bawah tahun di halaman lookbook. Kosongkan jika tidak ingin mengubah judul yang sudah ada.</small>
+                <small>Applies to the whole selected year and appears under the year on the lookbook page. Leave empty to keep the current title.</small>
               </div>
               <div class="form-group">
                 <label>Photos</label>
@@ -315,14 +315,14 @@ $currentYear = (int) date('Y');
 
       <?php if ($yearTitlesReady && $yearSummary): ?>
       <section class="section" style="border-right:none;">
-        <div class="section-head">Judul Tahun (Year Titles)</div>
+        <div class="section-head">Year titles</div>
         <div class="section-body">
           <?php foreach ($yearSummary as $ys): $yr = (int) $ys['year']; ?>
             <form method="POST" class="year-title-row">
               <input type="hidden" name="action" value="save_year_title">
               <input type="hidden" name="year" value="<?= $yr ?>">
               <span class="yr"><?= $yr ?></span>
-              <input type="text" name="year_title" value="<?= htmlspecialchars($yearTitles[$yr] ?? '') ?>" placeholder="Judul untuk tahun <?= $yr ?>">
+              <input type="text" name="year_title" value="<?= htmlspecialchars($yearTitles[$yr] ?? '') ?>" placeholder="Title for <?= $yr ?>">
               <button type="submit" class="btn btn-sm">Save</button>
             </form>
           <?php endforeach; ?>

@@ -463,7 +463,7 @@ if ($order && $trackingNumberInput !== '') {
       <div class="eyebrow"><?= htmlspecialchars(BRAND_NAME) ?> Admin / Shipping</div>
       <h1 class="headline">Send Tracking Number</h1>
       <p class="subcopy">
-        Cari order, pilih order, isi nomor resi, lalu cek preview email sebelum kirim lewat PHPMailer SMTP.
+        Find an order, enter the tracking number, then check the email preview before sending.
       </p>
       <div class="hero-actions">
         <a href="dashboard.php" class="btn-link">← Back to Dashboard</a>
@@ -514,7 +514,7 @@ if ($order && $trackingNumberInput !== '') {
                   </option>
                 <?php endforeach; ?>
               </select>
-              <div class="helper">Menampilkan maksimal 100 order dengan status <strong>paid</strong>.</div>
+              <div class="helper">Showing up to 100 orders with status <strong>paid</strong>.</div>
             </div>
 
             <?php if ($order): ?>
@@ -554,12 +554,12 @@ if ($order && $trackingNumberInput !== '') {
                 <button type="submit" name="send_tracking" value="1" class="btn">Send Email</button>
               </div>
             <?php else: ?>
-              <p style="font-size:13px;color:#888;margin-top:4px;">Pilih order dulu untuk menampilkan detail dan preview email.</p>
+              <p style="font-size:13px;color:#888;margin-top:4px;">Select an order to see its details and the email preview.</p>
             <?php endif; ?>
           </form>
 
           <div class="helper" style="margin-top:16px;">
-            SMTP diambil dari konfigurasi di bagian atas file ini.
+            SMTP settings come from the site configuration.
           </div>
         </div>
       </section>
@@ -629,7 +629,7 @@ if ($order && $trackingNumberInput !== '') {
               <div class="preview-toolbar">Live Preview</div>
               <?php if ($emailPreviewHtml === ''): ?>
                 <div class="preview-placeholder">
-                  Pilih order dan isi nomor resi untuk menampilkan preview email di sini.
+                  Select an order and enter the tracking number to preview the email here.
                 </div>
               <?php else: ?>
                 <?= $emailPreviewHtml ?>

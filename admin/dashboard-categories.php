@@ -424,13 +424,13 @@ $categories = $pdo->query("SELECT {$selectCols} FROM categories ORDER BY id DESC
       </div>
 
       <div class="diagnostic">
-        <strong>Diagnostik kolom has_size:</strong><br>
-        Status kolom:
+        <strong>has_size column check:</strong><br>
+        Column status:
         <?= $hasSizeCol
-            ? '<span style="color:#111;font-weight:bold;">DITEMUKAN / OK</span>'
-            : '<span style="color:#888;font-weight:bold;">TIDAK ADA</span>' ?>
+            ? '<span style="color:#111;font-weight:bold;">FOUND / OK</span>'
+            : '<span style="color:#888;font-weight:bold;">MISSING</span>' ?>
         <?php if ($alterError !== ''): ?>
-          <br>Pesan error saat mencoba menambahkan kolom otomatis:<br>
+          <br>Error while adding the column automatically:<br>
           <code style="display:block;margin-top:6px;padding:8px;background:#f4f2ec;word-break:break-word;"><?= htmlspecialchars($alterError) ?></code>
         <?php endif; ?>
       </div>
@@ -467,7 +467,7 @@ $categories = $pdo->query("SELECT {$selectCols} FROM categories ORDER BY id DESC
             <div class="form-group" style="display:flex;align-items:center;gap:8px;">
               <input type="checkbox" id="has_size" name="has_size" value="1" style="width:18px;height:18px;cursor:pointer;accent-color:#111;">
               <label class="form-label" for="has_size" style="margin-bottom:0;cursor:pointer;text-transform:none;font-size:13px;">
-                Kategori ini memiliki pilihan Size (Ukuran)?
+                This category has sizes?
               </label>
             </div>
 
@@ -566,7 +566,7 @@ $categories = $pdo->query("SELECT {$selectCols} FROM categories ORDER BY id DESC
           <div class="form-group" style="display:flex;align-items:center;gap:8px;">
             <input type="checkbox" id="edit_has_size" name="has_size" value="1" style="width:18px;height:18px;cursor:pointer;accent-color:#111;">
             <label class="form-label" for="edit_has_size" style="margin-bottom:0;cursor:pointer;text-transform:none;font-size:13px;">
-              Kategori ini memiliki pilihan Size (Ukuran)?
+              This category has sizes?
             </label>
           </div>
           <?php endif; ?>
