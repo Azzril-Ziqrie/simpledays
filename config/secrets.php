@@ -17,8 +17,8 @@ return [
     'SMTP_PORT'             => '465', // SSL
     'SMTP_USERNAME'         => 'info@thesimpledays.co',
     'SMTP_FROM_EMAIL'       => 'info@thesimpledays.co',
-    'SMTP_PASSWORD'         => 'Agacil12345!',
-    'ADMIN_SMTP_PASSWORD'   => 'Agacil12345!',
+    'SMTP_PASSWORD'         => 'trhq-l36f-cxwn-6mv5',
+    'ADMIN_SMTP_PASSWORD'   => '',
     'ADMIN_PASSWORD_HASH'   => '$2y$10$eY.IASFCF3zfKMaMMAi0DuHje4cuy/JUYhXQMvixQr6i72zqrfGM2',
 
     // Wise API (cek pembayaran otomatis) — isi di server; private key simpan di luar public_html
