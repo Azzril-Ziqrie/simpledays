@@ -8,6 +8,7 @@ require_once __DIR__ . '/includes/currency_helper.php';
 require_once __DIR__ . '/includes/pricing.php';
 require_once __DIR__ . '/includes/layout.php';
 require_once __DIR__ . '/includes/variants.php';
+require_once __DIR__ . '/includes/campaign.php';
 
 $slug = isset($_GET['slug']) ? trim($_GET['slug']) : '';
 if ($slug === '') { http_response_code(404); exit('Product not found.'); }
@@ -106,6 +107,12 @@ usort($productSizes, function ($a, $b) {
 
 $availableSizes = array_values(array_filter($productSizes, fn($s) => (int)$s['is_active']===1 && (int)$s['stock']>0));
 $isSoldOut = count($availableSizes) === 0;
+// Pilihan ukuran tampil kalau produk punya ukuran nyata (bukan "One size"), walau flag has_size kategorinya mati
+foreach ($availableSizes as $v) {
+    if (!in_array(strtolower(trim((string)$v['name'])), ['one size', 'onesize', 'default', ''], true)) { $hasSizeSelector = true; break; }
+}
+// Produk hadiah campaign: tidak bisa di-cart, hanya diklaim di checkout
+$giftOnlyMin = campaignGiftOnlyMinimum($pdo, (int)$product['id']);
 
 /* ── warna: tiap baris product_sizes = satu varian (ukuran + warna) dengan stok sendiri ── */
 $colors = [];   // key lowercase => ['name','hex','available']
@@ -123,7 +130,8 @@ $selectedColor = '';
 foreach ($colors as $c) { if ($c['available']) { $selectedColor = $c['name']; break; } }
 $selectedVariant = null;
 foreach ($availableSizes as $v) {
-    if (!$hasColorChoices || strcasecmp(trim((string)$v['color_name']), $selectedColor) === 0) { $selectedVariant = $v; break; }
+    $vColor = trim((string)$v['color_name']);
+    if (!$hasColorChoices || $vColor === '' || strcasecmp($vColor, $selectedColor) === 0) { $selectedVariant = $v; break; }
 }
 if ($selectedVariant === null && !$isSoldOut) $selectedVariant = $availableSizes[0];
 
@@ -248,8 +256,9 @@ siteHeadOpen([
 
 /* tombol beli: hitam penuh, sudut tegas */
 .pdp-buy{margin-top:32px}
+.pdp-gift-note{margin:12px 0 0;font-size:13px;line-height:1.5;color:var(--mute)}
 .pdp-buy .btn{
-  width:100%;height:46px;border-radius:0;border:1px solid var(--ink);background:var(--ink);color:#fff;
+  width:100%;height:46px;border-radius:0;border:1px solid var(--ink);background:var(--ink);color:var(--bg);
   font-size:12px;font-weight:400;letter-spacing:.1em;text-transform:uppercase;
   transition:transform .12s ease-out,opacity .2s;
 }
@@ -289,7 +298,7 @@ siteHeadOpen([
 .pdp-related{max-width:1440px;margin:0 auto;padding:clamp(40px,6vw,72px) 0 clamp(56px,8vw,112px)}
 .pdp-related__title{margin:0 0 14px;padding:0 var(--gutter);font-size:12px;font-weight:400;letter-spacing:.05em}
 .pdp-related .product-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding:0 var(--gutter)}
-.pdp-related .product-card{background:#fff}
+.pdp-related .product-card{background:var(--bg)}
 .pdp-related .product-tile{aspect-ratio:3/4;background:var(--pdp-tile);border-radius:0}
 .pdp-related .product-tile img{object-fit:cover;mix-blend-mode:multiply}
 .pdp-related .product-info{padding:12px 4px 4px;gap:2px}
@@ -380,7 +389,7 @@ siteBodyOpen(['bodyClass' => 'page-product', 'searchAction' => 'shop.php']);
               <?php
                 $isSelectedOpt = $selectedProductSizeId === (int)$size['product_size_id'];
                 $sizeColor = trim((string)($size['color_name'] ?? ''));
-                $showSize = !$hasColorChoices || strcasecmp($sizeColor, $selectedColor) === 0;
+                $showSize = !$hasColorChoices || $sizeColor === '' || strcasecmp($sizeColor, $selectedColor) === 0;
               ?>
               <button type="button" class="size-btn<?= $isSelectedOpt ? ' active' : '' ?>"
                       data-id="<?= (int)$size['product_size_id'] ?>"
@@ -400,9 +409,16 @@ siteBodyOpen(['bodyClass' => 'page-product', 'searchAction' => 'shop.php']);
       <?php endif; ?>
 
       <div class="pdp-buy">
+        <?php if ($giftOnlyMin !== null): ?>
+          <button type="button" class="btn btn--solid btn--block" disabled>
+            <span class="cart-btn__label">Free gift — not sold separately</span>
+          </button>
+          <p class="pdp-gift-note">Spend <?= esc(ddFormatDisplay($giftOnlyMin)) ?> or more and choose this as your free gift at checkout.</p>
+        <?php else: ?>
         <button type="button" class="btn btn--solid btn--block" id="addToCartBtn" <?= $isSoldOut ? 'disabled' : '' ?>>
           <span class="cart-btn__label"><?= $isSoldOut ? 'Sold out' : 'Add to cart' ?></span>
         </button>
+        <?php endif; ?>
       </div>
 
       <details class="pdp-more">
@@ -500,8 +516,10 @@ siteBodyClose();
       colorBtns.forEach(b => { const on = b === this; b.classList.toggle('active', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
       if (colorLabel) colorLabel.textContent = selectedColor;
 
-      const ofColor = variants.filter(v => v.color.toLowerCase() === selectedColor.toLowerCase());
-      sizeBtns.forEach(b => { b.hidden = b.dataset.color.toLowerCase() !== selectedColor.toLowerCase(); });
+      // varian tanpa warna berlaku untuk semua warna
+      const fits = c => c === '' || c.toLowerCase() === selectedColor.toLowerCase();
+      const ofColor = variants.filter(v => fits(v.color));
+      sizeBtns.forEach(b => { b.hidden = !fits(b.dataset.color); });
       // pertahankan ukuran yang sama kalau warna baru punya, kalau tidak pakai ukuran pertama
       const next = ofColor.find(v => v.size === selectedSize) || ofColor[0];
       if (next) applyVariant(next);

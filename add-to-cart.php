@@ -3,6 +3,7 @@ session_start();
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/currency_helper.php';
 require_once __DIR__ . '/includes/analytics.php';
+require_once __DIR__ . '/includes/campaign.php';
 
 header('Content-Type: application/json');
 
@@ -64,6 +65,10 @@ try {
 
     if (!$product || (int) $product['is_active'] !== 1) {
         throw new RuntimeException('Product is not available.');
+    }
+
+    if (campaignGiftOnlyMinimum($pdo, $productId) !== null) {
+        throw new RuntimeException('This item is a free gift and can be claimed at checkout.');
     }
 
     $categorySlug = strtolower(trim((string) ($product['category_slug'] ?? 'fashion')));

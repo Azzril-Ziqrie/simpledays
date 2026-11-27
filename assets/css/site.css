@@ -55,6 +55,7 @@ html[data-theme="dark"] .toast{background:rgba(242,242,242,.92);color:#111}
 html[data-theme="dark"] .footer-news__msg.is-error{color:#ef9a9a}
 /* Foto produk memakai multiply: tile dibuat terang agar foto tidak ikut gelap. */
 html[data-theme="dark"] .product-tile,html[data-theme="dark"] .shop-menu__thumb{background:#ececec}
+html[data-theme="dark"] .btn--solid:hover,html[data-theme="dark"] .account-submit:hover{background:#fff}
 
 /* ── base ────────────────────────────────────────────────── */
 *{margin:0;padding:0;box-sizing:border-box}
@@ -169,7 +170,7 @@ button{cursor:pointer;background:none;border:none}
 .cart-total{display:flex;justify-content:space-between;align-items:baseline;font-weight:500;margin-bottom:14px}
 .cart-total strong{font-size:15px;letter-spacing:-.01em}
 .cart-note{margin:-6px 0 16px;color:var(--mute)}
-.cart-checkout-btn{display:block;width:100%;min-height:48px;border-radius:var(--r-pill);background:var(--ink);color:#fff;font-weight:500;letter-spacing:.02em;transition:transform .12s ease-out,background-color .15s}
+.cart-checkout-btn{display:block;width:100%;min-height:48px;border-radius:var(--r-pill);background:var(--ink);color:var(--bg);font-weight:500;letter-spacing:.02em;transition:transform .12s ease-out,background-color .15s}
 .cart-checkout-btn:hover{background:#000}
 .cart-checkout-btn:active:not(:disabled){transform:var(--press)}
 .cart-checkout-btn:disabled{background:#ccc;cursor:not-allowed}
@@ -212,7 +213,7 @@ button{cursor:pointer;background:none;border:none}
 .account-tab{flex:1;padding:12px;font-weight:500;color:var(--mute);border-bottom:1px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s}
 .account-tab.active{color:var(--ink);border-bottom-color:var(--ink)}
 .account-form{display:flex;flex-direction:column;gap:10px}
-.account-submit{min-height:46px;margin-top:6px;border-radius:var(--r-pill);background:var(--ink);color:#fff;font-weight:500;transition:transform .12s ease-out,opacity .15s}
+.account-submit{min-height:46px;margin-top:6px;border-radius:var(--r-pill);background:var(--ink);color:var(--bg);font-weight:500;transition:transform .12s ease-out,opacity .15s}
 .account-submit:active:not(:disabled){transform:var(--press)}
 .account-submit:disabled{opacity:.6;cursor:wait}
 .account-msg{padding:10px;margin-bottom:12px;border-radius:var(--r-sm);text-align:center}
@@ -223,10 +224,10 @@ button{cursor:pointer;background:none;border:none}
 
 /* ── komponen: tombol, input, kartu, alert ───────────────── */
 .btn,.button{min-height:46px;padding:0 26px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--ink);border-radius:var(--r-pill);background:transparent;color:var(--ink);font-weight:500;letter-spacing:.02em;transition:background-color .15s,color .15s,transform .12s ease-out,opacity .15s}
-@media(hover:hover){.btn:hover,.button:hover{background:var(--ink);color:#fff}}
+@media(hover:hover){.btn:hover,.button:hover{background:var(--ink);color:var(--bg)}}
 .btn:active:not(:disabled),.button:active:not(:disabled){transform:var(--press)}
 .btn:disabled{opacity:.5;cursor:not-allowed}
-.btn--solid{background:var(--ink);color:#fff}
+.btn--solid{background:var(--ink);color:var(--bg)}
 @media(hover:hover){.btn--solid:hover{background:#000}}
 .btn--block{display:flex;width:100%}
 
@@ -242,7 +243,7 @@ button{cursor:pointer;background:none;border:none}
 .alert{padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-sm);font-size:12px;line-height:1.6}
 .alert--ok{background:#f0f7f0;border-color:var(--ok);color:var(--ok)}
 .alert--error{background:#fdf0f0;border-color:var(--err);color:var(--err)}
-.card{border:1px solid var(--line);border-radius:var(--r-md);background:#fff;padding:clamp(18px,2.4vw,28px)}
+.card{border:1px solid var(--line);border-radius:var(--r-md);background:var(--bg);padding:clamp(18px,2.4vw,28px)}
 .hr{height:1px;background:var(--line);border:0;margin:24px 0}
 
 /* ── produk: filter kategori + grid + kartu ──────────────── */
@@ -283,7 +284,7 @@ button{cursor:pointer;background:none;border:none}
 }
 .product-badges{position:absolute;top:10px;left:10px;z-index:2;display:flex;gap:6px}
 .product-badge{padding:3px 8px;border-radius:999px;font-size:10px;font-weight:600;letter-spacing:.02em;background:rgba(255,255,255,.72);-webkit-backdrop-filter:blur(10px) saturate(180%);backdrop-filter:blur(10px) saturate(180%)}
-.product-badge--sale{background:var(--ink);color:#fff}
+.product-badge--sale{background:var(--ink);color:var(--bg)}
 .product-card.is-sold-out .product-tile img:not(.alt){opacity:.55}
 .product-card.is-sold-out .product-name,.product-card.is-sold-out .product-price .now{color:var(--mute)}
 .product-info{padding-top:12px;display:grid;gap:2px}

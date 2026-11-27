@@ -82,7 +82,7 @@ siteHeadOpen([
   @media(hover:hover){.lb-tile:hover img{transform:scale(1.02)}}
 
   .lb-arrow{position:absolute;top:50%;margin-top:-34px;width:44px;height:44px;border:1px solid var(--line);background:rgba(255,255,255,.8);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);color:var(--ink);font-size:16px;display:flex;align-items:center;justify-content:center;z-index:2;transition:background-color .2s,color .2s,opacity .2s}
-  .lb-arrow:hover{background:var(--ink);color:#fff}
+  .lb-arrow:hover{background:var(--ink);color:var(--bg)}
   .lb-arrow--left{left:var(--gutter)}
   .lb-arrow--right{right:var(--gutter)}
   .lb-arrow[disabled]{opacity:0;pointer-events:none}

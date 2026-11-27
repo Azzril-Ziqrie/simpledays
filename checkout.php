@@ -235,6 +235,9 @@ function validateCheckoutStock(PDO $pdo, array $cartItems): void
         if ($psid <= 0 || $qty <= 0) throw new Exception('Invalid checkout item detected.');
         $row = getProductSizeById(db(), $psid);
         if (!$row) throw new Exception('Selected size no longer available for ' . $item['name'] . '.');
+        if (campaignGiftOnlyMinimum($pdo, (int)$row['product_id']) !== null) {
+            throw new Exception($item['name'] . ' is a free gift and can’t be bought. Please remove it from your cart and choose it as your free gift below.');
+        }
         if ((int)$row['stock'] < $qty) throw new Exception('Stock not enough for ' . $item['name'] . '.');
     }
 }
@@ -731,7 +734,7 @@ details.opt[open]>summary{margin-bottom:10px}
 
 /* ── pengiriman ─────────────────────────────────────── */
 .shipping-options-box{background:var(--tile);padding:18px 16px;text-align:center;color:var(--ink-2)}
-.shipping-options-box:has(.shipping-option){padding:0;background:#fff;text-align:left;border:1px solid var(--line)}
+.shipping-options-box:has(.shipping-option){padding:0;background:var(--bg);text-align:left;border:1px solid var(--line)}
 .shipping-option{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;min-height:56px;cursor:pointer;border-top:1px solid var(--line);margin:0}
 .shipping-option:first-child{border-top:none}
 .shipping-option:has(input:checked){background:var(--tile);box-shadow:inset 0 0 0 1px var(--ink)}
@@ -765,17 +768,17 @@ details.opt[open]>summary{margin-bottom:10px}
 .secure-note{color:var(--ink-2);margin-top:12px}
 .back-row{margin-top:16px}
 .co-form .alert{margin-bottom:20px}
-.co-form .btn:disabled{background:#cfcfcf;border-color:#cfcfcf;color:#fff}
+.co-form .btn:disabled{background:var(--line-strong);border-color:var(--line-strong);color:var(--bg)}
 
 /* ── ringkasan pesanan ──────────────────────────────── */
 .co-item{display:grid;grid-template-columns:64px 1fr auto;gap:14px;align-items:start;margin-bottom:18px}
 .co-thumb-wrap{position:relative;width:64px;height:80px}
 .co-thumb{width:64px;height:80px;object-fit:cover;background:#fff}
-.co-qty-badge{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--ink);color:#fff;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.co-qty-badge{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--ink);color:var(--bg);font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center}
 .co-item-name{font-weight:500;line-height:1.35}
 .co-item-meta{color:var(--ink-2);margin-top:2px}
 .co-item-price{text-align:right;font-variant-numeric:tabular-nums}
-.checkout-qty-ctrl{display:inline-flex;align-items:center;margin-top:8px;border:1px solid var(--line);background:#fff}
+.checkout-qty-ctrl{display:inline-flex;align-items:center;margin-top:8px;border:1px solid var(--line);background:var(--bg)}
 .checkout-qty-ctrl button{width:32px;height:32px;font-size:15px}
 .checkout-qty-ctrl button:hover:not(:disabled){background:var(--tile)}
 .checkout-qty-ctrl button:disabled{opacity:.4;cursor:not-allowed}
@@ -800,13 +803,13 @@ details.opt[open]>summary{margin-bottom:10px}
 .pay-opt{border-top:1px solid var(--line);position:relative}
 .pay-opt:first-child{border-top:none}
 .pm-radio{position:absolute;opacity:0;width:1px;height:1px}
-.pay-row{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;background:#fff;min-height:56px}
-.pay-row:hover{background:#fafafa}
-.rdot{width:16px;height:16px;border-radius:50%;border:1px solid #aaa;background:#fff;flex-shrink:0;transition:border-width .12s,border-color .12s}
+.pay-row{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;background:var(--bg);min-height:56px}
+.pay-row:hover{background:var(--tile)}
+.rdot{width:16px;height:16px;border-radius:50%;border:1px solid #aaa;background:var(--bg);flex-shrink:0;transition:border-width .12s,border-color .12s}
 .pay-name{flex:1;font-size:12px}
 .pay-name.bold{font-weight:500}
 .pay-logos{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-.chip{display:inline-flex;align-items:center;justify-content:center;height:28px;min-width:44px;padding:0 7px;background:#fff;border:1px solid var(--line)}
+.chip{display:inline-flex;align-items:center;justify-content:center;height:28px;min-width:44px;padding:0 7px;background:#fff;color:#111;border:1px solid var(--line)}
 .chip img{height:16px;width:auto;max-width:56px;object-fit:contain}
 .chip.pp img{height:20px}
 .chip .bank-wordmark{font-size:10px}
@@ -814,13 +817,13 @@ details.opt[open]>summary{margin-bottom:10px}
 .pm-radio:checked+.pay-row{background:var(--tile);box-shadow:inset 0 0 0 1px var(--ink)}
 .pm-radio:checked+.pay-row .rdot{border:5px solid var(--ink)}
 .pm-radio:focus-visible+.pay-row{outline:2px solid var(--ink);outline-offset:-4px}
-.pay-panel{display:none;padding:18px 16px 20px;background:#fff;border-top:1px solid var(--line)}
+.pay-panel{display:none;padding:18px 16px 20px;background:var(--bg);border-top:1px solid var(--line)}
 .pm-radio:checked~.pay-panel{display:block}
 .pay-panel .pay-note{margin-bottom:14px}
 .va-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-bottom:14px}
 .va-tile{position:relative;display:block;cursor:pointer}
 .va-tile input{position:absolute;opacity:0;width:1px;height:1px}
-.va-tile .tile{display:flex;align-items:center;justify-content:center;height:52px;padding:6px 8px;background:#fff;border:1px solid var(--line);transition:border-color .12s,box-shadow .12s}
+.va-tile .tile{display:flex;align-items:center;justify-content:center;height:52px;padding:6px 8px;background:var(--bg);border:1px solid var(--line);transition:border-color .12s,box-shadow .12s}
 .va-tile img{max-height:24px;max-width:78px;width:auto;object-fit:contain}
 .va-tile .bank-wordmark{font-size:10px}
 .va-tile input:checked+.tile{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
@@ -836,7 +839,7 @@ details.opt[open]>summary{margin-bottom:10px}
 .bank-key{font-weight:600}
 .bank-value{text-align:right;font-weight:500;word-break:break-all}
 .bank-value small{display:block;font-weight:400;color:var(--ink-2);font-size:11px}
-.upload-zone{border:1px dashed #bbb;padding:16px;margin:14px 0;background:#fff}
+.upload-zone{border:1px dashed #bbb;padding:16px;margin:14px 0;background:var(--bg)}
 .file-input{width:100%;font-size:12px}
 #paypal-button-container,#card-button-container,#apple-pay-button,#google-pay-button{max-width:440px}
 apple-pay-button{--apple-pay-button-width:100%;--apple-pay-button-height:44px;--apple-pay-button-border-radius:0;--apple-pay-button-padding:0;display:block}
@@ -850,7 +853,7 @@ apple-pay-button{--apple-pay-button-width:100%;--apple-pay-button-height:44px;--
 .countdown{font-variant-numeric:tabular-nums;font-size:13px;font-weight:500;background:var(--tile);padding:6px 12px}
 .countdown.warn{color:var(--err);animation:blink 1s step-end infinite}
 @keyframes blink{50%{opacity:.35}}
-.amount-box,.code-box{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid var(--line);padding:14px 16px;margin-bottom:14px;background:#fff}
+.amount-box,.code-box{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid var(--line);padding:14px 16px;margin-bottom:14px;background:var(--bg)}
 .amount-box strong{font-size:18px;font-weight:500;letter-spacing:-.02em}
 .code-box strong{font-size:18px;font-weight:500;letter-spacing:.04em;word-break:break-all;font-variant-numeric:tabular-nums}
 .qr-wrap{display:flex;flex-direction:column;align-items:center;gap:12px;margin:8px 0 18px}
@@ -1704,10 +1707,13 @@ siteBodyClose();
       }
       // Belum ada layanan kurir dipilih → tampilkan petunjuk, bukan "RP 0"
       const hasService = courierServiceInput.value !== '';
-      shippingDisplay.textContent   = hasService ? formatCurrencyJS(shippingConverted) : 'Enter shipping address';
-      shippingDisplay.style.color   = hasService ? '' : 'var(--muted)';
-      grandTotalDisplay.textContent = formatCurrencyJS(total);
-      heroGrandTotal.textContent    = formatCurrencyJS(total);
+      if (shippingDisplay) {
+        shippingDisplay.textContent = hasService ? formatCurrencyJS(shippingConverted) : 'Enter shipping address';
+        shippingDisplay.style.color = hasService ? '' : 'var(--muted)';
+      }
+      // Cart kosong: ringkasan total tidak dirender
+      if (grandTotalDisplay) grandTotalDisplay.textContent = formatCurrencyJS(total);
+      if (heroGrandTotal) heroGrandTotal.textContent = formatCurrencyJS(total);
       if (heroGrandTotalTop) heroGrandTotalTop.textContent = formatCurrencyJS(total);
     }
 

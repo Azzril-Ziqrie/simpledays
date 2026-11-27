@@ -121,10 +121,39 @@ function campaignGiftOptions(PDO $pdo, array $campaign): array
         'product_name'    => (string)$r['product_name'],
         'product_slug'    => (string)$r['product_slug'],
         'thumbnail'       => (string)$r['thumbnail'],
-        'variant'         => (string)$r['variant'],
+        'variant'         => campaignVariantLabel((string)$r['variant']),
         'color_hex'       => $r['color_hex'] !== null ? (string)$r['color_hex'] : null,
         'stock'           => (int)$r['stock'],
     ], $rows);
+}
+
+/** "One size / Black" → "Black": ukuran tunggal tidak perlu ditampilkan, cukup warnanya. */
+function campaignVariantLabel(string $variant): string
+{
+    $parts = array_map('trim', explode('/', $variant));
+    $parts = array_filter($parts, static fn(string $p): bool =>
+        $p !== '' && !in_array(strtolower($p), ['one size', 'onesize', 'default'], true));
+    return implode(' / ', $parts);
+}
+
+/**
+ * Produk hadiah tidak dijual: selama ada campaign aktif (is_active = 1) yang memakai produk ini,
+ * produk tidak bisa dimasukkan ke cart, hanya diklaim di checkout.
+ * @return float|null minimum belanja campaign-nya, atau null kalau produk dijual biasa.
+ */
+function campaignGiftOnlyMinimum(PDO $pdo, int $productId): ?float
+{
+    if (!campaignTablesReady($pdo)) return null;
+    try {
+        $rows = $pdo->query('SELECT product_ids, min_subtotal FROM campaigns WHERE is_active = 1 ORDER BY id DESC')->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        error_log('[campaign] gift-only lookup failed: ' . $e->getMessage());
+        return null;
+    }
+    foreach ($rows as $row) {
+        if (in_array($productId, campaignProductIds($row), true)) return (float)$row['min_subtotal'];
+    }
+    return null;
 }
 
 /**

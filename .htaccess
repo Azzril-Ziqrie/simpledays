@@ -64,6 +64,11 @@
     Order allow,deny
     Deny from all
 </FilesMatch>
+# Log PHP bawaan hosting (tanpa ekstensi) & catatan deploy internal
+<FilesMatch "^(error_log|DEPLOY_HOSTINGER\.txt)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
 
 # ── Block directory listing ───────────────────────────
 Options -Indexes
