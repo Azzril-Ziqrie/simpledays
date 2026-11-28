@@ -2,6 +2,7 @@
 require_once __DIR__ . '/_guard.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/db_schema.php';
+require_once __DIR__ . '/../includes/storage.php';
 
 $message = '';
 $error   = '';
@@ -37,7 +38,7 @@ function saveYearTitle(PDO $pdo, int $year, string $title): void
 }
 
 /* ── upload directory setup ──────────────────────────── */
-$uploadDir      = __DIR__ . '/../assets/images/lookbook/';
+$uploadDir      = ddUploadDir('assets/images/lookbook/');
 $uploadBasePath = 'assets/images/lookbook/';
 
 if (!is_dir($uploadDir)) {
@@ -163,8 +164,7 @@ if ($tableReady && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action
                 if ($row) {
                     $pdo->prepare('DELETE FROM lookbook_photos WHERE id = :id')->execute(['id' => $photoId]);
                     $pdo->commit();
-                    $abs = __DIR__ . '/../' . $row['photo_path'];
-                    if (is_file($abs)) { @unlink($abs); }
+                    ddDeleteUploadedFile($row['photo_path']);
                     $message = 'Photo deleted successfully.';
                 }
             } catch (Throwable $e) {

@@ -75,8 +75,16 @@ Ringkas:
       - Kalau tidak ikut ter-deploy dan ada di .gitignore, jalankan
         lewat SSH:  composer install --no-dev
       - Atau upload folder vendor/ dari komputer lewat File Manager.
- 3. Folder upload (assets/images/..., dll) harus bisa ditulis
-    (permission 755 / 775).
+ 3. FILE UPLOAD DISIMPAN DI LUAR public_html. Auto-deploy Git membuat
+    ulang public_html dari repo, jadi foto yang di-upload lewat admin
+    dulu ikut terhapus setiap push. Sekarang upload baru (foto produk,
+    hero, home, lookbook, blog, bukti bayar) masuk ke:
+        domains/<domain>/storage/   (di samping public_html)
+    Folder ini dibuat otomatis. URL gambar dan path di database tetap
+    sama; .htaccess meneruskan ke media.php kalau file tidak ada di
+    public_html. Lihat includes/storage.php.
+    Kalau perlu upload foto manual lewat File Manager, taruh di
+    storage/assets/images/products/ (BUKAN public_html/...).
 
 ---------------------------------------------------------------------
  F. PAYPAL

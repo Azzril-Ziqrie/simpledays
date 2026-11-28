@@ -36,7 +36,7 @@ function ensureHeroSlidesTable(PDO $pdo): bool
 }
 
 /* ── upload directory setup ──────────────────────────── */
-$uploadDir      = __DIR__ . '/../assets/images/hero/';
+$uploadDir      = ddUploadDir('assets/images/hero/');
 $uploadBasePath = 'assets/images/hero/';
 
 if (!is_dir($uploadDir)) {

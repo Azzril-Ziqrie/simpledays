@@ -11,12 +11,9 @@ $imageColors   = columnExists($pdo, 'product_images', 'color_name');
 $message = '';
 $error   = '';
 
-$uploadDir      = __DIR__ . '/../assets/images/products/';
+require_once __DIR__ . '/../includes/storage.php';
+$uploadDir      = ddUploadDir('assets/images/products/');
 $uploadBasePath = 'assets/images/products/';
-
-if (!is_dir($uploadDir)) {
-    mkdir($uploadDir, 0777, true);
-}
 
 function old(string $key, $default = '')
 {

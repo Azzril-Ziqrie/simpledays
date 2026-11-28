@@ -20,6 +20,12 @@
     RewriteCond %{THE_REQUEST} ^(GET|HEAD)\s/+([^?\s]+)\.php(\?\S*)?\sHTTP/ [NC]
     RewriteRule ^ /%2 [R=301,L]
 
+    # 1b) File upload (foto produk, hero, home, lookbook, blog, bukti bayar) yang tidak ada di
+    #     folder web disimpan di luar public_html supaya tidak terhapus auto-deploy.
+    #     media.php mengambilnya dari sana; URL tetap sama. Lihat includes/storage.php.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^((?:assets/images/(?:products|lookbook|hero|home)|uploads/(?:blogs|payment-proofs))/[A-Za-z0-9._-]+)$ media.php?p=$1 [L,QSA]
+
     # 2) If the request is for an existing file or directory, do nothing
     RewriteCond %{REQUEST_FILENAME} -f [OR]
     RewriteCond %{REQUEST_FILENAME} -d

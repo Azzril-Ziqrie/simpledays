@@ -4,6 +4,8 @@
  * Membutuhkan tableExists() dari includes/db_schema.php.
  */
 
+require_once __DIR__ . '/storage.php';
+
 const HOME_MEDIA_PLACEMENTS = [
     'top'    => 'Above products',
     'bottom' => 'Below products',
@@ -68,7 +70,8 @@ function fetchHomeMedia(PDO $pdo, string $placement): array
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         // Item yang filenya tidak ada di server dilewati (dan dicatat), supaya tidak tampil gambar rusak.
         return array_values(array_filter($rows, static function (array $row): bool {
-            $exists = is_file(__DIR__ . '/../' . ltrim((string)$row['media'], '/'));
+            $media  = ltrim((string)$row['media'], '/');
+            $exists = ddUploadedFile($media) !== null || is_file(__DIR__ . '/../' . $media);
             if (!$exists) {
                 error_log('[home_media] file missing on server, skipped: ' . $row['media']);
             }

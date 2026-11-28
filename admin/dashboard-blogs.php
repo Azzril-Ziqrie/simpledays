@@ -2,6 +2,7 @@
 require_once __DIR__ . '/_guard.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/db_schema.php';
+require_once __DIR__ . '/../includes/storage.php';
 
 $message = '';
 $error   = '';
@@ -9,7 +10,7 @@ $error   = '';
 /* ── helpers ─────────────────────────────────────────── */
 function blogUploadDir(): string
 {
-    return __DIR__ . '/../uploads/blogs/';
+    return ddUploadDir('uploads/blogs/');
 }
 
 function blogUploadBasePath(): string
@@ -52,9 +53,7 @@ function blogUploadImage(array $file, string $fieldName): ?string
 
 function blogUnlinkImage(?string $path): void
 {
-    if (!$path) return;
-    $abs = __DIR__ . '/../' . ltrim($path, '/');
-    if (is_file($abs)) { @unlink($abs); }
+    ddDeleteUploadedFile($path);
 }
 
 /* ── schema check ────────────────────────────────────── */

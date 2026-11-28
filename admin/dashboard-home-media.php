@@ -46,7 +46,7 @@ function homeMediaFields(array $post): array
 }
 
 $tableReady = tableExists($pdo, 'home_media') || ensureHomeMediaTable($pdo);
-$uploadDir  = __DIR__ . '/../' . HOME_MEDIA_DIR_WEB;
+$uploadDir  = ddUploadDir(HOME_MEDIA_DIR_WEB);
 
 /* ── POST ────────────────────────────────────────────── */
 if ($tableReady && $_SERVER['REQUEST_METHOD'] === 'POST') {

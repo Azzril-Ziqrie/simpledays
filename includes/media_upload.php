@@ -8,6 +8,8 @@
  * - Kalau GD sama sekali tidak ada, file asli disimpan tanpa kompresi.
  */
 
+require_once __DIR__ . '/storage.php';
+
 const MEDIA_WEBP_QUALITY    = 76;
 const MEDIA_GIF_MAX_BYTES   = 8 * 1024 * 1024;
 const MEDIA_ALLOWED_MIME    = [
@@ -134,21 +136,16 @@ function storeUploadedImage(array $file, string $dirAbs, string $dirWeb, string 
     return $dirWeb . $target;
 }
 
-/** Hapus file media di bawah assets/images saja (tidak pernah keluar folder itu). */
+/** Hapus file media di folder upload saja (di storage atau project). */
 function deleteMediaFile(?string $relativePath): void
 {
-    if (!$relativePath || strpos($relativePath, 'assets/images/') !== 0 || strpos($relativePath, '..') !== false) {
-        return;
-    }
-    $absolute = __DIR__ . '/../' . $relativePath;
-    if (is_file($absolute)) {
-        @unlink($absolute);
-    }
+    ddDeleteUploadedFile($relativePath);
 }
 
 /** [lebar, tinggi] gambar tersimpan, atau [null, null]. */
 function storedImageSize(string $relativePath): array
 {
-    $info = @getimagesize(__DIR__ . '/../' . $relativePath);
+    $absolute = ddUploadedFile($relativePath);
+    $info = $absolute !== null ? @getimagesize($absolute) : false;
     return $info ? [(int)$info[0], (int)$info[1]] : [null, null];
 }

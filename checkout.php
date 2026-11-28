@@ -301,11 +301,12 @@ if ($payOrder && strtolower((string)$payOrder['payment_status']) !== 'paid' && $
             if (!isset($allowedMime[$mime])) {
                 $payError = 'Only JPG, PNG, or PDF files are allowed.';
             } else {
-                $dir = __DIR__ . '/uploads/payment-proofs';
-                if (!is_dir($dir)) mkdir($dir, 0775, true);
-                $filename     = 'proof-' . $payOrder['order_number'] . '-' . time() . '.' . $allowedMime[$mime];
+                require_once __DIR__ . '/includes/storage.php';
+                $dir          = ddUploadDir('uploads/payment-proofs/');
+                $orderSlug    = preg_replace('/[^A-Za-z0-9_-]/', '', (string)$payOrder['order_number']);
+                $filename     = 'proof-' . $orderSlug . '-' . time() . '.' . $allowedMime[$mime];
                 $relativePath = 'uploads/payment-proofs/' . $filename;
-                if (!move_uploaded_file($tmpPath, $dir . '/' . $filename)) {
+                if (!move_uploaded_file($tmpPath, $dir . $filename)) {
                     $payError = 'Failed to save uploaded file.';
                 } else {
                     try {
