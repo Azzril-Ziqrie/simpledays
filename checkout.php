@@ -235,9 +235,6 @@ function validateCheckoutStock(PDO $pdo, array $cartItems): void
         if ($psid <= 0 || $qty <= 0) throw new Exception('Invalid checkout item detected.');
         $row = getProductSizeById(db(), $psid);
         if (!$row) throw new Exception('Selected size no longer available for ' . $item['name'] . '.');
-        if (campaignGiftOnlyMinimum($pdo, (int)$row['product_id']) !== null) {
-            throw new Exception($item['name'] . ' is a free gift and can’t be bought. Please remove it from your cart and choose it as your free gift below.');
-        }
         if ((int)$row['stock'] < $qty) throw new Exception('Stock not enough for ' . $item['name'] . '.');
     }
 }

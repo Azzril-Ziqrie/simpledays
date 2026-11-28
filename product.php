@@ -110,7 +110,7 @@ foreach ($activeSizes as $v) {
     if (!in_array(strtolower(trim((string)$v['name'])), ['one size', 'onesize', 'default', ''], true)) { $hasSizeSelector = true; break; }
 }
 // Produk hadiah campaign: tidak bisa di-cart, hanya diklaim di checkout
-$giftOnlyMin = campaignGiftOnlyMinimum($pdo, (int)$product['id']);
+$giftMin = campaignGiftMinimum($pdo, (int)$product['id']);
 
 /* ── warna: tiap baris product_sizes = satu varian (ukuran + warna) dengan stok sendiri ── */
 $colors = [];   // key lowercase => ['name','hex','available']
@@ -413,15 +413,11 @@ siteBodyOpen(['bodyClass' => 'page-product', 'searchAction' => 'shop.php']);
       <?php endif; ?>
 
       <div class="pdp-buy">
-        <?php if ($giftOnlyMin !== null): ?>
-          <button type="button" class="btn btn--solid btn--block" disabled>
-            <span class="cart-btn__label">Free gift — not sold separately</span>
-          </button>
-          <p class="pdp-gift-note">Spend <?= esc(ddFormatDisplay($giftOnlyMin)) ?> or more and choose this as your free gift at checkout.</p>
-        <?php else: ?>
         <button type="button" class="btn btn--solid btn--block" id="addToCartBtn" <?= $isSoldOut ? 'disabled' : '' ?>>
           <span class="cart-btn__label"><?= $isSoldOut ? 'Sold out' : 'Add to cart' ?></span>
         </button>
+        <?php if ($giftMin !== null): ?>
+          <p class="pdp-gift-note">Or get it free: spend <?= esc(ddFormatDisplay($giftMin)) ?> or more and choose it as your free gift at checkout.</p>
         <?php endif; ?>
       </div>
 

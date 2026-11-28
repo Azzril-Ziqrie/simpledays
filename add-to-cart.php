@@ -67,10 +67,6 @@ try {
         throw new RuntimeException('Product is not available.');
     }
 
-    if (campaignGiftOnlyMinimum($pdo, $productId) !== null) {
-        throw new RuntimeException('This item is a free gift and can be claimed at checkout.');
-    }
-
     $categorySlug = strtolower(trim((string) ($product['category_slug'] ?? 'fashion')));
 
     if ($productSizeId <= 0 && $categorySlug !== 'fashion') {

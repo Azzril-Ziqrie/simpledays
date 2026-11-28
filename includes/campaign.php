@@ -137,23 +137,17 @@ function campaignVariantLabel(string $variant): string
 }
 
 /**
- * Produk hadiah tidak dijual: selama ada campaign aktif (is_active = 1) yang memakai produk ini,
- * produk tidak bisa dimasukkan ke cart, hanya diklaim di checkout.
- * @return float|null minimum belanja campaign-nya, atau null kalau produk dijual biasa.
+ * Produk hadiah tetap dijual biasa; ini hanya untuk catatan di halaman produk
+ * ("bisa juga didapat gratis kalau belanja minimal X").
+ * @return float|null minimum belanja campaign yang sedang berjalan dengan produk ini sebagai hadiah, atau null.
  */
-function campaignGiftOnlyMinimum(PDO $pdo, int $productId): ?float
+function campaignGiftMinimum(PDO $pdo, int $productId): ?float
 {
-    if (!campaignTablesReady($pdo)) return null;
-    try {
-        $rows = $pdo->query('SELECT product_ids, min_subtotal FROM campaigns WHERE is_active = 1 ORDER BY id DESC')->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Throwable $e) {
-        error_log('[campaign] gift-only lookup failed: ' . $e->getMessage());
+    $campaign = campaignCurrent($pdo);
+    if ($campaign === null || !in_array($productId, campaignProductIds($campaign), true)) {
         return null;
     }
-    foreach ($rows as $row) {
-        if (in_array($productId, campaignProductIds($row), true)) return (float)$row['min_subtotal'];
-    }
-    return null;
+    return (float)$campaign['min_subtotal'];
 }
 
 /**
